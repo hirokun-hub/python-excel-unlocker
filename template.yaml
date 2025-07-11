@@ -1,0 +1,64 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  python-excel-unlocker
+
+  Sample SAM Template for python-excel-unlocker
+
+# グローバルセクション: 全てのリソースに共通の設定を定義
+Globals:
+  Function:
+    Timeout: 30 # Lambdaのタイムアウトを30秒に設定
+    MemorySize: 256 # メモリサイズを256MBに設定
+    Runtime: python3.9
+    Environment:
+      Variables:
+        LOG_LEVEL: "INFO" # ログレベルを環境変数で設定
+
+Resources:
+  # Excelパスワード解除を実行するLambda関数
+  ExcelUnlockerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: backend/ # ソースコードの場所
+      Handler: src/main.lambda_handler # 実行するハンドラ関数
+      Policies:
+        # S3バケットへの読み書き権限を付与
+        - S3CrudPolicy:
+            BucketName: !Ref ExcelFilesBucket # 下で定義するS3バケット名を参照
+      Events:
+        UnlockApi:
+          Type: Api # API Gatewayイベント
+          Properties:
+            Path: /unlock # APIのエンドポイントパス
+            Method: post # HTTPメソッド
+
+  # ファイルを格納するためのS3バケット
+  ExcelFilesBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      # バケット名はこのテンプレートがデプロイされる際に自動でユニークな名前が生成される
+      # もし固定名にしたい場合は BucketName: my-unique-bucket-name のように指定
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - "*"
+            AllowedMethods:
+              - "GET"
+              - "PUT"
+              - "POST"
+              - "HEAD"
+            AllowedOrigins:
+              - "*" # 本番環境ではフロントエンドのドメインに限定することが望ましい
+
+Outputs:
+  # デプロイ後に参照できる出力情報
+  UnlockApiEndpoint:
+    Description: "API Gateway endpoint URL for Prod stage for Excel Unlocker function"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/unlock"
+  ExcelUnlockerFunctionIamRole:
+    Description: "Implicit IAM Role created for Excel Unlocker function"
+    Value: !GetAtt ExcelUnlockerFunctionRole.Arn
+  S3BucketName:
+    Description: "S3 bucket for storing Excel files"
+    Value: !Ref ExcelFilesBucket
