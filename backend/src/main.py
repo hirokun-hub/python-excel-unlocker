@@ -4,6 +4,7 @@ import os
 import uuid
 import boto3
 from botocore.exceptions import ClientError
+from botocore.client import Config
 
 # ログ設定
 log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
@@ -11,9 +12,16 @@ logger = logging.getLogger()
 logger.setLevel(log_level)
 
 # S3クライアントと環境変数の初期化
-s3_client = boto3.client('s3')
+AWS_REGION = os.environ.get('AWS_REGION')
 S3_BUCKET_NAME = os.environ.get('S3_BUCKET_NAME')
 SIGNED_URL_EXPIRATION = 300  # URLの有効期限（秒）
+
+# S3クライアントをリージョンと署名バージョンを明示して初期化
+s3_client = boto3.client(
+    's3',
+    region_name=AWS_REGION,
+    config=Config(signature_version='s3v4', s3={'addressing_style': 'path'})
+)
 
 def generate_presigned_url(bucket, key, http_method):
     """S3の署名付きURLを生成する"""
