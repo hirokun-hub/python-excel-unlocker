@@ -146,7 +146,11 @@ def handle_process_file(body):
 
         if unlock_result['success']:
             unlocked_file_path = unlock_result['unlocked_file_path']
-            unlocked_s3_key = f"unlocked/{os.path.basename(s3_key)}"
+            # 元のファイル名と拡張子を分離して、_unlockedを追加
+            original_filename = os.path.basename(s3_key)
+            file_name, file_ext = os.path.splitext(original_filename)
+            unlocked_filename = f"{file_name}_unlocked{file_ext}"
+            unlocked_s3_key = f"unlocked/{unlocked_filename}"
             
             if upload_file_to_s3(unlocked_file_path, S3_BUCKET_NAME, unlocked_s3_key):
                 download_url = generate_presigned_url(S3_BUCKET_NAME, unlocked_s3_key, 'get')
