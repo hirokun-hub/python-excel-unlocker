@@ -37,8 +37,8 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: excel-unlocker-function
-      CodeUri: backend/
-      Handler: app.lambda_handler
+      CodeUri: backend/src/
+      Handler: main.lambda_handler
       Policies:
         - S3ReadPolicy:
             BucketName: !Ref ExcelBucket

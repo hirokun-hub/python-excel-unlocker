@@ -95,3 +95,11 @@ venv.bak/
 
 # macOS
 .DS_Store
+# Ignore macOS system files
+.DS_Store
+
+# Ignore AWS SAM build artifacts
+.aws-sam/
+
+# Ignore local secrets
+secrets/
