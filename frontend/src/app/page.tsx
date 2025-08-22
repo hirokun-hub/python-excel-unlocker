@@ -231,19 +231,13 @@ export default function Home() {
       const fileResponse = await fetch(downloadUrl);
       if (!fileResponse.ok) throw new Error('ファイルのダウンロードに失敗しました。');
       const fileBlob = await fileResponse.blob();
-      const metadata = { name: fileName, mimeType: fileBlob.type };
-      const formData = new FormData();
-      formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-      formData.append('file', fileBlob);
-      const uploadResponse = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${session.accessToken}` },
-        body: formData,
-      });
-      if (!uploadResponse.ok) {
-        const errorData = await uploadResponse.json();
-        throw new Error(`Google Driveへのアップロードに失敗しました: ${errorData.error.message}`);
-      }
+      // Use access token from NextAuth session and upload via our util
+      const at = (session as any).accessToken as string | undefined
+      if (!at) throw new Error('accessToken がセッションに含まれていません。再ログインしてください。')
+      const res = await fetch('/api/debug/tokeninfo'); // optional: verify token
+      // Call helper to upload directly to Drive
+      const { uploadToDriveUsingAccessToken } = await import('@/lib/googleDrive')
+      await uploadToDriveUsingAccessToken(fileBlob, fileName, at)
       toast.success(`${fileName} をGoogle Driveに正常に保存しました。`, { id: toastId });
     } catch (err: unknown) {
       console.error(err);
