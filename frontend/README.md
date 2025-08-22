@@ -127,6 +127,16 @@ pnpm start
    ```bash
    pnpm debug:pack
    ```
+   
+### デバッグパックの作成
+リポジトリ直下または `frontend/` で以下を実行してください:
+
+```bash
+npm run debug:pack   # npm を使う場合
+# もしくは
+pnpm run debug:pack  # pnpm を使う場合（pnpm が入っているとき）
+```
+※ `npm debug:pack` や `pnpm debug:pack` ではなく、必ず `run` を付けてください。
 3. 出力例
    `Created archive: /path/to/frontend/fe-debug-YYYYMMDD-HHMMSS.zip`
    → このZipを共有すれば再現性の高い調査が可能です。

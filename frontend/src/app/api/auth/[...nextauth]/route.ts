@@ -35,6 +35,19 @@ const authOptions: NextAuthOptions = {
       }
       return extendedSession;
     },
+    // Normalize redirect URLs after sign in/sign out to use the configured baseUrl
+    async redirect({ url, baseUrl }) {
+      // If url is a relative path, join with baseUrl
+      if (url.startsWith('/')) return `${baseUrl}${url}`
+      try {
+        const to = new URL(url)
+        const base = new URL(baseUrl)
+        // Allow same-origin redirects, otherwise fallback to baseUrl
+        return to.origin === base.origin ? to.toString() : base.toString()
+      } catch (e) {
+        return baseUrl
+      }
+    },
   },
 }
 
