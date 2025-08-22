@@ -1,5 +1,6 @@
 import GoogleProvider from "next-auth/providers/google"
-import type { NextAuthOptions } from "next-auth"
+import type { NextAuthOptions, Session } from "next-auth"
+import type { JWT } from "next-auth/jwt"
 
 const scopes = [
   "openid","email","profile",
@@ -16,7 +17,7 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async jwt({ token, account }) {
+    async jwt({ token, account }): Promise<JWT> {
       if (account) {
         // Persist access token and scope into the JWT
         (token as any).accessToken = account.access_token
@@ -27,7 +28,7 @@ export const authOptions: NextAuthOptions = {
       }
       return token
     },
-    async session({ session, token }) {
+    async session({ session, token }): Promise<Session> {
       // Expose accessToken and scope on the session object for client usage
       ;(session as any).accessToken = (token as any).accessToken
       ;(session as any).scope = (token as any).scope
