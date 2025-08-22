@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import axios, { AxiosResponse } from 'axios';
 import { Toaster, toast } from 'sonner';
@@ -10,6 +10,8 @@ import { Progress } from '@/components/ui/progress';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import FileUpload from '../components/FileUpload';
+import DriveFolderPicker from '@/components/DriveFolderPicker'
+import { uploadToDriveUsingAccessToken } from '@/utils/googleDrive'
 import { File as FileIcon, X, Download, AlertCircle, Loader2 } from 'lucide-react';
 
 // --- API Client Logic (moved from lib/api.ts) ---
@@ -97,6 +99,12 @@ export default function Home() {
   const [results, setResults] = useState<ProcessResult[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [savingToDrive, setSavingToDrive] = useState<string[]>([]);
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [folder, setFolder] = useState<{ id: string; name: string } | null>(null)
+  useEffect(() => {
+    const raw = localStorage.getItem('driveFolderSelection')
+    if (raw) try { setFolder(JSON.parse(raw)) } catch {}
+  }, [])
 
   const totalUploadProgress = selectedFiles.length > 0 ? Math.round(Object.values(uploadProgress).reduce((acc, curr) => acc + curr.progress, 0) / selectedFiles.length) : 0;
   const jobPercentage = jobProgress.total > 0 ? Math.round((jobProgress.done / jobProgress.total) * 100) : 0;
@@ -231,13 +239,9 @@ export default function Home() {
       const fileResponse = await fetch(downloadUrl);
       if (!fileResponse.ok) throw new Error('ファイルのダウンロードに失敗しました。');
       const fileBlob = await fileResponse.blob();
-      // Use access token from NextAuth session and upload via our util
       const at = (session as any).accessToken as string | undefined
       if (!at) throw new Error('accessToken がセッションに含まれていません。再ログインしてください。')
-      const res = await fetch('/api/debug/tokeninfo'); // optional: verify token
-      // Call helper to upload directly to Drive
-      const { uploadToDriveUsingAccessToken } = await import('@/lib/googleDrive')
-      await uploadToDriveUsingAccessToken(fileBlob, fileName, at)
+      await uploadToDriveUsingAccessToken(fileBlob, fileName, at, { parentId: folder?.id })
       toast.success(`${fileName} をGoogle Driveに正常に保存しました。`, { id: toastId });
     } catch (err: unknown) {
       console.error(err);
@@ -250,6 +254,24 @@ export default function Home() {
       setSavingToDrive(prev => prev.filter(f => f !== fileName));
     }
   };
+
+  const saveAllToDrive = async () => {
+    if (!folder?.id) { toast.error('先に保存先フォルダを選択してください'); setPickerOpen(true); return }
+    if (!session?.accessToken) { toast.error('Google Driveに保存するには、再度サインインしてください。'); return; }
+    const at = (session as any).accessToken as string
+    const toastId = toast.loading(`全ファイルを保存中...`)
+    try {
+      for (const r of results) {
+        const blob = await fetch(r.downloadUrl!).then(res=>res.blob())
+        await uploadToDriveUsingAccessToken(blob, r.fileName, at, { parentId: folder.id })
+      }
+      toast.success('全ファイルを保存しました', { id: toastId })
+    } catch (err) {
+      toast.error('一括保存中にエラーが発生しました', { id: toastId })
+    } finally {
+      // nothing
+    }
+  }
 
   const isAuthenticated = status === 'authenticated';
   const progressValue = processingStatus === 'uploading' ? totalUploadProgress : jobPercentage;
