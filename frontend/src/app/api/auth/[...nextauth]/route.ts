@@ -1,7 +1,13 @@
-import NextAuth, { NextAuthOptions } from "next-auth"
+import NextAuth, { NextAuthOptions, Session } from "next-auth"
+import { JWT } from "next-auth/jwt"
 import GoogleProvider from "next-auth/providers/google"
 
-export const authOptions: NextAuthOptions = {
+// Extend the session object to include the accessToken
+interface ExtendedSession extends Session {
+  accessToken?: string;
+}
+
+const authOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID as string,
@@ -14,19 +20,20 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async jwt({ token, account }) {
+    async jwt({ token, account }): Promise<JWT> {
       // Persist the OAuth access_token to the token right after signin
       if (account) {
         token.accessToken = account.access_token
       }
       return token
     },
-    async session({ session, token }) {
+    async session({ session, token }): Promise<ExtendedSession> {
       // Send properties to the client, like an access_token from a provider.
-      if (session.user) {
-        (session as any).accessToken = token.accessToken;
+      const extendedSession = session as ExtendedSession;
+      if (token.accessToken) {
+        extendedSession.accessToken = token.accessToken as string;
       }
-      return session
+      return extendedSession;
     },
   },
 }

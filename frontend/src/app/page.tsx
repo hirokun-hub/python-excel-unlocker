@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import axios, { AxiosResponse } from 'axios';
 import { Toaster, toast } from 'sonner';
@@ -16,15 +16,6 @@ import { File as FileIcon, X, Download, AlertCircle, Loader2 } from 'lucide-reac
 
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
-});
-
-api.interceptors.request.use(async (config) => {
-  const { getSession } = await import('next-auth/react');
-  const session = await getSession();
-  if ((session as any)?.accessToken) {
-    config.headers.Authorization = `Bearer ${(session as any).accessToken}`;
-  }
-  return config;
 });
 
 // --- Type Definitions ---
@@ -146,9 +137,14 @@ export default function Home() {
       } else {
         throw new Error(`予期しないレスポンスコード: ${unlockResponse.status}`);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      const errorMessage = err.response?.data?.error || err.message || '処理中に不明なエラーが発生しました。';
+      let errorMessage = '処理中に不明なエラーが発生しました。';
+      if (axios.isAxiosError(err) && err.response) {
+        errorMessage = err.response.data?.error || err.message;
+      } else if (err instanceof Error) {
+        errorMessage = err.message;
+      }
       setError(errorMessage);
       toast.error(errorMessage);
       setProcessingStatus('idle');
@@ -175,7 +171,7 @@ export default function Home() {
   };
 
   const handleSaveToDrive = async (fileName: string, downloadUrl: string) => {
-    if (!session || !(session as any).accessToken) { toast.error('Google Driveに保存するには、再度サインインしてください。'); return; }
+    if (!session?.accessToken) { toast.error('Google Driveに保存するには、再度サインインしてください。'); return; }
     setSavingToDrive(prev => [...prev, fileName]);
     const toastId = toast.loading(`${fileName} をGoogle Driveに保存しています...`);
     try {
@@ -188,7 +184,7 @@ export default function Home() {
       formData.append('file', fileBlob);
       const uploadResponse = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${(session as any).accessToken}` },
+        headers: { Authorization: `Bearer ${session.accessToken}` },
         body: formData,
       });
       if (!uploadResponse.ok) {
@@ -196,9 +192,13 @@ export default function Home() {
         throw new Error(`Google Driveへのアップロードに失敗しました: ${errorData.error.message}`);
       }
       toast.success(`${fileName} をGoogle Driveに正常に保存しました。`, { id: toastId });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      toast.error(err.message || 'Google Driveへの保存中に不明なエラーが発生しました。', { id: toastId });
+      let errorMessage = 'Google Driveへの保存中に不明なエラーが発生しました。';
+      if (err instanceof Error) {
+        errorMessage = err.message;
+      }
+      toast.error(errorMessage, { id: toastId });
     } finally {
       setSavingToDrive(prev => prev.filter(f => f !== fileName));
     }
