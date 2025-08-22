@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import axios, { AxiosResponse } from 'axios';
 import { Toaster, toast } from 'sonner';
@@ -10,42 +10,34 @@ import { Progress } from '@/components/ui/progress';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import FileUpload from '../components/FileUpload';
-import DriveFolderPicker from '@/components/DriveFolderPicker'
-import { uploadToDriveUsingAccessToken } from '@/utils/googleDrive'
-import { File as FileIcon, X, Download, AlertCircle, Loader2 } from 'lucide-react';
+import { FileResults } from '@/components/FileResults'; // Import FileResults
+import { File as FileIcon, X, AlertCircle } from 'lucide-react';
 
-// --- API Client Logic (moved from lib/api.ts) ---
-
+// --- API Client Logic ---
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
 });
 const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_API === 'true';
 
 // --- Type Definitions ---
-
 type FileInfo = { filename: string; size: number; contentType: string; };
 type PresignedUrlResponseItem = { filename: string; s3_key: string; upload_url: string; };
 type UnlockFile = { s3_key: string; original_name: string; };
 type UnlockSyncResponse = { results: ProcessResult[]; };
 type UnlockAsyncResponse = { job_id: string; };
 type JobStatusResponse = { job_id: string; state: string; progress: { done: number; total: number; }; results: ProcessResult[]; };
-type ProcessResult = { fileName: string; status: 'success' | 'error'; message?: string; downloadUrl?: string; };
+export type ProcessResult = { fileName: string; status: 'success' | 'error'; message?: string; downloadUrl?: string; };
 type UploadProgress = { [key: string]: { progress: number; }; };
 
 // --- API Functions ---
-
 const getPresignedUrls = async (files: FileInfo[]): Promise<{ items: PresignedUrlResponseItem[] }> => {
-  if (USE_MOCK) {
-    // 署名URLを擬似返却（アップロード処理は別でモック）
-    return { items: files.map(f => ({ filename: f.filename, s3_key: `mock/${f.filename}`, upload_url: 'mock://put' })) };
-  }
+  if (USE_MOCK) return { items: files.map(f => ({ filename: f.filename, s3_key: `mock/${f.filename}`, upload_url: 'mock://put' })) };
   const response = await api.post('/presigned-urls', { files });
   return response.data;
 };
 
 const unlock = async (files: UnlockFile[], passwords: string[]): Promise<AxiosResponse<UnlockSyncResponse | UnlockAsyncResponse>> => {
   if (USE_MOCK) {
-    // 同期完了の 200 を返し、results を組み立てるモック
     const results: ProcessResult[] = files.map(f => ({
       fileName: f.original_name.replace(/\.xlsx?$/i, '_unlocked.xlsx'),
       status: 'success',
@@ -56,16 +48,12 @@ const unlock = async (files: UnlockFile[], passwords: string[]): Promise<AxiosRe
 };
 
 const getProcessingStatus = async (jobId: string): Promise<JobStatusResponse> => {
-  if (USE_MOCK) {
-    // すぐ完了状態を返す
-    return { job_id: jobId, state: 'completed', progress: { done: 1, total: 1 }, results: [] };
-  }
+  if (USE_MOCK) return { job_id: jobId, state: 'completed', progress: { done: 1, total: 1 }, results: [] };
   const response = await api.get(`/status?job_id=${jobId}`);
   return response.data;
 };
 
 // --- Page Components ---
-
 const Header = () => {
   const { data: session } = useSession();
   return (
@@ -87,9 +75,8 @@ const LoginOverlay = () => (
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 // --- Main Home Component ---
-
 export default function Home() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [pass1, setPass1] = useState('');
   const [pass2, setPass2] = useState('');
@@ -98,13 +85,6 @@ export default function Home() {
   const [jobProgress, setJobProgress] = useState({ done: 0, total: 0 });
   const [results, setResults] = useState<ProcessResult[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [savingToDrive, setSavingToDrive] = useState<string[]>([]);
-  const [pickerOpen, setPickerOpen] = useState(false)
-  const [folder, setFolder] = useState<{ id: string; name: string } | null>(null)
-  useEffect(() => {
-    const raw = localStorage.getItem('driveFolderSelection')
-    if (raw) try { setFolder(JSON.parse(raw)) } catch {}
-  }, [])
 
   const totalUploadProgress = selectedFiles.length > 0 ? Math.round(Object.values(uploadProgress).reduce((acc, curr) => acc + curr.progress, 0) / selectedFiles.length) : 0;
   const jobPercentage = jobProgress.total > 0 ? Math.round((jobProgress.done / jobProgress.total) * 100) : 0;
@@ -119,11 +99,7 @@ export default function Home() {
     toast.info("アップロード処理を開始します...");
 
     try {
-      // --------------------
-      // モック経路
-      // --------------------
       if (USE_MOCK) {
-        // 1) 疑似アップロード（進捗バー反映）
         const uploadPromises = selectedFiles.map(async (file) => {
           for (let p = 0; p <= 100; p += 20) {
             await sleep(120);
@@ -132,34 +108,28 @@ export default function Home() {
         });
         await Promise.all(uploadPromises);
         toast.success("（デモ）全ファイルのアップロードが完了しました。");
-
-        // 2) 疑似アンロック
         setProcessingStatus('processing');
         const passwords = [pass1, pass2].filter(Boolean);
         if (passwords.length === 0) { throw new Error("少なくとも1つのパスワードを入力してください。"); }
-
-        // 疑似処理のプログレス
         setJobProgress({ done: 0, total: selectedFiles.length });
-        const results: ProcessResult[] = [];
+        const mockResults: ProcessResult[] = [];
         for (const f of selectedFiles) {
           await sleep(250);
-          // 元ファイルのバイト列で Blob を作りダウンロード可能に
           const buf = await f.arrayBuffer();
           const blob = new Blob([buf], { type: f.type || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
           const url = URL.createObjectURL(blob);
-          results.push({ fileName: f.name.replace(/\.xlsx?$/i, '_unlocked.xlsx'), status: 'success', downloadUrl: url });
+          mockResults.push({ fileName: f.name.replace(/\.xlsx?$/i, '_unlocked.xlsx'), status: 'success', downloadUrl: url });
           setJobProgress(prev => ({ done: prev.done + 1, total: prev.total }));
         }
-        setResults(results);
+        setResults(mockResults);
         setProcessingStatus('done');
         toast.success("（デモ）処理が完了しました。");
-        return; // モック経路で完結
+        return;
       }
-      // 1. Get presigned URLs
+
       const fileInfos = selectedFiles.map(f => ({ filename: f.name, size: f.size, contentType: f.type }));
       const { items: presignedItems } = await getPresignedUrls(fileInfos);
 
-      // 2. Upload files to S3
       const uploadPromises = selectedFiles.map(file => {
         const presignedData = presignedItems.find(p => p.filename === file.name);
         if (!presignedData) throw new Error(`${file.name}の署名付きURLが取得できませんでした。`);
@@ -171,19 +141,17 @@ export default function Home() {
       await Promise.all(uploadPromises);
       toast.success("全ファイルのアップロードが完了しました。");
 
-      // 3. Call unlock endpoint
       setProcessingStatus('processing');
       const unlockFiles = selectedFiles.map(f => ({ s3_key: presignedItems.find(p => p.filename === f.name)!.s3_key, original_name: f.name }));
       const passwords = [pass1, pass2].filter(Boolean);
       const unlockResponse = await unlock(unlockFiles, passwords);
 
-      // 4. Handle sync or async response
-      if (unlockResponse.status === 200) { // Sync
+      if (unlockResponse.status === 200) {
         const data = unlockResponse.data as UnlockSyncResponse;
         setResults(data.results);
         setProcessingStatus('done');
         toast.success("ファイルの処理が完了しました。");
-      } else if (unlockResponse.status === 202) { // Async
+      } else if (unlockResponse.status === 202) {
         const data = unlockResponse.data as UnlockAsyncResponse;
         let jobStatus: JobStatusResponse | null = null;
         toast.info(`処理を開始しました (Job ID: ${data.job_id})。完了までお待ちください...`);
@@ -231,48 +199,6 @@ export default function Home() {
     setUploadProgress(newProgress);
   };
 
-  const handleSaveToDrive = async (fileName: string, downloadUrl: string) => {
-    if (!session?.accessToken) { toast.error('Google Driveに保存するには、再度サインインしてください。'); return; }
-    setSavingToDrive(prev => [...prev, fileName]);
-    const toastId = toast.loading(`${fileName} をGoogle Driveに保存しています...`);
-    try {
-      const fileResponse = await fetch(downloadUrl);
-      if (!fileResponse.ok) throw new Error('ファイルのダウンロードに失敗しました。');
-      const fileBlob = await fileResponse.blob();
-      const at = (session as any).accessToken as string | undefined
-      if (!at) throw new Error('accessToken がセッションに含まれていません。再ログインしてください。')
-      await uploadToDriveUsingAccessToken(fileBlob, fileName, at, { parentId: folder?.id })
-      toast.success(`${fileName} をGoogle Driveに正常に保存しました。`, { id: toastId });
-    } catch (err: unknown) {
-      console.error(err);
-      let errorMessage = 'Google Driveへの保存中に不明なエラーが発生しました。';
-      if (err instanceof Error) {
-        errorMessage = err.message;
-      }
-      toast.error(errorMessage, { id: toastId });
-    } finally {
-      setSavingToDrive(prev => prev.filter(f => f !== fileName));
-    }
-  };
-
-  const saveAllToDrive = async () => {
-    if (!folder?.id) { toast.error('先に保存先フォルダを選択してください'); setPickerOpen(true); return }
-    if (!session?.accessToken) { toast.error('Google Driveに保存するには、再度サインインしてください。'); return; }
-    const at = (session as any).accessToken as string
-    const toastId = toast.loading(`全ファイルを保存中...`)
-    try {
-      for (const r of results) {
-        const blob = await fetch(r.downloadUrl!).then(res=>res.blob())
-        await uploadToDriveUsingAccessToken(blob, r.fileName, at, { parentId: folder.id })
-      }
-      toast.success('全ファイルを保存しました', { id: toastId })
-    } catch (err) {
-      toast.error('一括保存中にエラーが発生しました', { id: toastId })
-    } finally {
-      // nothing
-    }
-  }
-
   const isAuthenticated = status === 'authenticated';
   const progressValue = processingStatus === 'uploading' ? totalUploadProgress : jobPercentage;
   const progressText = processingStatus === 'uploading' ? `ファイルをアップロード中... (${totalUploadProgress}%)` : `サーバーでファイルを処理中... (${jobPercentage}%)`;
@@ -311,21 +237,7 @@ export default function Home() {
               {processingStatus === 'done' && (
                 <div className="space-y-4">
                   <h2 className="text-2xl font-semibold text-center">処理結果</h2>
-                  <div className="space-y-3">
-                    {results.map((result, index) => (
-                      <div key={index} className={`flex justify-between items-center p-3 rounded-lg ${result.status === 'success' ? 'bg-green-100 dark:bg-green-900/20' : 'bg-red-100 dark:bg-red-900/20'}`}>
-                        <span className={`font-medium ${result.status === 'success' ? 'text-green-800 dark:text-green-300' : 'text-red-800 dark:text-red-300'}`}>{result.fileName}</span>
-                        {result.status === 'success' ? (
-                          <div className="flex gap-2">
-                            <Button variant="outline" size="sm" onClick={() => handleSaveToDrive(result.fileName, result.downloadUrl!)} disabled={savingToDrive.includes(result.fileName)}>
-                              {savingToDrive.includes(result.fileName) ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />保存中</>) : ('Google Driveに保存')}
-                            </Button>
-                            <Button asChild size="sm"><a href={result.downloadUrl} download><Download className="w-4 h-4 mr-2" />ダウンロード</a></Button>
-                          </div>
-                        ) : (<p className="text-sm text-red-700 dark:text-red-400">{result.message}</p>)}
-                      </div>
-                    ))}
-                  </div>
+                  <FileResults results={results} />
                 </div>
               )}
             </CardContent>

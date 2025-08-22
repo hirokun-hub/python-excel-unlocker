@@ -1,10 +1,4 @@
-export type DriveFolder = {
-  id: string
-  name: string
-  modifiedTime?: string
-  iconLink?: string
-  parents?: string[]
-}
+import type { DriveFolder } from "@/types/drive"
 
 /**
  * Upload a Blob to Google Drive using a direct access token (multipart upload).
@@ -16,8 +10,10 @@ export async function uploadToDriveUsingAccessToken(
   accessToken: string,
   opts?: { parentId?: string }
 ) {
-  const metadata: Record<string, any> = { name: filename }
-  if (opts?.parentId) metadata.parents = [opts.parentId]
+  const metadata: { name: string; parents?: string[] } = { name: filename }
+  if (opts?.parentId) {
+    metadata.parents = [opts.parentId]
+  }
 
   const form = new FormData()
   form.append("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }))
