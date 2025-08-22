@@ -19,9 +19,11 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, account }) {
       if (account) {
         // Persist access token and scope into the JWT
-        ;(token as any).accessToken = account.access_token
-        ;(token as any).scope = account.scope
-        ;(token as any).expires_at = Math.floor(Date.now() / 1000) + (account.expires_in ?? 3600)
+        (token as any).accessToken = account.access_token
+        (token as any).scope = account.scope
+        // account.expires_in may be string/number/unknown; coerce to number and fallback to 3600
+        const expiresIn = typeof account.expires_in === 'number' ? account.expires_in : Number((account as any).expires_in) || 3600
+        (token as any).expires_at = Math.floor(Date.now() / 1000) + expiresIn
       }
       return token
     },
