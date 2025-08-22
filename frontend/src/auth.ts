@@ -2,10 +2,9 @@ import GoogleProvider from "next-auth/providers/google"
 import type { NextAuthOptions } from "next-auth"
 
 const scopes = [
-  "openid",
-  "email",
-  "profile",
-  "https://www.googleapis.com/auth/drive.file",
+  "openid","email","profile",
+  "https://www.googleapis.com/auth/drive.file",          // アップロード用（最小権限）
+  "https://www.googleapis.com/auth/drive.metadata.readonly", // フォルダ一覧・検索用
 ].join(" ")
 
 export const authOptions: NextAuthOptions = {
