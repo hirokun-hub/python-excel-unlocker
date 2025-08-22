@@ -17,6 +17,7 @@ import { File as FileIcon, X, Download, AlertCircle, Loader2 } from 'lucide-reac
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
 });
+const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_API === 'true';
 
 // --- Type Definitions ---
 
@@ -32,15 +33,31 @@ type UploadProgress = { [key: string]: { progress: number; }; };
 // --- API Functions ---
 
 const getPresignedUrls = async (files: FileInfo[]): Promise<{ items: PresignedUrlResponseItem[] }> => {
+  if (USE_MOCK) {
+    // 署名URLを擬似返却（アップロード処理は別でモック）
+    return { items: files.map(f => ({ filename: f.filename, s3_key: `mock/${f.filename}`, upload_url: 'mock://put' })) };
+  }
   const response = await api.post('/presigned-urls', { files });
   return response.data;
 };
 
 const unlock = async (files: UnlockFile[], passwords: string[]): Promise<AxiosResponse<UnlockSyncResponse | UnlockAsyncResponse>> => {
+  if (USE_MOCK) {
+    // 同期完了の 200 を返し、results を組み立てるモック
+    const results: ProcessResult[] = files.map(f => ({
+      fileName: f.original_name.replace(/\.xlsx?$/i, '_unlocked.xlsx'),
+      status: 'success',
+    }));
+    return { status: 200, data: { results } } as unknown as AxiosResponse<UnlockSyncResponse>;
+  }
   return api.post('/unlock', { files, passwords });
 };
 
 const getProcessingStatus = async (jobId: string): Promise<JobStatusResponse> => {
+  if (USE_MOCK) {
+    // すぐ完了状態を返す
+    return { job_id: jobId, state: 'completed', progress: { done: 1, total: 1 }, results: [] };
+  }
   const response = await api.get(`/status?job_id=${jobId}`);
   return response.data;
 };
@@ -94,6 +111,42 @@ export default function Home() {
     toast.info("アップロード処理を開始します...");
 
     try {
+      // --------------------
+      // モック経路
+      // --------------------
+      if (USE_MOCK) {
+        // 1) 疑似アップロード（進捗バー反映）
+        const uploadPromises = selectedFiles.map(async (file) => {
+          for (let p = 0; p <= 100; p += 20) {
+            await sleep(120);
+            setUploadProgress(prev => ({ ...prev, [file.name]: { progress: p } }));
+          }
+        });
+        await Promise.all(uploadPromises);
+        toast.success("（デモ）全ファイルのアップロードが完了しました。");
+
+        // 2) 疑似アンロック
+        setProcessingStatus('processing');
+        const passwords = [pass1, pass2].filter(Boolean);
+        if (passwords.length === 0) { throw new Error("少なくとも1つのパスワードを入力してください。"); }
+
+        // 疑似処理のプログレス
+        setJobProgress({ done: 0, total: selectedFiles.length });
+        const results: ProcessResult[] = [];
+        for (const f of selectedFiles) {
+          await sleep(250);
+          // 元ファイルのバイト列で Blob を作りダウンロード可能に
+          const buf = await f.arrayBuffer();
+          const blob = new Blob([buf], { type: f.type || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+          const url = URL.createObjectURL(blob);
+          results.push({ fileName: f.name.replace(/\.xlsx?$/i, '_unlocked.xlsx'), status: 'success', downloadUrl: url });
+          setJobProgress(prev => ({ done: prev.done + 1, total: prev.total }));
+        }
+        setResults(results);
+        setProcessingStatus('done');
+        toast.success("（デモ）処理が完了しました。");
+        return; // モック経路で完結
+      }
       // 1. Get presigned URLs
       const fileInfos = selectedFiles.map(f => ({ filename: f.name, size: f.size, contentType: f.type }));
       const { items: presignedItems } = await getPresignedUrls(fileInfos);
