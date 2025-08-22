@@ -3,12 +3,12 @@ import { useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import type { DriveFolder, FoldersResponse, BreadcrumbItem } from "@/types/drive"
+import type { DriveFolder } from "@/utils/googleDrive"
 
 type Props = {
   open: boolean
   onClose: () => void
-  onPick: (folder: BreadcrumbItem) => void
+  onPick: (folder: { id: string; name: string }) => void
   initialFolderId?: string | null
 }
 
@@ -18,7 +18,7 @@ export default function DriveFolderPicker({ open, onClose, onPick, initialFolder
   const [loading, setLoading] = useState(false)
   const [q, setQ] = useState("")
   const [pageToken, setPageToken] = useState<string | null>(null)
-  const [crumbs, setCrumbs] = useState<BreadcrumbItem[]>([{ id: "root", name: "マイドライブ" }])
+  const [crumbs, setCrumbs] = useState<Array<{ id: string; name: string }>>([{ id: "root", name: "マイドライブ" }])
 
   const title = useMemo(() => crumbs.map(c => c.name).join(" / "), [crumbs])
 
@@ -27,14 +27,11 @@ export default function DriveFolderPicker({ open, onClose, onPick, initialFolder
     ;(async () => {
       setLoading(true)
       try {
-        const bcRes = await fetch(`/api/drive/breadcrumb?id=${encodeURIComponent(folderId)}`)
-        const bc: BreadcrumbItem[] = await bcRes.json()
+        const bc = await fetch(`/api/drive/breadcrumb?id=${encodeURIComponent(folderId)}`).then(r=>r.json())
         setCrumbs(bc)
-
-        const folderRes = await fetch(`/api/drive/folders?parentId=${encodeURIComponent(folderId)}&q=${encodeURIComponent(q)}`)
-        const folderData: FoldersResponse = await folderRes.json()
-        setItems(folderData.files ?? [])
-        setPageToken(folderData.nextPageToken ?? null)
+        const res = await fetch(`/api/drive/folders?parentId=${encodeURIComponent(folderId)}&q=${encodeURIComponent(q)}`).then(r=>r.json())
+        setItems(res.files ?? [])
+        setPageToken(res.nextPageToken ?? null)
       } finally {
         setLoading(false)
       }
@@ -45,10 +42,9 @@ export default function DriveFolderPicker({ open, onClose, onPick, initialFolder
     if (!pageToken) return
     setLoading(true)
     try {
-      const res = await fetch(`/api/drive/folders?parentId=${encodeURIComponent(folderId)}&q=${encodeURIComponent(q)}&pageToken=${pageToken}`)
-      const data: FoldersResponse = await res.json()
-      setItems(prev => [...prev, ...(data.files ?? [])])
-      setPageToken(data.nextPageToken ?? null)
+      const res = await fetch(`/api/drive/folders?parentId=${encodeURIComponent(folderId)}&q=${encodeURIComponent(q)}&pageToken=${pageToken}`).then(r=>r.json())
+      setItems(prev => [...prev, ...(res.files ?? [])])
+      setPageToken(res.nextPageToken ?? null)
     } finally {
       setLoading(false)
     }
