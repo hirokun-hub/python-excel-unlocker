@@ -3,9 +3,11 @@ import type { NextAuthOptions, Session } from "next-auth"
 import type { JWT } from "next-auth/jwt"
 
 const scopes = [
-  "openid","email","profile",
-  "https://www.googleapis.com/auth/drive.file",          // アップロード用（最小権限）
-  "https://www.googleapis.com/auth/drive.metadata.readonly", // フォルダ一覧・検索用
+  "openid",
+  "email",
+  "profile",
+  "https://www.googleapis.com/auth/drive.file",           // アップロード
+  "https://www.googleapis.com/auth/drive.metadata.readonly"// フォルダ一覧
 ].join(" ")
 
 export const authOptions: NextAuthOptions = {
@@ -19,24 +21,24 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, account }): Promise<JWT> {
       if (account) {
-        // Persist access token and scope into the JWT
-        (token as any).accessToken = account.access_token
-        (token as any).scope = account.scope
-        // account.expires_in may be string/number/unknown; coerce to number and fallback to 3600
-        const expiresIn = typeof account.expires_in === 'number' ? account.expires_in : Number((account as any).expires_in) || 3600
-        (token as any).expires_at = Math.floor(Date.now() / 1000) + expiresIn
+        // アクセストークン/スコープをJWTへ保存
+        (token as JWT).accessToken = account.access_token
+        ;(token as JWT).scope = account.scope
+        // expires_in は string/number/undefined の可能性 → 数値へ安全に変換
+        const raw = typeof account.expires_in === "number" ? account.expires_in : Number(account.expires_in ?? 0)
+        const seconds = Number.isFinite(raw) && raw > 0 ? raw : 3600
+        ;(token as JWT).expires_at = Math.floor(Date.now() / 1000) + seconds
       }
       return token
     },
     async session({ session, token }): Promise<Session> {
-      // Expose accessToken and scope on the session object for client usage
-      ;(session as any).accessToken = (token as any).accessToken
-      ;(session as any).scope = (token as any).scope
+      ;(session as any).accessToken = (token as JWT).accessToken
+      ;(session as any).scope = (token as JWT).scope
+      ;(session as any).expires_at = (token as JWT).expires_at
       return session
     },
-    // Keep redirect normalization if present elsewhere
     async redirect({ url, baseUrl }) {
-      if (url.startsWith('/')) return `${baseUrl}${url}`
+      if (url.startsWith("/")) return `${baseUrl}${url}`
       try {
         const to = new URL(url)
         const base = new URL(baseUrl)
