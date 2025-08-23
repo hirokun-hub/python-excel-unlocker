@@ -5,14 +5,15 @@ import { authOptions } from "@/auth"
 const DRIVE_LIST = "https://www.googleapis.com/drive/v3/files"
 const FOLDER_MIME = "application/vnd.google-apps.folder"
 
-export async function GET(req: Request) {
-  const url = new URL(req.url)
-  const parentId = url.searchParams.get("parentId") || "root"
-  const q = url.searchParams.get("q")?.trim()
-  const pageToken = url.searchParams.get("pageToken") || ""
+import { NextRequest } from "next/server";
 
-  const session = await getServerSession(authOptions as any)
-  const at = (session as any)?.accessToken
+export async function GET(req: NextRequest) {
+  const parentId = req.nextUrl.searchParams.get("parentId") || "root"
+  const q = req.nextUrl.searchParams.get("q")?.trim()
+  const pageToken = req.nextUrl.searchParams.get("pageToken") || ""
+
+  const session = await getServerSession(authOptions)
+  const at = session?.accessToken
   if (!at) return NextResponse.json({ error: "unauthorized" }, { status: 401 })
 
   const parts = [`'${parentId}' in parents`, `mimeType='${FOLDER_MIME}'`, "trashed=false"]

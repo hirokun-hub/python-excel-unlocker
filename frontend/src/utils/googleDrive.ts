@@ -6,6 +6,15 @@ export type DriveFolder = {
   parents?: string[]
 }
 
+export class DriveUploadError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'DriveUploadError';
+    this.status = status;
+  }
+}
+
 /**
  * Upload a Blob to Google Drive using a direct access token (multipart upload).
  * Keeps the function name and signature stable for existing callers.
@@ -31,7 +40,7 @@ export async function uploadToDriveUsingAccessToken(
 
   if (!res.ok) {
     const text = await res.text()
-    throw new Error(`Drive upload failed ${res.status}: ${text}`)
+    throw new DriveUploadError(`Drive upload failed: ${text}`, res.status)
   }
 
   return res.json()
