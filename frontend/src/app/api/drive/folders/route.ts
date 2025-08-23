@@ -1,56 +1,135 @@
-import { NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/auth"
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { google, drive_v3 } from "googleapis";
+import { authOptions } from "@/auth";
+import pLimit from "p-limit";
 
-const DRIVE_LIST_URL = "https://www.googleapis.com/drive/v3/files"
-const FOLDER_MIME_TYPE = "application/vnd.google-apps.folder"
+const FOLDER_MIME_TYPE = "application/vnd.google-apps.folder";
+const esc = (s: string) => s.replace(/['\\]/g, "\\$&");
 
-const esc = (s: string) => s.replace(/['\\]/g, "\\$&")
+// --- Path Generation Logic ---
+const driveNameCache = new Map<string, string>();
+const fileNameCache = new Map<string, { name: string; parents?: string[] }>();
+const limit = pLimit(8); // Limit concurrency to 8 to avoid rate limiting
 
+async function getFileMetadata(drive: drive_v3.Drive, fileId: string): Promise<{ name: string; parents?: string[] }> {
+  if (fileNameCache.has(fileId)) {
+    return fileNameCache.get(fileId)!;
+  }
+  try {
+    const { data } = await drive.files.get({
+      fileId,
+      fields: "id,name,parents",
+      supportsAllDrives: true,
+    });
+    fileNameCache.set(fileId, data);
+    return data;
+  } catch (error) {
+    // console.error(`Failed to fetch metadata for fileId: ${fileId}`, error);
+    const inaccessibleResult = { name: "(アクセス権なし)", parents: [] };
+    fileNameCache.set(fileId, inaccessibleResult);
+    return inaccessibleResult;
+  }
+}
+
+async function getDisplayPath(drive: drive_v3.Drive, file: drive_v3.Schema$File): Promise<string> {
+  if (!file.id || !file.name) return "(不明なパス)";
+
+  const names: string[] = [file.name];
+  let currentParentId = file.parents?.[0];
+  let rootLabel = "マイドライブ";
+
+  if (file.driveId) {
+    if (!driveNameCache.has(file.driveId)) {
+      try {
+        const { data } = await drive.drives.get({ driveId: file.driveId, fields: "name" });
+        driveNameCache.set(file.driveId, data.name || "共有ドライブ");
+      } catch (error) {
+        // console.error(`Failed to fetch drive name for driveId: ${file.driveId}`, error);
+        driveNameCache.set(file.driveId, "共有ドライブ");
+      }
+    }
+    rootLabel = driveNameCache.get(file.driveId)!;
+  }
+
+  let depth = 0;
+  const maxDepth = 20; // Prevent infinite loops
+  let truncated = false;
+
+  while (currentParentId && depth < maxDepth) {
+    const parentFile = await getFileMetadata(drive, currentParentId);
+    if (parentFile.name === "(アクセス権なし)") {
+      truncated = true;
+      break;
+    }
+    names.unshift(parentFile.name);
+    currentParentId = parentFile.parents?.[0];
+    depth++;
+  }
+
+  const path = truncated ? `... / ${names.join(" / ")}` : names.join(" / ");
+  return `${rootLabel} / ${path}`;
+}
+
+
+// --- API Route Handler ---
 export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url)
-  const parentId = searchParams.get("parentId") || "root"
-  const q = (searchParams.get("q") || "").trim()
-  const pageToken = searchParams.get("pageToken") || undefined
+  const { searchParams } = new URL(req.url);
+  const parentId = searchParams.get("parentId") || "root";
+  const q = (searchParams.get("q") || "").trim();
+  const pageToken = searchParams.get("pageToken") || undefined;
 
   try {
-    const session = await getServerSession(authOptions)
-    const accessToken = session?.accessToken
+    const session = await getServerSession(authOptions);
+    const accessToken = session?.accessToken;
     if (!accessToken) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const base = `mimeType='${FOLDER_MIME_TYPE}' and trashed=false`
-    const query = q
-      ? `${base} and name contains '${esc(q)}'`
-      : `${base} and '${esc(parentId)}' in parents`
+    const auth = new google.auth.OAuth2();
+    auth.setCredentials({ access_token: accessToken });
+    const drive = google.drive({ version: "v3", auth });
 
-    const params = new URLSearchParams({
-      q: query,
-      orderBy: q ? "modifiedTime desc" : "viewedByMeTime desc, modifiedTime desc",
-      fields: "files(id,name,iconLink,parents,modifiedTime),nextPageToken",
-      pageSize: "50",
-      corpora: "user",
-      includeItemsFromAllDrives: "false",
-      supportsAllDrives: "false",
+    const qParts = [`mimeType='${FOLDER_MIME_TYPE}'`, "trashed=false"];
+    const listParams: drive_v3.Params$Resource$Files$List = {
+      orderBy: "modifiedTime desc, name asc",
+      pageSize: 100,
+      fields: "files(id,name,mimeType,parents,modifiedTime,driveId),nextPageToken",
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true,
       spaces: "drive",
-    })
-    if (pageToken) params.set("pageToken", pageToken)
+    };
 
+    if (q) {
+      qParts.push(`name contains '${esc(q)}'`);
+      listParams.corpora = "allDrives";
+    } else {
+      qParts.push(`'${esc(parentId)}' in parents`);
+      listParams.corpora = "user";
+    }
+    listParams.q = qParts.join(" and ");
+    if (pageToken) listParams.pageToken = pageToken;
 
-    const response = await fetch(`${DRIVE_LIST_URL}?${params.toString()}`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-      cache: "no-store",
-    })
+    const { data: listData } = await drive.files.list(listParams);
 
-    if (!response.ok) {
-      const errorBody = await response.json()
-      return NextResponse.json({ error: errorBody.error }, { status: response.status })
+    if (listData.files) {
+      const pathPromises = listData.files.map((file) =>
+        limit(() => getDisplayPath(drive, file))
+      );
+      const displayPaths = await Promise.all(pathPromises);
+
+      (listData.files as any[]).forEach((file, index) => {
+        file.displayPath = displayPaths[index];
+      });
     }
 
-    const body = await response.json()
-    return NextResponse.json(body)
+    return NextResponse.json(listData);
+
   } catch (_e) {
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
+    const err = _e as Error;
+    console.error(`[Google Drive API] Error in /api/drive/folders: ${err.message}`, {
+      stack: err.stack,
+    });
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
