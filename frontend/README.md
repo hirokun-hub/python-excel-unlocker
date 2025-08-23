@@ -109,7 +109,28 @@ pnpm start
 * `pnpm build`：本番ビルド
 * `pnpm start`：本番起動
 * `pnpm lint`：Lint 実行
-* `pnpm debug:pack`：**デバッグ用Zip作成**（下記）
+* `pnpm debug:pack`：**デバッグ用Zip作成**
+* `bash scripts/fe-snapshot.sh`：**開発スナップショット採取**（下記）
+
+---
+
+### 開発スナップショット採取（`scripts/fe-snapshot.sh`）
+フロントの状態を一括採取して ZIP にまとめます。バグ報告やCI添付に便利です。
+
+```bash
+# 既定ポート（3000）
+bash scripts/fe-snapshot.sh
+# ポート変更時
+PORT=3001 bash scripts/fe-snapshot.sh
+```
+
+出力: `fe-snapshot-YYYYMMDD-HHMMSS.zip`
+
+主な内容:
+- `http_checks.txt` … `/`, `/api/drive/folders`, `/api/drive/breadcrumb` のHTTPステータス
+- `tsc.txt` … TypeScript型チェック結果
+- `auth_scopes.grep` … NextAuthの要求スコープ痕跡
+- `tree.txt`, `grep_ui.txt` … 構成とUI関連ファイルの存在確認
 
 ---
 

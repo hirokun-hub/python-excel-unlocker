@@ -18,6 +18,10 @@ export const authOptions: NextAuthOptions = {
       authorization: { params: { scope: scopes, access_type: "offline", prompt: "consent" } },
     }),
   ],
+  secret: process.env.NEXTAUTH_SECRET,
+  session: {
+    strategy: "jwt",
+  },
   callbacks: {
     async jwt({ token, account }): Promise<JWT> {
       if (account) {
