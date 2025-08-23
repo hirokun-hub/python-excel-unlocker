@@ -4,11 +4,12 @@ import { authOptions } from "@/auth"
 
 const DRIVE_GET = (id: string) => `https://www.googleapis.com/drive/v3/files/${id}?fields=id,name,parents`
 
-export async function GET(req: Request) {
-  const url = new URL(req.url)
-  const id = url.searchParams.get("id") || "root"
-  const session = await getServerSession(authOptions as any)
-  const at = (session as any)?.accessToken
+import { NextRequest } from "next/server";
+
+export async function GET(req: NextRequest) {
+  const id = req.nextUrl.searchParams.get("id") || "root"
+  const session = await getServerSession(authOptions)
+  const at = session?.accessToken
   if (!at) return NextResponse.json({ error: "unauthorized" }, { status: 401 })
 
   if (id === "root") {
