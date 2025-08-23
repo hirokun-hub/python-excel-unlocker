@@ -149,3 +149,4 @@ secrets/
 # Debug zip files
 *.zip
 frontend/fe-debug-*
+fe-snapshot-*
