@@ -50,7 +50,6 @@ export default function DriveFolderPicker({ open, onClose, onPick, initialFolder
         const params = new URLSearchParams({
           parentId: folderId,
           q: debouncedQuery,
-          mode: debouncedQuery ? "" : "children", // Use children mode only when not searching
         })
         const folderRes = await fetch(`/api/drive/folders?${params.toString()}`, { cache: "no-store" })
         if (folderRes.status === 401) {
