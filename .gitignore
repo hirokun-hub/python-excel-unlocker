@@ -1,12 +1,54 @@
-# Byte-compiled / optimized / DLL files
+# =========================
+# Next.js / Node 用
+# =========================
+node_modules/
+.next/
+.next/cache/
+out/                  # next export の出力
+coverage/             # テスト出力
+.eslintcache
+*.tsbuildinfo
+.vercel/
+
+# 各種ログ
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# エディタ設定
+.vscode/
+.idea/
+
+# 環境変数（NextAuthやAPIキーなどの秘密）
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*.local
+!.env.example         # サンプルはコミット可
+
+# OAuth/GCP 等の秘密ファイル
+client_secret_*.json
+*_credentials.json
+service-account*.json
+*.pem
+*.p12
+
+
+# =========================
+# Python 用（既存ルールを統合）
+# =========================
+# バイトコード / 最適化 / DLL
 __pycache__/
 *.py[cod]
 *$py.class
 
-# C extensions
+# C拡張
 *.so
 
-# Distribution / packaging
+# 配布 / パッケージ
 .Python
 build/
 dist/
@@ -25,14 +67,12 @@ wheels/
 MANIFEST
 
 # PyInstaller
-#  Usually these files are written by a PyInstaller script
-#  in a subdirectory. But can be written here instead.
 *.spec
 
-# Installer logs
+# インストーラログ
 -pyinstall.log
 
-# Unit test / coverage reports
+# テスト / カバレッジ
 htmlcov/
 .tox/
 .nox/
@@ -42,29 +82,29 @@ htmlcov/
 .pytest_cache/
 .hypothesis/
 
-# Translations
+# 翻訳
 *.mo
 *.pot
 
-# Django stuff:
+# Django
 *.log
 local_settings.py
 db.sqlite3
 
-# Flask stuff:
+# Flask
 instance/
 .webassets-cache
 
-# Scrapy stuff:
+# Scrapy
 .scrapy
 
-# Sphinx documentation
+# Sphinx
 docs/_build/
 
 # PyBuilder
 target/
 
-# Jupyter Notebook
+# Jupyter
 .ipynb_checkpoints
 
 # IPython
@@ -74,17 +114,17 @@ ipython_config.py
 # pyenv
 .python-version
 
-# PEP 582; used by Poetry, Flit and PDM
+# PEP 582
 __pypackages__/
 
-# Celery stuff
+# Celery
 celerybeat-schedule
 celerybeat.pid
 
-# SageMath parsed files
+# SageMath
 *.sage.py
 
-# Environments
+# 仮想環境
 .env
 .venv
 env/
@@ -93,13 +133,19 @@ ENV/
 env.bak/
 venv.bak/
 
+
+# =========================
+# OS / ツール固有
+# =========================
 # macOS
 .DS_Store
-# Ignore macOS system files
-.DS_Store
 
-# Ignore AWS SAM build artifacts
+# AWS SAM
 .aws-sam/
 
-# Ignore local secrets
+# ローカル秘密ディレクトリ
 secrets/
+
+# Debug zip files
+*.zip
+frontend/fe-debug-*
