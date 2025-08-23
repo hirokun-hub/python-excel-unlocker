@@ -37,7 +37,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFilesAdded }) => {
 
   return (
     <div
-      className="w-full max-w-2xl p-8 border-2 border-dashed border-gray-300 rounded-lg text-center cursor-pointer hover:border-blue-500 transition-colors"
+      className="w-full box-border p-8 border-2 border-dashed border-gray-300 rounded-lg text-center cursor-pointer hover:border-blue-500 transition-colors"
       onDragOver={handleDragOver}
       onDrop={handleDrop}
       onClick={() => document.getElementById('fileInput')?.click()} // divクリックでファイル入力をトリガー
