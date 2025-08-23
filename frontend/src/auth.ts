@@ -6,39 +6,37 @@ const scopes = [
   "openid",
   "email",
   "profile",
-  "https://www.googleapis.com/auth/drive.file",           // アップロード
-  "https://www.googleapis.com/auth/drive.metadata.readonly"// フォルダ一覧
+  "https://www.googleapis.com/auth/drive.file",
+  "https://www.googleapis.com/auth/drive.metadata.readonly",
 ].join(" ")
 
 export const authOptions: NextAuthOptions = {
+  secret: process.env.NEXTAUTH_SECRET,
   providers: [
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID as string,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
-      authorization: { params: { scope: scopes, access_type: "offline", prompt: "consent" } },
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      authorization: {
+        params: {
+          scope: scopes,
+          access_type: "offline",
+          prompt: "consent",
+        },
+      },
     }),
   ],
-  secret: process.env.NEXTAUTH_SECRET,
-  session: {
-    strategy: "jwt",
-  },
+  session: { strategy: "jwt" },
   callbacks: {
     async jwt({ token, account }): Promise<JWT> {
-      if (account) {
-        // アクセストークン/スコープをJWTへ保存
-        (token as JWT).accessToken = account.access_token
-        ;(token as JWT).scope = account.scope
-        // expires_in は string/number/undefined の可能性 → 数値へ安全に変換
-        const raw = typeof account.expires_in === "number" ? account.expires_in : Number(account.expires_in ?? 0)
-        const seconds = Number.isFinite(raw) && raw > 0 ? raw : 3600
-        ;(token as JWT).expires_at = Math.floor(Date.now() / 1000) + seconds
+      if (account?.access_token) {
+        (token as any).accessToken = account.access_token
+        ;(token as any).scope = account.scope
       }
       return token
     },
     async session({ session, token }): Promise<Session> {
-      ;(session as any).accessToken = (token as JWT).accessToken
-      ;(session as any).scope = (token as JWT).scope
-      ;(session as any).expires_at = (token as JWT).expires_at
+      ;(session as any).accessToken = (token as any).accessToken
+      ;(session as any).scope = (token as any).scope
       return session
     },
     async redirect({ url, baseUrl }) {
@@ -55,5 +53,3 @@ export const authOptions: NextAuthOptions = {
 }
 
 export default authOptions
-
-
