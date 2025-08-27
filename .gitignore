@@ -1,11 +1,25 @@
 # =========================
-# Next.js / Node 用
+# 共通 / プロジェクト運用
+# =========================
+
+# 監査・作業ログ（ローカル保管用）
+_audit/
+
+# OS / ツール固有
+.DS_Store
+
+# ローカル秘密ディレクトリ（必要なら名称調整）
+/secrets/
+
+
+# =========================
+# Node.js / Next.js（サブディレクトリ含む）
 # =========================
 node_modules/
 .next/
 .next/cache/
+coverage/
 out/                  # next export の出力
-coverage/             # テスト出力
 .eslintcache
 *.tsbuildinfo
 .vercel/
@@ -20,14 +34,13 @@ pnpm-debug.log*
 .vscode/
 .idea/
 
-# 環境変数（NextAuthやAPIキーなどの秘密）
+# 環境変数（どの階層でも無視 / サンプルのみ許可）
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-.env.*.local
-!.env.example         # サンプルはコミット可
+.env.*
+**/.env
+**/.env.*
+!.env.example
+!**/.env.example
 
 # OAuth/GCP 等の秘密ファイル
 client_secret_*.json
@@ -36,95 +49,78 @@ service-account*.json
 *.pem
 *.p12
 
+# --- 念押し：フロントエンドの UI コードは必ず追跡（lib/ ルールの副作用対策） ---
+!frontend/src/lib/
+!frontend/src/lib/**
+
 
 # =========================
-# Python 用（既存ルールを統合）
+# Python（ルート直下に限定して無視：/ でアンカー）
 # =========================
+
 # バイトコード / 最適化 / DLL
 __pycache__/
 *.py[cod]
 *$py.class
-
-# C拡張
 *.so
 
-# 配布 / パッケージ
-.Python
-build/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
+# 配布 / パッケージ（直下のみ）
+/.Python
+/build/
+/dist/
+/downloads/
+/eggs/
+/.eggs/
+/lib/
+/lib64/
+/parts/
+/sdist/
+/var/
+/wheels/
+/*.egg-info
+/.installed.cfg
+/*.egg
 MANIFEST
 
-# PyInstaller
-*.spec
-
-# インストーラログ
+# PyInstaller（直下のみ）
+/*.spec
 -pyinstall.log
 
-# テスト / カバレッジ
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-.pytest_cache/
-.hypothesis/
+# テスト / カバレッジ（直下のみ）
+/htmlcov/
+/.tox/
+/.nox/
+/.coverage
+/.coverage.*
+/.cache
+/.pytest_cache/
+/.hypothesis/
 
-# 翻訳
-*.mo
-*.pot
+# ドキュメントビルド（直下のみ）
+/docs/_build/
 
-# Django
-*.log
-local_settings.py
-db.sqlite3
+# PyBuilder（直下のみ）
+/target/
 
-# Flask
-instance/
-.webassets-cache
-
-# Scrapy
-.scrapy
-
-# Sphinx
-docs/_build/
-
-# PyBuilder
-target/
-
-# Jupyter
-.ipynb_checkpoints
-
-# IPython
-profile_default/
-ipython_config.py
+# Jupyter / IPython（直下のみ）
+/.ipynb_checkpoints
+/profile_default/
+/ipython_config.py
 
 # pyenv
-.python-version
+/.python-version
 
 # PEP 582
-__pypackages__/
+/__pypackages__/
 
-# Celery
-celerybeat-schedule
-celerybeat.pid
+# Celery（直下のみ）
+/celerybeat-schedule
+/celerybeat.pid
 
-# SageMath
-*.sage.py
 
-# 仮想環境
+# =========================
+# 仮想環境（どこにあっても無視）
+# =========================
 .env
 .venv
 env/
@@ -135,17 +131,9 @@ venv.bak/
 
 
 # =========================
-# OS / ツール固有
+# クラウド/その他
 # =========================
-# macOS
-.DS_Store
-
-# AWS SAM
 .aws-sam/
 
-# ローカル秘密ディレクトリ
-secrets/
-
-# Debug zip files
-*.zip
+# 開発時の一時物（パターンがある場合のみ）
 frontend/fe-debug-*
