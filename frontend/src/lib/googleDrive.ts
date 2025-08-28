@@ -1,4 +1,3 @@
-export { uploadToDriveUsingAccessToken } from "../utils/googleDrive"
 export type DriveFolder = { id: string; name: string; modifiedTime?: string; iconLink?: string; parents?: string[] }
 
 // Utility to upload a Blob to Google Drive using a direct access token (multipart upload)

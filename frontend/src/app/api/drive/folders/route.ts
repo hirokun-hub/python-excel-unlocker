@@ -19,11 +19,18 @@ async function getFileMetadata(drive: drive_v3.Drive, fileId: string): Promise<{
   try {
     const { data } = await drive.files.get({
       fileId,
+      // 余分なフィールドを避け、意図を明確化
       fields: "id,name,parents",
       supportsAllDrives: true,
     });
-    fileNameCache.set(fileId, data);
-    return data;
+    // Google Drive の Schema$File は name が null/undefined の可能性あり。
+    // アプリ内では name:string / parents:string[] に正規化してからキャッシュ。
+    const normalized = {
+      name: data.name ?? "(untitled)",
+      parents: Array.isArray(data.parents) ? (data.parents as string[]) : [],
+    } satisfies { name: string; parents: string[] };
+    fileNameCache.set(fileId, normalized);
+    return normalized;
   } catch (error) {
     // console.error(`Failed to fetch metadata for fileId: ${fileId}`, error);
     const inaccessibleResult = { name: "(アクセス権なし)", parents: [] };
