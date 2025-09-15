@@ -1,0 +1,9 @@
+# This file lists the development-only dependencies for the backend.
+# These packages are required for running tests, linting, and validation,
+# but are not needed in the production Lambda environment.
+
+pytest
+pytest-timeout
+moto[boto3]
+openapi-spec-validator
+ruff

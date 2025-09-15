@@ -1,16 +1,16 @@
 export type DriveFolder = {
-  id: string
-  name: string
-  modifiedTime?: string
-  iconLink?: string
-  parents?: string[]
-}
+  id: string;
+  name: string;
+  modifiedTime?: string;
+  iconLink?: string;
+  parents?: string[];
+};
 
 export class DriveUploadError extends Error {
   status: number;
   constructor(message: string, status: number) {
     super(message);
-    this.name = 'DriveUploadError';
+    this.name = "DriveUploadError";
     this.status = status;
   }
 }
@@ -23,25 +23,31 @@ export async function uploadToDriveUsingAccessToken(
   file: Blob,
   filename: string,
   accessToken: string,
-  opts?: { parentId?: string }
+  opts?: { parentId?: string },
 ) {
-  const metadata: Record<string, any> = { name: filename }
-  if (opts?.parentId) metadata.parents = [opts.parentId]
+  const metadata: Record<string, any> = { name: filename };
+  if (opts?.parentId) metadata.parents = [opts.parentId];
 
-  const form = new FormData()
-  form.append("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }))
-  form.append("file", file, filename)
+  const form = new FormData();
+  form.append(
+    "metadata",
+    new Blob([JSON.stringify(metadata)], { type: "application/json" }),
+  );
+  form.append("file", file, filename);
 
-  const res = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${accessToken}` },
-    body: form,
-  })
+  const res = await fetch(
+    "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart",
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body: form,
+    },
+  );
 
   if (!res.ok) {
-    const text = await res.text()
-    throw new DriveUploadError(`Drive upload failed: ${text}`, res.status)
+    const text = await res.text();
+    throw new DriveUploadError(`Drive upload failed: ${text}`, res.status);
   }
 
-  return res.json()
+  return res.json();
 }

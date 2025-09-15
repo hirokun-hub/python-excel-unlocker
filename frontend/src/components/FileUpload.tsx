@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 
 // ファイルアップロードコンポーネントのPropsの型定義
 interface FileUploadProps {
@@ -40,7 +40,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFilesAdded }) => {
       className="w-full box-border p-8 border-2 border-dashed border-gray-300 rounded-lg text-center cursor-pointer hover:border-blue-500 transition-colors"
       onDragOver={handleDragOver}
       onDrop={handleDrop}
-      onClick={() => document.getElementById('fileInput')?.click()} // divクリックでファイル入力をトリガー
+      onClick={() => document.getElementById("fileInput")?.click()} // divクリックでファイル入力をトリガー
     >
       <input
         type="file"
@@ -53,9 +53,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFilesAdded }) => {
       <p className="text-gray-500">
         ここにファイルをドラッグ＆ドロップするか、クリックしてファイルを選択してください
       </p>
-      <p className="text-sm text-gray-400 mt-2">
-        (対応ファイル: .xlsx, .xls)
-      </p>
+      <p className="text-sm text-gray-400 mt-2">(対応ファイル: .xlsx, .xls)</p>
     </div>
   );
 };

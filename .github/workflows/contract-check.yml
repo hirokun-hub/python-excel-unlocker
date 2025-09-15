@@ -1,0 +1,74 @@
+# This workflow validates the API contract for breaking changes.
+# It is triggered after the backend CI successfully completes. It downloads
+# the OpenAPI spec from the backend CI run and compares it against the
+# version in the current commit to detect any breaking changes.
+
+name: Contract Check
+
+on:
+  workflow_run:
+    workflows: ["Backend CI"]
+    types:
+      - completed
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check-contract:
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download OpenAPI artifact from Backend CI
+        uses: actions/download-artifact@v4
+        id: download
+        with:
+          name: openapi-v1
+          path: openapi-v1
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
+        continue-on-error: true
+
+      - name: Install validation tools
+        run: npm install -g openapi-diff openapi-spec-validator
+
+      - name: Validate for breaking changes
+        if: steps.download.outcome == 'success'
+        run: |
+          echo "Comparing current api/openapi.yaml with the one from the completed Backend CI workflow."
+          openapi-diff api/openapi.yaml openapi-v1/openapi.yaml --fail-on-changed
+
+      - name: Fallback to basic validation
+        if: steps.download.outcome != 'success'
+        run: |
+          echo "Could not download artifact. This may be the first run."
+          echo "Falling back to basic spec validation."
+          openapi-spec-validator api/openapi.yaml
+
+      - name: Create test report
+        run: |
+          mkdir -p out
+          echo "# Contract Check Report" > out/report_contract.md
+          if [ "${{ steps.download.outcome }}" == "success" ]; then
+            echo "Contract diff check passed." >> out/report_contract.md
+          else
+            echo "Contract diff check skipped. Basic validation passed." >> out/report_contract.md
+          fi
+
+      - name: Package report artifact
+        run: |
+          zip -j test-report_contract.zip out/report_contract.md
+
+      - name: Upload report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report_${{ github.workflow }}_${{ github.run_number }}.zip
+          path: test-report_contract.zip

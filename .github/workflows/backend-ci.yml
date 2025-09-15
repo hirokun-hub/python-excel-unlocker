@@ -1,0 +1,80 @@
+# This workflow runs CI checks for the backend application.
+# It lints the code, installs dependencies, runs tests with a mock S3
+# environment, and validates the OpenAPI spec. It also uploads test
+# reports and the OpenAPI spec as artifacts.
+
+name: Backend CI
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'backend/**'
+      - 'api/openapi.yaml'
+      - '.github/workflows/backend-ci.yml'
+  pull_request:
+    paths:
+      - 'backend/**'
+      - 'api/openapi.yaml'
+      - '.github/workflows/backend-ci.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      AWS_DEFAULT_REGION: us-east-1
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r backend/src/requirements.txt -r backend/requirements-dev.txt
+
+      - name: Lint with Ruff
+        run: |
+          ruff check backend/src backend/tests
+
+      - name: Run tests with pytest
+        run: |
+          PYTHONPATH=. pytest backend/tests/
+
+      - name: Validate OpenAPI spec
+        run: |
+          openapi-spec-validator api/openapi.yaml
+
+      - name: Create test report
+        run: |
+          mkdir -p out
+          echo "# Backend Test Report" > out/report_backend.md
+          echo "All backend checks passed successfully." >> out/report_backend.md
+
+      - name: Upload OpenAPI spec artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: openapi-v1
+          path: api/openapi.yaml
+
+      - name: Package report artifact
+        run: |
+          zip -j test-report_backend.zip out/report_backend.md
+
+      - name: Upload report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report_${{ github.workflow }}_${{ github.run_number }}.zip
+          path: test-report_backend.zip

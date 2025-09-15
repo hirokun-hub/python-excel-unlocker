@@ -1,8 +1,8 @@
 // shadcn/ui のユーティリティ。コンポーネントで使うクラス結合ヘルパー。
 // - clsx: 複数のクラス名を結合する軽量ユーティリティ
 // - tailwind-merge: Tailwind クラスの衝突を解決して最後に指定されたユーティリティを優先する
-import { type ClassValue, clsx } from "clsx"
-import { twMerge } from "tailwind-merge"
+import { type ClassValue, clsx } from "clsx";
+import { twMerge } from "tailwind-merge";
 
 /**
  * cn(...inputs)
@@ -10,7 +10,5 @@ import { twMerge } from "tailwind-merge"
  * - コンポーネント内での className 組み立てに使います。
  */
 export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
+  return twMerge(clsx(inputs));
 }
-
-

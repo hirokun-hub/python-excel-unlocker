@@ -12,7 +12,10 @@ const driveNameCache = new Map<string, string>();
 const fileNameCache = new Map<string, { name: string; parents?: string[] }>();
 const limit = pLimit(8); // Limit concurrency to 8 to avoid rate limiting
 
-async function getFileMetadata(drive: drive_v3.Drive, fileId: string): Promise<{ name: string; parents?: string[] }> {
+async function getFileMetadata(
+  drive: drive_v3.Drive,
+  fileId: string,
+): Promise<{ name: string; parents?: string[] }> {
   if (fileNameCache.has(fileId)) {
     return fileNameCache.get(fileId)!;
   }
@@ -39,7 +42,10 @@ async function getFileMetadata(drive: drive_v3.Drive, fileId: string): Promise<{
   }
 }
 
-async function getDisplayPath(drive: drive_v3.Drive, file: drive_v3.Schema$File): Promise<string> {
+async function getDisplayPath(
+  drive: drive_v3.Drive,
+  file: drive_v3.Schema$File,
+): Promise<string> {
   if (!file.id || !file.name) return "(不明なパス)";
 
   const names: string[] = [file.name];
@@ -49,7 +55,10 @@ async function getDisplayPath(drive: drive_v3.Drive, file: drive_v3.Schema$File)
   if (file.driveId) {
     if (!driveNameCache.has(file.driveId)) {
       try {
-        const { data } = await drive.drives.get({ driveId: file.driveId, fields: "name" });
+        const { data } = await drive.drives.get({
+          driveId: file.driveId,
+          fields: "name",
+        });
         driveNameCache.set(file.driveId, data.name || "共有ドライブ");
       } catch (error) {
         // console.error(`Failed to fetch drive name for driveId: ${file.driveId}`, error);
@@ -78,7 +87,6 @@ async function getDisplayPath(drive: drive_v3.Drive, file: drive_v3.Schema$File)
   return `${rootLabel} / ${path}`;
 }
 
-
 // --- API Route Handler ---
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -101,7 +109,8 @@ export async function GET(req: NextRequest) {
     const listParams: drive_v3.Params$Resource$Files$List = {
       orderBy: "modifiedTime desc, name asc",
       pageSize: 100,
-      fields: "files(id,name,mimeType,parents,modifiedTime,driveId),nextPageToken",
+      fields:
+        "files(id,name,mimeType,parents,modifiedTime,driveId),nextPageToken",
       supportsAllDrives: true,
       includeItemsFromAllDrives: true,
       spaces: "drive",
@@ -121,7 +130,7 @@ export async function GET(req: NextRequest) {
 
     if (listData.files) {
       const pathPromises = listData.files.map((file) =>
-        limit(() => getDisplayPath(drive, file))
+        limit(() => getDisplayPath(drive, file)),
       );
       const displayPaths = await Promise.all(pathPromises);
 
@@ -131,12 +140,17 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json(listData);
-
   } catch (_e) {
     const err = _e as Error;
-    console.error(`[Google Drive API] Error in /api/drive/folders: ${err.message}`, {
-      stack: err.stack,
-    });
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    console.error(
+      `[Google Drive API] Error in /api/drive/folders: ${err.message}`,
+      {
+        stack: err.stack,
+      },
+    );
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 },
+    );
   }
 }

@@ -1,0 +1,89 @@
+# This workflow runs CI checks for the frontend application.
+# It lints, installs dependencies, generates API types, and runs both
+# unit/integration tests (Vitest) and a UI smoke test (Playwright)
+# against a mock server (Prism).
+
+name: Frontend CI
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'frontend/**'
+      - 'api/openapi.yaml'
+      - '.github/workflows/frontend-ci.yml'
+  pull_request:
+    paths:
+      - 'frontend/**'
+      - 'api/openapi.yaml'
+      - '.github/workflows/frontend-ci.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --prefix frontend
+
+      - name: Lint (changed files only)
+        run: npm run lint:changed --prefix frontend
+
+      - name: Type check
+        run: npx tsc -p frontend/tsconfig.json --noEmit
+
+      - name: Generate API types
+        run: npm run gen:api --prefix frontend
+
+      - name: Start mock API server
+        run: |
+          npx -y @stoplight/prism-cli mock api/openapi.yaml --port 4010 &
+          echo $! > prism.pid
+          sleep 2 # Give prism time to start
+
+      - name: Run Vitest tests
+        run: npm test --prefix frontend
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
+
+      - name: Run Playwright tests
+        run: npm run test:ui --prefix frontend
+
+      - name: Stop Prism server
+        if: always()
+        run: |
+          if [ -f prism.pid ]; then kill $(cat prism.pid) || true; fi
+
+      - name: Create test report
+        run: |
+          mkdir -p out
+          echo "# Frontend Test Report" > out/report_frontend.md
+          echo "All frontend checks passed successfully." >> out/report_frontend.md
+
+      - name: Package report artifact
+        run: |
+          zip -j test-report_frontend.zip out/report_frontend.md
+
+      - name: Upload report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report_${{ github.workflow }}_${{ github.run_number }}.zip
+          path: test-report_frontend.zip

@@ -82,11 +82,12 @@ def unlock_excel_file(file_path, passwords):
     try:
         with open(file_path, "rb") as f_in:
             for password in passwords:
-                if not password: continue
+                if not password:
+                    continue
                 f_in.seek(0)
                 office_file = msoffcrypto.OfficeFile(f_in)
                 try:
-                    logger.info(f"Trying password: {'*' * len(password)}")
+                    logger.info("Trying password: ******")
                     office_file.load_key(password=password)
                     unlocked_path = f"/tmp/unlocked_{os.path.basename(file_path)}"
                     logger.info(f"Password correct. Decrypting to {unlocked_path}")
@@ -203,4 +204,3 @@ def lambda_handler(event, context):
         return create_response(500, {'error': f'An internal server error occurred: {str(e)}'})
 
     logger.info("## END: lambda_handler")
-    return response
