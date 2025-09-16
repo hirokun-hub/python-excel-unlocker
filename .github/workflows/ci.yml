@@ -1,0 +1,53 @@
+name: 🚀 CI/CD Pipeline - Main Orchestrator
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # 🧪 テストフェーズ
+  frontend-test:
+    name: 🎨 Frontend Tests
+    uses: ./.github/workflows/test-frontend.yml
+    secrets: inherit
+
+  backend-test:
+    name: 🔧 Backend Tests  
+    uses: ./.github/workflows/test-backend.yml
+    secrets: inherit
+
+  security-scan:
+    name: 🔒 Security Scan
+    uses: ./.github/workflows/security-scan.yml
+    secrets: inherit
+
+  # 🔗 統合テストフェーズ
+  integration-tests:
+    name: 🔗 Integration Tests
+    needs: [frontend-test, backend-test]
+    uses: ./.github/workflows/test-integration.yml
+    secrets: inherit
+
+  e2e-tests:
+    name: 🎭 E2E Tests
+    needs: [frontend-test, backend-test]
+    uses: ./.github/workflows/test-e2e.yml
+    secrets: inherit
+
+  # 🚀 デプロイフェーズ（mainブランチのみ）
+  deploy:
+    name: 🚀 Deploy to Production
+    needs: [frontend-test, backend-test, security-scan, integration-tests, e2e-tests]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    uses: ./.github/workflows/deploy.yml
+    secrets: inherit
+
+  # ⚡ パフォーマンステスト（デプロイ後）
+  performance-test:
+    name: ⚡ Performance Tests
+    needs: [deploy]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    uses: ./.github/workflows/test-performance.yml
+    secrets: inherit
