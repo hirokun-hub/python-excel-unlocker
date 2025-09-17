@@ -384,6 +384,66 @@ async def process_multiple_files(file_keys: list, passwords: list):
 
 ## テスト戦略
 
+### 差分テスト戦略
+
+#### コンポーネント境界とテスト範囲
+```mermaid
+graph TB
+    subgraph "Frontend Components"
+        UI[UI Components]
+        API_ROUTES[API Routes]
+        AUTH[Authentication]
+        UTILS[Utilities]
+    end
+    
+    subgraph "Backend Components"
+        LAMBDA[Lambda Functions]
+        S3_OPS[S3 Operations]
+        EXCEL[Excel Processing]
+    end
+    
+    subgraph "Infrastructure"
+        WORKFLOWS[GitHub Actions]
+        CONFIG[Configuration Files]
+    end
+    
+    UI --> API_ROUTES
+    API_ROUTES --> LAMBDA
+    LAMBDA --> S3_OPS
+    LAMBDA --> EXCEL
+```
+
+#### 変更検出基準
+| 変更パス | テスト範囲 | 実行条件 |
+|---------|-----------|----------|
+| `frontend/src/components/` | フロントエンド単体テスト | 常時 |
+| `frontend/src/app/api/` | API統合テスト + フロントエンド | 常時 |
+| `backend/src/` | バックエンド単体テスト + API統合 | 常時 |
+| `frontend/e2e/` | E2Eテスト | PR時のみ |
+| `.github/workflows/` | ワークフロー検証 | 常時 |
+| `template.yaml` | インフラテスト | main ブランチ |
+
+#### テスト実行マトリックス
+```yaml
+# 開発段階別テスト戦略
+stages:
+  development:
+    - unit_tests: always
+    - integration_tests: on_api_changes
+    - e2e_tests: manual_trigger
+  
+  pull_request:
+    - unit_tests: always
+    - integration_tests: always
+    - e2e_tests: always
+    - performance_tests: on_backend_changes
+  
+  main_branch:
+    - all_tests: always
+    - deployment_tests: always
+    - security_scans: always
+```
+
 ### 単体テスト
 - **フロントエンド**: Jest + React Testing Library
 - **バックエンド**: pytest + moto (AWS mocking)
@@ -397,6 +457,40 @@ async def process_multiple_files(file_keys: list, passwords: list):
 ### パフォーマンステスト
 - **負荷テスト**: Artillery.js
 - **目標値**: P95 < 8秒、同時実行50
+
+### AI向けアーティファクト生成
+
+#### 包含情報
+```yaml
+ai_package_contents:
+  test_results:
+    - unit_test_reports/
+    - integration_test_reports/
+    - e2e_test_reports/
+    - coverage_reports/
+  
+  project_metadata:
+    - file_structure.txt
+    - dependency_tree.json
+    - git_history.txt
+    - change_summary.md
+  
+  configuration:
+    - package.json
+    - requirements.txt
+    - template.yaml
+    - workflow_configs/
+  
+  analysis_data:
+    - performance_metrics.json
+    - security_scan_results.sarif
+    - code_quality_reports/
+```
+
+#### 生成タイミング
+- **毎回**: 基本的なテスト結果とプロジェクト構造
+- **PR時**: 変更差分と影響分析
+- **main更新時**: 完全なプロジェクト状態スナップショット
 
 ## 運用・監視
 
