@@ -62,6 +62,14 @@
 ## 開発・デプロイ
 
 ### 初回セットアップ
+
+#### 🚀 自動化セットアップ（推奨）
+```bash
+# 手作業最小化の完全自動化（事前準備10分 + 自動処理5分）
+./scripts/setup-complete-automation.sh
+```
+
+#### 📋 従来の手動セットアップ
 ```bash
 # 前提条件確認・環境変数設定・初回デプロイ
 ./scripts/setup-deployment.sh
@@ -109,9 +117,15 @@ npm run dev
 ## ドキュメント
 
 ### 開発・運用ガイド
-- [段階的デプロイメントガイド](docs/deployment-guide.md) 🆕
+- [自動化セットアップガイド](docs/automation-setup-guide.md) 🆕 **推奨**
+- [段階的デプロイメントガイド](docs/deployment-guide.md)
 - [認証・API統合ガイド](docs/authentication-integration-guide.md)
 - [ローカル開発環境ガイド](docs/local-development-guide.md)
+
+### 設定ランブック
+- [GitHub Actions Secrets設定](docs/runbook/github-actions_secrets-and-iam-for-aws_and-vercel.md)
+- [Google OAuth設定](docs/runbook/google-oauth-setup.md)
+- [Vercel設定](docs/runbook/vercel-project-setup_and-detach-github.md)
 
 ### 設計・仕様書
 - [要件定義書](.kiro/specs/secure-excel-unlock/requirements.md)
