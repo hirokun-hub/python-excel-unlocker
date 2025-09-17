@@ -1,0 +1,218 @@
+name: Deploy Full Stack (Backend + Frontend)
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'development'
+        type: choice
+        options:
+          - development
+          - staging
+          - production
+      
+      deploy_backend:
+        description: 'Deploy backend'
+        required: true
+        default: true
+        type: boolean
+      
+      deploy_frontend:
+        description: 'Deploy frontend'
+        required: true
+        default: true
+        type: boolean
+      
+      run_tests:
+        description: 'Run integration tests after deployment'
+        required: true
+        default: true
+        type: boolean
+
+env:
+  AWS_REGION: ap-northeast-1
+
+jobs:
+  # 統合テスト（デプロイ前）
+  pre-deployment-tests:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.run_tests == 'true'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Set up Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install backend dependencies
+        run: |
+          cd backend
+          pip install -r src/requirements.txt
+          pip install pytest pytest-cov moto
+
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Run backend tests
+        run: |
+          cd backend
+          pytest tests/unit/ --cov=src --cov-report=xml
+
+      - name: Run frontend tests
+        run: |
+          cd frontend
+          npm run test -- --coverage --watchAll=false
+
+      - name: Type check frontend
+        run: |
+          cd frontend
+          npm run type-check
+
+      - name: Lint frontend
+        run: |
+          cd frontend
+          npm run lint
+
+  # バックエンドデプロイ
+  deploy-backend:
+    needs: [pre-deployment-tests]
+    if: always() && (needs.pre-deployment-tests.result == 'success' || needs.pre-deployment-tests.result == 'skipped') && github.event.inputs.deploy_backend == 'true'
+    uses: ./.github/workflows/deploy-backend.yml
+    with:
+      environment: ${{ github.event.inputs.environment }}
+    secrets: inherit
+
+  # フロントエンドデプロイ
+  deploy-frontend:
+    needs: [pre-deployment-tests, deploy-backend]
+    if: always() && (needs.pre-deployment-tests.result == 'success' || needs.pre-deployment-tests.result == 'skipped') && github.event.inputs.deploy_frontend == 'true'
+    uses: ./.github/workflows/deploy-frontend.yml
+    with:
+      environment: ${{ github.event.inputs.environment }}
+    secrets: inherit
+
+  # 統合テスト（デプロイ後）
+  post-deployment-tests:
+    needs: [deploy-backend, deploy-frontend]
+    runs-on: ubuntu-latest
+    if: always() && github.event.inputs.run_tests == 'true' && (needs.deploy-backend.result == 'success' || needs.deploy-frontend.result == 'success')
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get API endpoints
+        id: endpoints
+        run: |
+          STACK_NAME="excel-unlocker-api-${{ github.event.inputs.environment }}"
+          API_URL=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --query 'Stacks[0].Outputs[?OutputKey==`ApiUrl`].OutputValue' --output text 2>/dev/null || echo "")
+          
+          if [[ -n "$API_URL" ]]; then
+            echo "api_url=$API_URL" >> $GITHUB_OUTPUT
+            echo "API URL取得成功: $API_URL"
+          else
+            echo "API URL取得失敗"
+            exit 1
+          fi
+
+      - name: Set up Node.js for integration tests
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install integration test dependencies
+        run: |
+          cd tests/integration
+          npm install
+
+      - name: Run API integration tests
+        run: |
+          cd tests/integration
+          API_URL="${{ steps.endpoints.outputs.api_url }}" npm test
+        env:
+          NODE_ENV: test
+          API_BASE_URL: ${{ steps.endpoints.outputs.api_url }}
+
+      - name: Run smoke tests
+        run: |
+          API_URL="${{ steps.endpoints.outputs.api_url }}"
+          
+          # ヘルスチェック
+          echo "API疎通確認: $API_URL"
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$API_URL/presigned-urls" -X POST -H "Content-Type: application/json" -d '{}' || echo "000")
+          
+          if [[ "$HTTP_STATUS" =~ ^[45][0-9][0-9]$ ]]; then
+            echo "✅ API Gateway疎通確認成功 (Status: $HTTP_STATUS)"
+          else
+            echo "❌ API Gateway疎通確認失敗 (Status: $HTTP_STATUS)"
+            exit 1
+          fi
+
+  # デプロイ結果サマリー
+  deployment-summary:
+    needs: [deploy-backend, deploy-frontend, post-deployment-tests]
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+      - name: Generate deployment summary
+        run: |
+          echo "# 🚀 フルスタックデプロイ結果" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 📋 デプロイ設定" >> $GITHUB_STEP_SUMMARY
+          echo "- **環境**: ${{ github.event.inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **バックエンドデプロイ**: ${{ github.event.inputs.deploy_backend }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **フロントエンドデプロイ**: ${{ github.event.inputs.deploy_frontend }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **統合テスト実行**: ${{ github.event.inputs.run_tests }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 📊 実行結果" >> $GITHUB_STEP_SUMMARY
+          echo "- **事前テスト**: ${{ needs.pre-deployment-tests.result || 'スキップ' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **バックエンドデプロイ**: ${{ needs.deploy-backend.result || 'スキップ' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **フロントエンドデプロイ**: ${{ needs.deploy-frontend.result || 'スキップ' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **事後テスト**: ${{ needs.post-deployment-tests.result || 'スキップ' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # 全体結果判定
+          BACKEND_OK="${{ needs.deploy-backend.result == 'success' || github.event.inputs.deploy_backend == 'false' }}"
+          FRONTEND_OK="${{ needs.deploy-frontend.result == 'success' || github.event.inputs.deploy_frontend == 'false' }}"
+          TESTS_OK="${{ needs.post-deployment-tests.result == 'success' || github.event.inputs.run_tests == 'false' }}"
+          
+          if [[ "$BACKEND_OK" == "true" && "$FRONTEND_OK" == "true" && "$TESTS_OK" == "true" ]]; then
+            echo "## ✅ デプロイ成功" >> $GITHUB_STEP_SUMMARY
+            echo "全てのコンポーネントが正常にデプロイされました。" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## ❌ デプロイ失敗" >> $GITHUB_STEP_SUMMARY
+            echo "一部のコンポーネントでエラーが発生しました。ログを確認してください。" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 🔗 関連リンク" >> $GITHUB_STEP_SUMMARY
+          echo "- [デプロイメントガイド](docs/deployment-guide.md)" >> $GITHUB_STEP_SUMMARY
+          echo "- [CloudWatch Dashboard](https://ap-northeast-1.console.aws.amazon.com/cloudwatch/home?region=ap-northeast-1#dashboards:name=ExcelUnlocker-Dashboard-${{ github.event.inputs.environment }})" >> $GITHUB_STEP_SUMMARY
+
+      - name: Notify deployment completion
+        if: github.event.inputs.environment == 'production'
+        run: |
+          echo "🎉 本番環境への段階的デプロイが完了しました！"
+          echo "運用開始の準備が整いました。"

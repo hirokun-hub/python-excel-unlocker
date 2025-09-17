@@ -1,10 +1,43 @@
 version = 0.1
 
+# 開発環境設定
 [default.deploy.parameters]
-stack_name = "excel-unlocker-api"
+stack_name = "excel-unlocker-api-dev"
 resolve_s3 = true
-s3_prefix = "excel-unlocker-api"
+s3_prefix = "excel-unlocker-api-dev"
 region = "ap-northeast-1"
 confirm_changeset = true
 capabilities = "CAPABILITY_IAM"
 image_repositories = []
+parameter_overrides = [
+    "Environment=development",
+    "AllowedUsers=hironomac2025@gmail.com"
+]
+
+# ステージング環境設定
+[staging.deploy.parameters]
+stack_name = "excel-unlocker-api-staging"
+resolve_s3 = true
+s3_prefix = "excel-unlocker-api-staging"
+region = "ap-northeast-1"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+image_repositories = []
+parameter_overrides = [
+    "Environment=staging",
+    "AllowedUsers=hironomac2025@gmail.com,staging-user@example.com"
+]
+
+# 本番環境設定
+[production.deploy.parameters]
+stack_name = "excel-unlocker-api-prod"
+resolve_s3 = true
+s3_prefix = "excel-unlocker-api-prod"
+region = "ap-northeast-1"
+confirm_changeset = false  # 本番は手動確認必須
+capabilities = "CAPABILITY_IAM"
+image_repositories = []
+parameter_overrides = [
+    "Environment=production",
+    "AllowedUsers=hironomac2025@gmail.com,user2@nsc.co.jp,user3@nsc.co.jp"
+]

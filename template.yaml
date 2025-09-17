@@ -4,8 +4,23 @@ Description: >-
   Excel Password Remover API
   This project provides an API to unlock password-protected Excel files.
 
+# Conditions for environment-specific configurations
+Conditions:
+  IsProduction: !Equals [!Ref Environment, "production"]
+  IsStaging: !Equals [!Ref Environment, "staging"]
+  IsDevelopment: !Equals [!Ref Environment, "development"]
+
 # Parameters for configuration
 Parameters:
+  Environment:
+    Type: String
+    Default: "development"
+    AllowedValues:
+      - development
+      - staging
+      - production
+    Description: "Deployment environment"
+  
   AllowedUsers:
     Type: String
     Default: "hironomac2025@gmail.com"
@@ -36,7 +51,7 @@ Resources:
   ExcelBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub "excel-unlocker-bucket-${AWS::AccountId}-${AWS::Region}"
+      BucketName: !Sub "excel-unlocker-bucket-${Environment}-${AWS::AccountId}-${AWS::Region}"
       # セキュリティ強化：パブリックアクセスブロック
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
@@ -180,7 +195,7 @@ Resources:
   GetUploadUrlFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: excel-get-upload-url-function
+      FunctionName: !Sub "excel-get-upload-url-function-${Environment}"
       CodeUri: backend/src/
       Handler: get_upload_url.lambda_handler
       Timeout: 30
@@ -191,10 +206,11 @@ Resources:
       Environment:
         Variables:
           S3_BUCKET_NAME: !Ref ExcelBucket
-          LOG_LEVEL: INFO
+          LOG_LEVEL: !If [IsProduction, "WARN", "INFO"]
           ALLOWED_USERS: !Ref AllowedUsers
+          ENVIRONMENT: !Ref Environment
           # パフォーマンス最適化：環境変数
-          AWS_LAMBDA_LOG_LEVEL: INFO
+          AWS_LAMBDA_LOG_LEVEL: !If [IsProduction, "WARN", "INFO"]
       Events:
         ApiEvent:
           Type: Api
@@ -206,7 +222,7 @@ Resources:
   UnlockFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: excel-unlock-function
+      FunctionName: !Sub "excel-unlock-function-${Environment}"
       CodeUri: backend/src/
       Handler: unlock.lambda_handler
       Timeout: 900  # 15分（Excel処理に時間がかかる場合があるため）
@@ -217,10 +233,11 @@ Resources:
       Environment:
         Variables:
           S3_BUCKET_NAME: !Ref ExcelBucket
-          LOG_LEVEL: INFO
+          LOG_LEVEL: !If [IsProduction, "WARN", "INFO"]
           ALLOWED_USERS: !Ref AllowedUsers
+          ENVIRONMENT: !Ref Environment
           # パフォーマンス最適化：環境変数
-          AWS_LAMBDA_LOG_LEVEL: INFO
+          AWS_LAMBDA_LOG_LEVEL: !If [IsProduction, "WARN", "INFO"]
           PYTHONUNBUFFERED: 1  # Python出力バッファリング無効化
       Events:
         ApiEvent:
@@ -228,6 +245,123 @@ Resources:
           Properties:
             Path: /unlock
             Method: post
+
+  # CloudWatch Alarms for monitoring
+  HighErrorRateAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "ExcelUnlocker-HighErrorRate-${Environment}"
+      AlarmDescription: "High error rate detected in Excel Unlocker API"
+      MetricName: "Errors"
+      Namespace: "AWS/Lambda"
+      Statistic: "Sum"
+      Period: 300  # 5分間
+      EvaluationPeriods: 2
+      Threshold: 5  # 5分間で5回以上のエラー
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: "FunctionName"
+          Value: !Ref UnlockFunction
+      AlarmActions:
+        - !Ref AlertTopic
+      TreatMissingData: notBreaching
+
+  HighLatencyAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "ExcelUnlocker-HighLatency-${Environment}"
+      AlarmDescription: "High latency detected in Excel Unlocker API"
+      MetricName: "Duration"
+      Namespace: "AWS/Lambda"
+      Statistic: "Average"
+      Period: 300  # 5分間
+      EvaluationPeriods: 2
+      Threshold: 10000  # 10秒
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: "FunctionName"
+          Value: !Ref UnlockFunction
+      AlarmActions:
+        - !Ref AlertTopic
+      TreatMissingData: notBreaching
+
+  # SNS Topic for alerts
+  AlertTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub "ExcelUnlocker-Alerts-${Environment}"
+      DisplayName: !Sub "Excel Unlocker Alerts (${Environment})"
+
+  # SNS Subscription for email alerts
+  AlertSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Protocol: "email"
+      TopicArn: !Ref AlertTopic
+      Endpoint: "hironomac2025@gmail.com"  # 管理者メールアドレス
+
+  # CloudWatch Dashboard
+  MonitoringDashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: !Sub "ExcelUnlocker-Dashboard-${Environment}"
+      DashboardBody: !Sub |
+        {
+          "widgets": [
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 0,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "AWS/Lambda", "Invocations", "FunctionName", "${UnlockFunction}" ],
+                  [ ".", "Errors", ".", "." ],
+                  [ ".", "Duration", ".", "." ]
+                ],
+                "period": 300,
+                "stat": "Sum",
+                "region": "${AWS::Region}",
+                "title": "Lambda Metrics - Unlock Function"
+              }
+            },
+            {
+              "type": "metric",
+              "x": 12,
+              "y": 0,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "AWS/Lambda", "Invocations", "FunctionName", "${GetUploadUrlFunction}" ],
+                  [ ".", "Errors", ".", "." ],
+                  [ ".", "Duration", ".", "." ]
+                ],
+                "period": 300,
+                "stat": "Sum",
+                "region": "${AWS::Region}",
+                "title": "Lambda Metrics - Get Upload URL Function"
+              }
+            },
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 6,
+              "width": 24,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "AWS/S3", "BucketSizeBytes", "BucketName", "${ExcelBucket}", "StorageType", "StandardStorage" ]
+                ],
+                "period": 86400,
+                "stat": "Average",
+                "region": "${AWS::Region}",
+                "title": "S3 Bucket Size"
+              }
+            }
+          ]
+        }
 
 # Outputs to easily access created resources
 Outputs:
@@ -243,3 +377,15 @@ Outputs:
   BucketName:
     Description: "Name of the S3 bucket for storing Excel files"
     Value: !Ref ExcelBucket
+  
+  Environment:
+    Description: "Deployment environment"
+    Value: !Ref Environment
+  
+  DashboardUrl:
+    Description: "CloudWatch Dashboard URL"
+    Value: !Sub "https://${AWS::Region}.console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#dashboards:name=${MonitoringDashboard}"
+  
+  AlertTopicArn:
+    Description: "SNS Topic ARN for alerts"
+    Value: !Ref AlertTopic
