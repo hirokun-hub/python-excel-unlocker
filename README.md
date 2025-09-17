@@ -61,6 +61,12 @@
 
 ## 開発・デプロイ
 
+### 初回セットアップ
+```bash
+# 前提条件確認・環境変数設定・初回デプロイ
+./scripts/setup-deployment.sh
+```
+
 ### ローカル開発
 ```bash
 # バックエンドAPI起動
@@ -71,19 +77,47 @@ cd frontend
 npm run dev
 ```
 
-### デプロイ
-```bash
-# バックエンドデプロイ
-sam deploy
+### 段階的デプロイ
 
-# フロントエンドデプロイ（Vercel）
-vercel --prod
+#### 環境別デプロイ
+```bash
+# 開発環境
+./scripts/deploy.sh development all
+
+# ステージング環境  
+./scripts/deploy.sh staging all
+
+# 本番環境（確認プロンプト付き）
+./scripts/deploy.sh production all
 ```
+
+#### GitHub Actions（推奨）
+1. **自動デプロイ**:
+   - `develop`ブランチ → 開発環境
+   - `main`ブランチ → ステージング環境
+
+2. **手動デプロイ**:
+   - Actions タブ → "Deploy Full Stack" → 環境選択 → 実行
+
+#### 環境構成
+| 環境 | 用途 | デプロイ方法 | 承認 |
+|------|------|-------------|------|
+| Development | 開発・テスト | 自動/手動 | 不要 |
+| Staging | 本番前検証 | 自動/手動 | 不要 |
+| Production | 本番運用 | 手動のみ | 必要 |
 
 ## ドキュメント
 
+### 開発・運用ガイド
+- [段階的デプロイメントガイド](docs/deployment-guide.md) 🆕
 - [認証・API統合ガイド](docs/authentication-integration-guide.md)
 - [ローカル開発環境ガイド](docs/local-development-guide.md)
+
+### 設計・仕様書
 - [要件定義書](.kiro/specs/secure-excel-unlock/requirements.md)
 - [設計書](.kiro/specs/secure-excel-unlock/design.md)
 - [実装計画](.kiro/specs/secure-excel-unlock/tasks.md)
+
+### 実装完了状況
+- [実装完了サマリー](docs/implementation-complete-summary.md)
+- [セキュリティ強化](docs/security-enhancements.md)

@@ -527,36 +527,75 @@ def put_custom_metric(metric_name: str, value: float, unit: str = 'Count'):
 
 ## デプロイメント
 
-### CI/CD パイプライン
+### 段階的デプロイメント戦略
+
+#### 環境構成
+| 環境 | 用途 | デプロイ方法 | 承認 |
+|------|------|-------------|------|
+| **Development** | 開発・テスト | 自動 (develop ブランチ) | 不要 |
+| **Staging** | 本番前検証 | 自動 (main ブランチ) | 不要 |
+| **Production** | 本番運用 | 手動 (workflow_dispatch) | 必要 |
+
+#### CI/CD パイプライン
 ```yaml
-# GitHub Actions
-name: Deploy
+# 1. バックエンドデプロイ (.github/workflows/deploy-backend.yml)
+name: Deploy Backend to AWS
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
+    paths: ['backend/**', 'template.yaml']
+  workflow_dispatch:
+    inputs:
+      environment: [development, staging, production]
 
-jobs:
-  deploy-backend:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Deploy Lambda
-        run: |
-          sam build
-          sam deploy --no-confirm-changeset
-  
-  deploy-frontend:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Deploy to Vercel
-        run: vercel --prod
+# 2. フロントエンドデプロイ (.github/workflows/deploy-frontend.yml)  
+name: Deploy Frontend to Vercel
+on:
+  push:
+    branches: [main, develop]
+    paths: ['frontend/**']
+  workflow_dispatch:
+    inputs:
+      environment: [development, staging, production]
+
+# 3. フルスタックデプロイ (.github/workflows/deploy-full-stack.yml)
+name: Deploy Full Stack
+on:
+  workflow_dispatch:
+    inputs:
+      environment: [development, staging, production]
+      deploy_backend: boolean
+      deploy_frontend: boolean
+      run_tests: boolean
+```
+
+#### デプロイメントスクリプト
+```bash
+# 初回セットアップ
+./scripts/setup-deployment.sh
+
+# 環境別デプロイ
+./scripts/deploy.sh development all    # 開発環境
+./scripts/deploy.sh staging all       # ステージング環境  
+./scripts/deploy.sh production all    # 本番環境（確認プロンプト付き）
+
+# コンポーネント別デプロイ
+./scripts/deploy.sh development backend   # バックエンドのみ
+./scripts/deploy.sh development frontend  # フロントエンドのみ
 ```
 
 ### 環境管理
-- **開発環境**: 個人AWS アカウント
-- **本番環境**: 同一アカウント（別リソース）
-- **設定管理**: AWS Systems Manager Parameter Store
+- **開発環境**: `excel-unlocker-api-dev` スタック
+- **ステージング環境**: `excel-unlocker-api-staging` スタック  
+- **本番環境**: `excel-unlocker-api-prod` スタック
+- **設定管理**: samconfig.toml による環境別パラメータ管理
+- **モニタリング**: CloudWatch Dashboard + SNSアラート
+
+### モニタリング・アラート
+- **CloudWatch Dashboard**: 環境別メトリクス監視
+- **アラート設定**: 高エラー率・高レイテンシ検知
+- **SNS通知**: 管理者メール通知
+- **ログ管理**: 機密情報除外・適切な保持期間設定
 
 
 
