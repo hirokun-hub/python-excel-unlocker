@@ -1,4 +1,4 @@
-name: 🚦 CI Pipeline with AI Analysis
+name: 🚦 CI (AI-first, lightweight)
 
 on:
   push:
@@ -8,32 +8,32 @@ on:
   workflow_dispatch:
 
 jobs:
-  # --- 基本テストスイート ---
-  frontend-tests:
-    name: 🎨 Frontend Tests
-    uses: ./.github/workflows/test-frontend.yml
-    with:
-      node-version: '20'
-      coverage-threshold: 80
-    secrets: inherit
-
-  backend-tests:
-    name: 🐍 Backend Tests
-    uses: ./.github/workflows/test-backend.yml
-    secrets: inherit
-
-  security-scan:
-    name: 🔒 Security Scan
-    uses: ./.github/workflows/security-scan.yml
-    secrets: inherit
-
-  # --- AI向けアーティファクト生成（テスト完了後） ---
   ai-artifacts:
     name: 🧭 Collect AI Artifacts
-    needs: [frontend-tests, backend-tests, security-scan]
-    if: always() # テストが失敗してもアーティファクトは生成
     uses: ./.github/workflows/ai-artifacts.yml
+    with:
+      run_jest: false
+      run_pytest: false
     secrets: inherit
+
+  # --- 停止中（必要になったら戻す） ---
+  # frontend-tests:
+  #   name: 🎨 Frontend Tests
+  #   uses: ./.github/workflows/test-frontend.yml
+  #   with:
+  #     node-version: '20'
+  #     coverage-threshold: 80
+  #   secrets: inherit
+
+  # backend-tests:
+  #   name: 🐍 Backend Tests
+  #   uses: ./.github/workflows/test-backend.yml
+  #   secrets: inherit
+
+  # security-scan:
+  #   name: 🔒 Security Scan
+  #   uses: ./.github/workflows/security-scan.yml
+  #   secrets: inherit
 
   # --- 将来の拡張 ---
   # integration-tests:

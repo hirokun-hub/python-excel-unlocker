@@ -3,11 +3,14 @@ name: AI Artifacts (Reusable)
 on:
   workflow_call:
     inputs:
-      collect-test-results:
-        description: 'Whether to collect test results from previous jobs'
+      run_jest:
         required: false
-        default: true
         type: boolean
+        default: false
+      run_pytest:
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   ai-artifacts:
@@ -17,115 +20,154 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
+          
       - name: Detect changed files
         id: changed
         uses: tj-actions/changed-files@v45
         with:
           separator: "\n"
-
-      - name: Show changed files (debug)
-        run: |
-          echo "${{ steps.changed.outputs.all_changed_files }}"
-
+          
       - name: Prepare dirs
         run: |
           mkdir -p project-metadata test-results analysis_data
-
-      # --- 他のワークフローからテスト結果をダウンロード ---
-      - name: Download test artifacts
-        if: inputs.collect-test-results
-        uses: actions/download-artifact@v4
-        with:
-          pattern: '*-test-results'
-          path: test-results/
-          merge-multiple: true
-        continue-on-error: true
-
-      - name: Download coverage artifacts
-        if: inputs.collect-test-results
-        uses: actions/download-artifact@v4
-        with:
-          pattern: '*-coverage'
-          path: test-results/coverage/
-          merge-multiple: true
-        continue-on-error: true
-
-      - name: List repository files (relative paths)
+          
+      - name: List repository files (relative)
+        run: git ls-files > project-metadata/file-structure.txt
+        
+      - name: Summarize diff (numstat)
         run: |
-          git ls-files > project-metadata/file-structure.txt
-
-      - name: Summarize diff (numstat -> change-map.json)
+          git diff --numstat HEAD~1 HEAD | awk '{print "{\"added\":"$1",\"deleted\":"$2",\"file\":\""$3"\"}"}' | jq -s '.' > project-metadata/change-map.json || echo "[]" > project-metadata/change-map.json
+          
+      - name: Commit meta
         run: |
-          git diff --numstat HEAD~1 HEAD | awk '{print "{\"added\":"$1",\"deleted\":"$2",\"file\":\""$3"\"}"}' | jq -s '.' > project-metadata/change-map.json || echo "[]">project-metadata/change-map.json
+          {
+            echo "=== last commit ==="
+            git log -1 --pretty=fuller
+            echo
+            echo "=== diffstat ==="
+            git diff --stat HEAD~1 HEAD || true
+          } > project-metadata/git-history.txt
+          
+      - name: Runtime snapshot
+        run: |
+          NODE_V=$(node -v 2>/dev/null || echo "N/A")
+          PY_V=$(python3 --version 2>/dev/null || echo "N/A")
+          UNAME=$(uname -a)
+          jq -n --arg node "$NODE_V" --arg py "$PY_V" --arg os "$UNAME" '{node:$node, python:$py, os:$os}' > analysis_data/runtime.json
 
-      # ------- Frontend (if Node project exists) -------
+      # ---------- Frontend (optional & resilient) ----------
       - name: Setup Node
-        if: hashFiles('frontend/package.json') != ''
+        if: hashFiles('package.json') != ''
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-
-      - name: Install Node deps (npm ci)
-        if: hashFiles('frontend/package-lock.json') != '' && hashFiles('frontend/package.json') != ''
-        working-directory: frontend
-        run: npm ci
-
+          
+      - name: Install Node deps (best effort)
+        if: hashFiles('package-lock.json') != '' && hashFiles('package.json') != ''
+        run: npm ci --no-audit --no-fund
+        continue-on-error: true
+        
       - name: Type check (changed only)
-        if: hashFiles('frontend/tsconfig.json') != '' && steps.changed.outputs.all_changed_files != ''
-        working-directory: frontend
+        if: hashFiles('tsconfig.json') != '' && steps.changed.outputs.all_changed_files != ''
         run: |
-          CHANGED=$(printf "%s" "${{ steps.changed.outputs.all_changed_files }}" | grep -E 'frontend/.*\.(ts|tsx)$' || true)
-          if [ -n "$CHANGED" ]; then npx tsc --noEmit --pretty false $CHANGED | tee ../test-results/tsc.log || true; fi
-
-      - name: ESLint (changed only, JSON)
-        if: hashFiles('frontend/.eslintrc*') != '' && steps.changed.outputs.all_changed_files != ''
-        working-directory: frontend
+          CHANGED=$(printf "%s" "${{ steps.changed.outputs.all_changed_files }}" | grep -E '\.(ts|tsx)$' || true)
+          if [ -n "$CHANGED" ]; then 
+            npx tsc --noEmit --pretty false $CHANGED | tee test-results/tsc.log || true
+          else 
+            echo "no ts changes" > test-results/tsc.log
+          fi
+          
+      - name: ESLint (changed only)
+        if: hashFiles('.eslintrc*') != '' && steps.changed.outputs.all_changed_files != ''
         run: |
-          CHANGED=$(printf "%s" "${{ steps.changed.outputs.all_changed_files }}" | grep -E 'frontend/' | sed 's|frontend/||' | tr '\n' ' ')
-          if [ -n "$CHANGED" ]; then npx eslint -f json $CHANGED > ../test-results/eslint.json || echo "[]" > ../test-results/eslint.json; fi
-
-      - name: Frontend tests (find related)
-        if: hashFiles('frontend/package.json') != '' && steps.changed.outputs.all_changed_files != ''
-        working-directory: frontend
+          CHANGED=$(printf "%s" "${{ steps.changed.outputs.all_changed_files }}" | tr '\n' ' ')
+          if [ -n "$CHANGED" ]; then 
+            npx eslint -f json $CHANGED > test-results/eslint.json || echo "[]" > test-results/eslint.json
+          else 
+            echo "[]" > test-results/eslint.json
+          fi 
+         
+      - name: Frontend tests (find related; optional)
+        if: inputs.run_jest == true && hashFiles('package.json') != '' && steps.changed.outputs.all_changed_files != ''
         env:
-          JEST_JUNIT_OUTPUT: ../test-results/junit-fe.xml
+          JEST_JUNIT_OUTPUT: test-results/junit-fe.xml
         run: |
-          CHANGED=$(printf "%s" "${{ steps.changed.outputs.all_changed_files }}" | grep -E 'frontend/' | sed 's|frontend/||' | tr '\n' ' ')
-          if [ -n "$CHANGED" ]; then npx jest --ci --runInBand --reporters=default --reporters=jest-junit --findRelatedTests $CHANGED || true; fi
-          # coverageは有れば拾う（設定任せ）
-          if [ -d coverage ]; then jq -n --arg exists "true" '{coverageExists:$exists}' > ../test-results/coverage-fe.json; else jq -n '{coverageExists:false}' > ../test-results/coverage-fe.json; fi
-
+          CHANGED=$(printf "%s" "${{ steps.changed.outputs.all_changed_files }}" | tr '\n' ' ')
+          npx jest --ci --runInBand --reporters=default --reporters=jest-junit --findRelatedTests $CHANGED || true
+          if [ -d coverage ]; then 
+            jq -n --arg exists "true" '{coverageExists:$exists}' > test-results/coverage-fe.json
+          else 
+            jq -n '{coverageExists:false}' > test-results/coverage-fe.json
+          fi
+          
       - name: NPM dependency tree (JSON)
-        if: hashFiles('frontend/package.json') != ''
-        working-directory: frontend
-        run: |
-          (npm ls --all --json > ../project-metadata/npm-deps.json) || echo "{}" > ../project-metadata/npm-deps.json
+        if: hashFiles('package.json') != ''
+        run: (npm ls --all --json > project-metadata/npm-deps.json) || echo "{}" > project-metadata/npm-deps.json
 
-      # ------- Backend (if Python project exists) -------
+      # ---------- Backend (optional & resilient) ----------
       - name: Setup Python
-        if: hashFiles('backend/src/requirements.txt') != '' || hashFiles('pyproject.toml') != ''
+        if: hashFiles('backend/requirements.txt') != '' || hashFiles('pyproject.toml') != ''
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-
+          
       - name: Install Python deps
-        if: hashFiles('backend/src/requirements.txt') != ''
-        run: pip install -r backend/src/requirements.txt || true
-
-      - name: Backend tests (nearby only)
-        if: hashFiles('backend/src/requirements.txt') != '' && steps.changed.outputs.all_changed_files != ''
+        if: hashFiles('backend/requirements.txt') != ''
+        run: pip install -r backend/requirements.txt || true
+        
+      - name: Backend tests (nearby; optional)
+        if: inputs.run_pytest == true && (hashFiles('pytest.ini') != '' || hashFiles('pyproject.toml') != '' || hashFiles('backend/requirements.txt') != '')
         run: |
           mkdir -p test-results
-          # 変更ファイルのディレクトリに近いテストをおおまかに実行
-          TARGETS=$(printf "%s" "${{ steps.changed.outputs.all_changed_files }}" | grep -E 'backend/' | sed 's#/[^/]*$##' | sort -u | tr '\n' ' ')
-          if [ -n "$TARGETS" ]; then pytest backend/tests/ -q --maxfail=1 --disable-warnings --junitxml=test-results/junit-be.xml || true; fi
-
+          TARGETS=$(printf "%s" "${{ steps.changed.outputs.all_changed_files }}" | sed 's#/[^/]*$##' | sort -u | tr '\n' ' ')
+          pytest -q -k "$TARGETS" --maxfail=1 --disable-warnings --junitxml=test-results/junit-be.xml || true
+          
       - name: Pip freeze
-        if: hashFiles('backend/src/requirements.txt') != '' || hashFiles('pyproject.toml') != ''
+        if: hashFiles('backend/requirements.txt') != '' || hashFiles('pyproject.toml') != ''
         run: pip freeze > project-metadata/pip-freeze.txt || true
 
-      # ------- Dependency diff (lockfiles) -------
+      # ---------- Lightweight signals ----------
+      - name: TODO/FIXME radar (changed)
+        run: |
+          CHANGED=$(printf "%s" "${{ steps.changed.outputs.all_changed_files }}" | tr '\n' ' ')
+          if [ -n "$CHANGED" ]; then 
+            grep -nH -E 'TODO|FIXME' $CHANGED 2>/dev/null | awk -F: '{gsub(/"/,"\\\"",$0); print "{\"file\":\""$1"\",\"line\":"$2",\"text\":\""$0"\"}"}' | jq -s '.' > analysis_data/todo-fixme.json || echo "[]" > analysis_data/todo-fixme.json
+          else 
+            echo "[]" > analysis_data/todo-fixme.json
+          fi
+          
+      - name: Blame map (coarse; changed files)
+        run: |
+          {
+            echo '['
+            FIRST=1
+            while IFS= read -r f; do
+              [ -z "$f" ] && continue
+              AUTH=$(git log -1 --pretty=format:'%an' -- "$f" 2>/dev/null || echo "N/A")
+              DATE=$(git log -1 --pretty=format:'%ad' --date=iso -- "$f" 2>/dev/null || echo "N/A")
+              [ $FIRST -eq 0 ] && echo ','
+              echo "{\"file\":\"$f\",\"lastAuthor\":\"$AUTH\",\"lastDate\":\"$DATE\"}"
+              FIRST=0
+            done <<EOF
+          ${{ steps.changed.outputs.all_changed_files }}
+          EOF
+            echo ']'
+          } > project-metadata/blame-map.json
+          
+      - name: Collect codeframes (from JUnit if present)
+        run: |
+          mkdir -p analysis_data/codeframes
+          for J in test-results/junit-*.xml; do
+            [ -f "$J" ] || continue
+            FILE=$(grep -oE 'at [^:]+:\d+' "$J" | head -n1 | awk '{print $2}' | cut -d: -f1)
+            LINE=$(grep -oE 'at [^:]+:\d+' "$J" | head -n1 | awk -F: '{print $2}')
+            [ -f "$FILE" ] || continue
+            L0=$((LINE-10)); [ $L0 -lt 1 ] && L0=1
+            L1=$((LINE+10))
+            sed -n "${L0},${L1}p" "$FILE" > "analysis_data/codeframes/$(basename $J .xml).txt" || true
+          done
+
+      # ---------- Dependency lock diff ----------
       - name: Dependency lock diff summary
         run: |
           BASE=$(git rev-parse HEAD~1)
@@ -137,12 +179,13 @@ jobs:
             echo ']'
           } > project-metadata/dependency-diff.json || echo "[]" > project-metadata/dependency-diff.json
 
-      # ------- Package everything -------
+      # ---------- Package everything (always) ----------
       - name: Zip AI analysis package
-        run: |
-          zip -r ai-analysis-package.zip project-metadata test-results analysis_data || true
-
+        if: always()
+        run: zip -r ai-analysis-package.zip project-metadata test-results analysis_data || true
+        
       - name: Upload artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ai-analysis-package

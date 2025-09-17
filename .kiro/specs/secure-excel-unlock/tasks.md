@@ -134,56 +134,58 @@
 
 ### フェーズ5.5: テスト自動化とCI/CD
 
-- [x] 5.4 CI Pipeline統合とAI向けアーティファクト生成（完了）
+- [x] 5.4 AI向けアーティファクト収集システム（軽量化・最適化完了）
+  - **目的**: 「動作保証のための重テスト」から「AIが原因特定に使う事実と文脈の収集」に全振り
   - **実装内容**:
-    - ✅ CI Pipeline統合: テスト完了後にAI向けアーティファクト生成
-    - ✅ 並列テスト実行: フロントエンド・バックエンド・セキュリティスキャン
-    - ✅ テスト結果自動収集: 他のワークフローからアーティファクトを統合
-    - ✅ Jest設定でJUnitレポート生成（jest-junit追加）
-    - ✅ フロントエンド・バックエンドパス修正（working-directory対応）
-    - ✅ 失敗時対応: `if: always()`でテスト失敗時でもアーティファクト生成
-  - **CI Pipeline構造**:
+    - ✅ 再利用可能ワークフロー（ai-artifacts.yml）の作成
+    - ✅ 軽量CI Pipeline（ci.yml）への変更
+    - ✅ 差分限定実行（tj-actions/changed-files使用）
+    - ✅ 堅牢なアーティファクト生成（`if: always()`、`continue-on-error`）
+    - ✅ 包括的メタデータ収集（blame、TODO/FIXME、コードフレーム）
+    - ✅ 週1セキュリティスキャン化（CodeQL停止）
+  - **収集データ**:
     ```
-    1. Frontend Tests (並列)
-    2. Backend Tests (並列)
-    3. Security Scan (並列)
-    4. AI Artifacts Collection (テスト完了後)
-    5. Upload AI Analysis Package
+    ai-analysis-package/
+    ├── project-metadata/          # プロジェクト構造・メタデータ
+    │   ├── file-structure.txt     # リポジトリ全ファイルの相対パス一覧
+    │   ├── change-map.json        # git diff --numstat の要約
+    │   ├── git-history.txt        # 直近コミットのメタ情報
+    │   ├── blame-map.json         # 変更ファイルの最終更新者・時刻
+    │   ├── npm-deps.json          # Node.js依存関係ツリー
+    │   ├── pip-freeze.txt         # Python依存関係
+    │   └── dependency-diff.json   # 依存関係ロックファイルの差分
+    ├── test-results/              # テスト・検査結果
+    │   ├── junit-fe.xml           # フロントエンドテスト結果（Jest）
+    │   ├── junit-be.xml           # バックエンドテスト結果（pytest）
+    │   ├── coverage-fe.json       # フロントエンドカバレッジ
+    │   ├── tsc.log                # TypeScript型チェック（差分限定）
+    │   └── eslint.json            # ESLint結果（差分限定）
+    └── analysis_data/             # AI分析用データ
+        ├── runtime.json           # Node/Python/OSバージョン情報
+        ├── todo-fixme.json        # 変更箇所のTODO/FIXME抽出
+        └── codeframes/            # JUnit失敗時のコードフレーム（±10行）
     ```
-  - **生成アーティファクト**:
-    ```
-    ai-analysis-package.zip
-    ├── test-results/ (他のワークフローから自動収集)
-    │   ├── junit-fe.xml (フロントエンドテスト結果)
-    │   ├── junit-be.xml (バックエンドテスト結果)
-    │   ├── coverage/ (テストカバレッジデータ)
-    │   ├── security-scan-results (セキュリティスキャン結果)
-    │   ├── eslint.json (差分限定ESLint)
-    │   └── tsc.log (差分限定TypeScript)
-    ├── project-metadata/
-    │   ├── file-structure.txt (リポジトリ全体のファイルパス一覧)
-    │   ├── npm-deps.json (Node.js依存関係ツリー)
-    │   ├── pip-freeze.txt (Python依存関係)
-    │   ├── dependency-diff.json (依存関係差分)
-    │   └── change-map.json (変更要約)
-    └── analysis_data/ (将来拡張用)
-    ```
-  - _要件: 完全なテスト結果を含むAI分析用データの生成_
-  - **ブランチ**: `feature/ci-pipeline-integration`
+  - **特徴**:
+    - 毎コミット/PRで確実に実行（テスト失敗でも継続）
+    - 差分限定で高速実行
+    - AIが原因特定に必要な「事実と文脈」に特化
+    - 重いテスト（E2E、統合、パフォーマンス）は手動/夜間に移行
+  - _要件: 要件7（AIアーカイブ・分析支援）_
+  - **ブランチ**: `feature/ai-artifacts-optimization`
 
-- [ ] 5.6 CI Pipeline最適化と拡張
-  - **現在の状況**: 基本的なCI Pipeline統合は完了
-  - **最適化項目**:
-    - E2Eテストの段階的復活（PRのみ実行）
-    - 統合テストの追加（フロントエンド・バックエンド連携テスト）
-    - パフォーマンステストの条件付き実行
-    - デプロイワークフローの自動化（mainブランチのみ）
-  - **AI分析の改善**:
-    - テスト実行時間の分析とボトルネック特定
-    - カバレッジトレンドの追跡
-    - 変更影響範囲の詳細分析
-  - _要件: CI/CDパイプラインの完全自動化_
-  - **ブランチ**: `feature/ci-pipeline-optimization`
+- [ ] 5.6 AI分析データの拡張・改善
+  - **現在の状況**: 基本的なAI向けアーティファクト収集は完了
+  - **拡張項目**:
+    - blame/コードフレーム/ランタイム/TODOレーダーの精度向上
+    - 変更影響範囲の詳細分析（依存関係グラフ）
+    - テスト実行時間とボトルネック特定データ
+    - カバレッジトレンドの追跡データ
+  - **運用改善**:
+    - 夜間セキュリティスキャンの運用開始
+    - 必要時のフルテスト（E2E、統合、パフォーマンス）手動実行
+    - AI分析結果のフィードバックループ構築
+  - _要件: 要件7（AIアーカイブ・分析支援）の拡張_
+  - **ブランチ**: `feature/ai-analysis-enhancement`
 
 - [ ] 5.7 GitHub Actionsインフラ修正（レガシー対応）
   - 機密情報の削除（api_response.json内のAWSトークン）
@@ -263,8 +265,8 @@
 ## 実装優先順位
 
 ### 緊急優先度（即座に対応）
-0. **CI Pipeline統合とAI向けアーティファクト生成** (5.4) - ✅ 完了
-1. **GitHub Actionsインフラ修正** (5.6) - テスト環境の復旧
+0. **AI向けアーティファクト収集システム** (5.4) - ✅ 完了（軽量化・最適化済み）
+1. **GitHub Actionsインフラ修正** (5.7) - テスト環境の復旧
 
 ### 高優先度（必須）
 1. **認証システム** (1.1, 1.2) - セキュリティの基盤

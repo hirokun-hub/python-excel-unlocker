@@ -9,7 +9,8 @@
 ├── tests/              # 統合テストとパフォーマンステスト
 ├── template.yaml       # AWS SAMテンプレート
 ├── samconfig.toml      # SAMデプロイ設定
-└── .aws-sam/           # SAMビルド成果物とドキュメント
+├── .aws-sam/           # SAMビルド成果物とドキュメント
+└── analysis_data/      # AI分析用データ（GitHub Actions生成）
 ```
 
 ## フロントエンド構成 (`frontend/`)
@@ -63,6 +64,16 @@
 - **コンポーネント**: 機能またはUIライブラリ別に整理（`ui/`, `components/`）
 - **APIルート**: Next.js App Routerの規則に従う（`api/auth/[...nextauth]/`）
 - **テスト**: ソース構造をミラーリング（`__tests__/components/`）
+
+## AI分析用ディレクトリ (`analysis_data/`)
+```
+analysis_data/
+├── runtime.json           # Node/Python/OSバージョン情報
+├── todo-fixme.json        # 変更箇所のTODO/FIXME抽出
+└── codeframes/            # JUnit失敗時のコードフレーム（±10行）
+    ├── junit-fe.txt
+    └── junit-be.txt
+```
 
 ## 主要設定ファイル
 - `components.json`: shadcn/ui設定
