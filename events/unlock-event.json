@@ -1,0 +1,9 @@
+{
+  "httpMethod": "POST",
+  "path": "/unlock",
+  "headers": {
+    "Content-Type": "application/json",
+    "X-User-Email": "user1@example.com"
+  },
+  "body": "{\"fileKey\": \"uploads/test-file.xlsx\", \"passwords\": [\"password1\", \"password2\"]}"
+}

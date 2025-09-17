@@ -15,11 +15,14 @@ from s3_utils import (
     generate_presigned_url,
     download_file_from_s3,
     upload_file_to_s3,
-    generate_unique_key
+    generate_unique_key,
+    sanitize_for_log,
+    cleanup_local_file,
+    cleanup_s3_object
 )
-from excel_utils import unlock_excel_file, validate_excel_file
-from auth_utils import get_allowed_users, validate_user_access, extract_user_from_event
-from response_utils import create_response, create_error_response, create_success_response
+from excel_utils import unlock_excel_file, validate_excel_file, sanitize_password_for_log, sanitize_filename_for_log
+from auth_utils import get_allowed_users, validate_user_access, extract_user_from_event, sanitize_email_for_log
+from response_utils import create_response, create_error_response, create_success_response, sanitize_error_message_for_log
 
 class TestS3Utils:
     """S3ユーティリティ関数のテストケース"""
@@ -271,3 +274,131 @@ class TestResponseUtils:
         assert body['success'] is True
         assert body['result'] == 'processed'
         assert body['count'] == 5
+
+class TestSecurityFeatures:
+    """セキュリティ強化機能のテストケース"""
+    
+    def test_sanitize_for_log(self):
+        """S3ログサニタイズのテスト"""
+        # 署名付きURLのサニタイズ
+        url_with_params = "https://s3.amazonaws.com/bucket/file.xlsx?AWSAccessKeyId=AKIAIOSFODNN7EXAMPLE&Expires=1234567890&Signature=example"
+        sanitized = sanitize_for_log(url_with_params)
+        assert "?[REDACTED]" in sanitized
+        assert "AKIAIOSFODNN7EXAMPLE" not in sanitized
+        
+        # 日本語ファイル名のサニタイズ
+        japanese_filename = "重要な資料_2024年度.xlsx"
+        sanitized = sanitize_for_log(japanese_filename)
+        assert "[FILENAME_REDACTED]" in sanitized
+        assert "重要な資料" not in sanitized
+    
+    def test_sanitize_password_for_log(self):
+        """パスワードログサニタイズのテスト"""
+        password = "secret123"
+        sanitized = sanitize_password_for_log(password)
+        assert sanitized == "*" * len(password)
+        
+        empty_password = ""
+        sanitized = sanitize_password_for_log(empty_password)
+        assert sanitized == "[EMPTY]"
+    
+    def test_sanitize_filename_for_log(self):
+        """ファイル名ログサニタイズのテスト"""
+        # 日本語を含むファイル名
+        filename = "売上データ_20241201.xlsx"
+        sanitized = sanitize_filename_for_log(filename)
+        assert "[REDACTED]" in sanitized
+        assert "売上データ" not in sanitized
+        
+        # 数字の連続（ID、日付等）
+        filename_with_numbers = "report_12345678.xlsx"
+        sanitized = sanitize_filename_for_log(filename_with_numbers)
+        assert "[NUMBERS_REDACTED]" in sanitized
+        assert "12345678" not in sanitized
+    
+    def test_sanitize_email_for_log(self):
+        """メールアドレスログサニタイズのテスト"""
+        email = "user@example.com"
+        sanitized = sanitize_email_for_log(email)
+        assert sanitized == "u**r@example.com"
+        
+        short_email = "ab@example.com"
+        sanitized = sanitize_email_for_log(short_email)
+        assert sanitized == "**@example.com"
+        
+        invalid_email = "invalid-email"
+        sanitized = sanitize_email_for_log(invalid_email)
+        assert sanitized == "[INVALID_EMAIL]"
+    
+    def test_sanitize_error_message_for_log(self):
+        """エラーメッセージログサニタイズのテスト"""
+        # 一時ファイルパスを含むメッセージ
+        message = "Failed to process /tmp/uuid-重要ファイル.xlsx"
+        sanitized = sanitize_error_message_for_log(message)
+        assert "[TEMP_FILE_REDACTED]" in sanitized
+        assert "/tmp/uuid-重要ファイル.xlsx" not in sanitized
+        
+        # S3パスを含むメッセージ
+        message = "Cannot access s3://bucket/uploads/secret-file.xlsx"
+        sanitized = sanitize_error_message_for_log(message)
+        assert "[S3_PATH_REDACTED]" in sanitized
+        assert "s3://bucket/uploads/secret-file.xlsx" not in sanitized
+    
+    def test_cleanup_local_file(self):
+        """ローカルファイル削除のテスト"""
+        # テスト用一時ファイル作成
+        with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
+            tmp_file.write(b"test content")
+            tmp_path = tmp_file.name
+        
+        # ファイルが存在することを確認
+        assert os.path.exists(tmp_path)
+        
+        # 削除実行
+        result = cleanup_local_file(tmp_path)
+        
+        # 削除成功とファイルが存在しないことを確認
+        assert result is True
+        assert not os.path.exists(tmp_path)
+    
+    def test_cleanup_local_file_nonexistent(self):
+        """存在しないファイルの削除テスト"""
+        result = cleanup_local_file("/nonexistent/file.txt")
+        assert result is True  # 存在しないファイルは成功扱い
+    
+    @mock_aws
+    def test_cleanup_s3_object(self):
+        """S3オブジェクト削除のテスト"""
+        s3_client = boto3.client('s3', region_name='us-east-1')
+        s3_client.create_bucket(Bucket='test-bucket')
+        s3_client.put_object(Bucket='test-bucket', Key='test-file.txt', Body=b'test content')
+        
+        with patch('s3_utils.s3_client', s3_client):
+            # オブジェクトが存在することを確認
+            response = s3_client.list_objects_v2(Bucket='test-bucket')
+            assert 'Contents' in response
+            
+            # 削除実行
+            result = cleanup_s3_object('test-bucket', 'test-file.txt')
+            
+            # 削除成功とオブジェクトが存在しないことを確認
+            assert result is True
+            response = s3_client.list_objects_v2(Bucket='test-bucket')
+            assert 'Contents' not in response
+    
+    def test_response_security_headers(self):
+        """レスポンスセキュリティヘッダーのテスト"""
+        response = create_response(200, {'message': 'test'})
+        headers = response['headers']
+        
+        # セキュリティヘッダーの存在確認
+        assert 'X-Content-Type-Options' in headers
+        assert headers['X-Content-Type-Options'] == 'nosniff'
+        assert 'X-Frame-Options' in headers
+        assert headers['X-Frame-Options'] == 'DENY'
+        assert 'X-XSS-Protection' in headers
+        assert headers['X-XSS-Protection'] == '1; mode=block'
+        assert 'Strict-Transport-Security' in headers
+        assert 'max-age=31536000' in headers['Strict-Transport-Security']
+        assert 'Content-Security-Policy' in headers
+        assert "default-src 'self'" in headers['Content-Security-Policy']

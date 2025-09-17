@@ -1,11 +1,37 @@
 """
 認証チェックの共通ユーティリティ関数
+セキュリティ強化：機密情報のログ除外
 """
 import logging
 import os
 from typing import Dict, Any, Optional
+import re
 
 logger = logging.getLogger(__name__)
+
+def sanitize_email_for_log(email: str) -> str:
+    """
+    セキュリティ強化：メールアドレスをログ出力用にサニタイズする
+    
+    Args:
+        email: サニタイズ対象のメールアドレス
+    
+    Returns:
+        サニタイズされたメールアドレス
+    """
+    if not email:
+        return email
+    
+    # メールアドレスの@より前の部分を部分的にマスク
+    if '@' in email:
+        local, domain = email.split('@', 1)
+        if len(local) > 2:
+            masked_local = local[0] + '*' * (len(local) - 2) + local[-1]
+        else:
+            masked_local = '*' * len(local)
+        return f"{masked_local}@{domain}"
+    else:
+        return '[INVALID_EMAIL]'
 
 def get_allowed_users() -> list:
     """
@@ -49,14 +75,21 @@ def validate_user_access(user_email: Optional[str]) -> Dict[str, Any]:
             'message': 'Development mode - access granted'
         }
     
-    if user_email in allowed_users:
-        logger.info(f"Access granted for user: {user_email}")
+    # メールアドレスの正規化（小文字変換、空白除去）
+    normalized_email = user_email.strip().lower()
+    normalized_allowed_users = [email.strip().lower() for email in allowed_users]
+    
+    # セキュリティ強化：メールアドレスをサニタイズしてログ出力
+    sanitized_email = sanitize_email_for_log(user_email)
+    
+    if normalized_email in normalized_allowed_users:
+        logger.info(f"Access granted for user: {sanitized_email}")
         return {
             'authorized': True,
             'message': 'Access granted'
         }
     else:
-        logger.warning(f"Access denied for user: {user_email}")
+        logger.warning(f"Access denied for user: {sanitized_email}")
         return {
             'authorized': False,
             'message': 'Access denied - user not authorized'

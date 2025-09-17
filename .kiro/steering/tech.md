@@ -4,9 +4,10 @@
 - **フレームワーク**: Next.js 15.4 with React 19（全ドキュメント統一）
 - **言語**: TypeScript
 - **スタイリング**: Tailwind CSS with shadcn/ui components
-- **認証**: Auth.js（旧 NextAuth.js）with Google OAuth
+- **認証**: Auth.js（旧 NextAuth.js）with Google OAuth + X-User-Emailヘッダー認証
 - **HTTPクライアント**: Axios
 - **API呼び出し**: フロントエンドから API Gateway を直接呼び出す。Next.js API ルートは開発・デバッグ用途のみ
+- **認証連携**: セッション情報からX-User-Emailヘッダーを自動付与してバックエンドAPI呼び出し
 - **テスト**: Jest + React Testing Library, Playwright for E2E
 - **ビルドツール**: Turbopack (Next.js built-in)
 
@@ -16,6 +17,7 @@
 - **ストレージ**: AWS S3 with CORS configuration
 - **Excel処理**: msoffcrypto-tool, openpyxl
 - **AWS SDK**: boto3
+- **認証**: 環境変数ベースのユーザー許可リスト + メールアドレス正規化
 - **テスト**: pytest with moto for AWS mocking
 
 ## インフラストラクチャ

@@ -17,6 +17,9 @@
     "test:e2e:ui": "playwright test --ui",
     "test:auth": "jest --testPathPattern=auth",
     "test:a11y": "playwright test --grep=accessibility",
+    "test:integration": "jest __tests__/integration/",
+    "test:integration:api": "jest __tests__/integration/api-integration.test.tsx",
+    "test:e2e:integration": "playwright test e2e/integration.spec.ts",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {

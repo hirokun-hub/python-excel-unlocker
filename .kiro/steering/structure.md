@@ -5,6 +5,8 @@
 ├── frontend/           # Next.js Webアプリケーション
 ├── backend/            # AWS Lambda関数のソースコード
 ├── docs/               # プロジェクトドキュメント
+│   ├── authentication-integration-guide.md  # 認証・API統合ガイド
+│   └── local-development-guide.md           # ローカル開発環境ガイド
 ├── scripts/            # ユーティリティスクリプトとレガシーコード
 ├── tests/              # 統合テストとパフォーマンステスト
 ├── template.yaml       # AWS SAMテンプレート
@@ -22,10 +24,14 @@
 │   │   └── layout.tsx  # ルートレイアウトコンポーネント
 │   ├── components/     # Reactコンポーネント
 │   │   ├── ui/         # shadcn/uiコンポーネント
-│   │   └── *.tsx       # カスタムコンポーネント（FileUpload, FileResults等）
+│   │   ├── ExcelUnlocker.tsx  # Excel解除メインコンポーネント
+│   │   └── *.tsx       # その他カスタムコンポーネント（FileUpload, FileResults等）
 │   ├── lib/            # ユーティリティライブラリ
+│   │   ├── api.ts      # バックエンドAPI呼び出しライブラリ
+│   │   └── *.ts        # その他ユーティリティ
 │   ├── types/          # TypeScript型定義
-│   └── utils/          # ヘルパー関数
+│   ├── utils/          # ヘルパー関数
+│   └── auth.ts         # Auth.js認証設定
 ├── __tests__/          # ユニットテスト
 ├── e2e/                # Playwright E2Eテスト
 └── public/             # 静的アセット
@@ -34,8 +40,13 @@
 ## バックエンド構成 (`backend/`)
 ```
 ├── src/
-│   ├── main.py         # Lambdaハンドラーとコアロジック
-│   └── requirements.txt # Python依存関係
+│   ├── get_upload_url.py    # 署名付きURL生成Lambda関数
+│   ├── unlock.py           # Excel解除Lambda関数
+│   ├── auth_utils.py       # 認証チェック共通ユーティリティ
+│   ├── excel_utils.py      # Excel処理ユーティリティ
+│   ├── s3_utils.py         # S3操作ユーティリティ
+│   └── requirements.txt    # Python依存関係
+├── .env.local              # ローカル開発用環境変数
 └── tests/
     ├── unit/           # ユニットテスト
     └── conftest.py     # テスト設定
