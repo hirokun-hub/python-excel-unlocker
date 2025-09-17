@@ -147,6 +147,59 @@ jobs:
             echo "[]" > analysis_data/todo-fixme.json
           fi
           
+      - name: File metrics and complexity
+        run: |
+          # ファイルサイズ・行数統計
+          {
+            echo '['
+            FIRST=1
+            find . -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" -o -name "*.py" | while read f; do
+              [ ! -f "$f" ] && continue
+              lines=$(wc -l < "$f" 2>/dev/null || echo 0)
+              size=$(stat -f%z "$f" 2>/dev/null || stat -c%s "$f" 2>/dev/null || echo 0)
+              [ $FIRST -eq 0 ] && echo ','
+              echo "{\"file\":\"$f\",\"lines\":$lines,\"bytes\":$size}"
+              FIRST=0
+            done
+            echo ']'
+          } > analysis_data/file-metrics.json
+          
+      - name: Hotspot analysis (change frequency)
+        run: |
+          # 過去30日の変更頻度分析
+          git log --since="30 days ago" --name-only --pretty=format: | grep -v '^$' | sort | uniq -c | sort -nr | head -20 | awk '{print "{\"changes\":"$1",\"file\":\""$2"\"}"}' | jq -s '.' > analysis_data/hotspots.json || echo "[]" > analysis_data/hotspots.json
+          
+      - name: Recent commit patterns
+        run: |
+          # 最近20コミットの分析
+          git log -20 --pretty=format:'{"hash":"%h","date":"%ad","author":"%an","message":"%s","files_changed":%d}' --date=iso --shortstat | jq -s '.' > analysis_data/recent-commits.json || echo "[]" > analysis_data/recent-commits.json
+          
+      - name: Error patterns and logs
+        run: |
+          # エラーパターンの抽出
+          {
+            echo '['
+            FIRST=1
+            find . -name "*.log" -o -name "*.txt" -o -name "*.out" | head -10 | while read f; do
+              [ ! -f "$f" ] && continue
+              grep -nH -E "(error|Error|ERROR|exception|Exception|EXCEPTION|failed|Failed|FAILED)" "$f" 2>/dev/null | head -5 | while read line; do
+                [ $FIRST -eq 0 ] && echo ','
+                echo "{\"source\":\"$f\",\"pattern\":\"$(echo "$line" | sed 's/"/\\"/g')\"}"
+                FIRST=0
+              done
+            done
+            echo ']'
+          } > analysis_data/error-patterns.json || echo "[]" > analysis_data/error-patterns.json
+          
+      - name: Dependency vulnerabilities
+        run: |
+          # npm audit結果
+          if [ -f package.json ]; then
+            npm audit --json > analysis_data/npm-vulnerabilities.json 2>/dev/null || echo "{\"vulnerabilities\":{}}" > analysis_data/npm-vulnerabilities.json
+          else
+            echo "{\"vulnerabilities\":{}}" > analysis_data/npm-vulnerabilities.json
+          fi
+          
       - name: Blame map (coarse; changed files)
         run: |
           {

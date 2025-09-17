@@ -73,6 +73,11 @@ analysis_data/
 ├── change-context/        # 変更箇所の前後5行コンテキスト
 │   ├── full-diff.patch    # 全体差分
 │   └── *.patch            # ファイル別差分（前後5行）
+├── file-metrics.json      # ファイルサイズ・行数・複雑度統計
+├── hotspots.json          # 過去30日の変更頻度分析
+├── recent-commits.json    # 最近20コミットのパターン分析
+├── error-patterns.json    # ログファイルからのエラーパターン抽出
+├── npm-vulnerabilities.json # 依存関係の脆弱性情報
 └── codeframes/            # JUnit失敗時のコードフレーム（±10行）
     ├── junit-fe.txt
     └── junit-be.txt
