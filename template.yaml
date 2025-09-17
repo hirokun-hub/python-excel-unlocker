@@ -4,6 +4,13 @@ Description: >-
   Excel Password Remover API
   This project provides an API to unlock password-protected Excel files.
 
+# Parameters for configuration
+Parameters:
+  AllowedUsers:
+    Type: String
+    Default: ""
+    Description: "Comma-separated list of allowed user email addresses"
+
 # Global parameters can be defined here
 Globals:
   Function:
@@ -12,6 +19,11 @@ Globals:
     Runtime: python3.9
     Architectures:
       - x86_64
+  Api:
+    Cors:
+      AllowMethods: "'GET,POST,OPTIONS'"
+      AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-User-Email'"
+      AllowOrigin: "'*'"
 
 # AWS Resources definition
 Resources:
@@ -32,13 +44,15 @@ Resources:
               - "*" # In production, you should restrict this to your frontend's domain
             MaxAge: 3600
 
-  # Lambda Function for unlocking Excel files
-  UnlockFunction:
+  # Lambda Function for generating presigned URLs
+  GetUploadUrlFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: excel-unlocker-function
+      FunctionName: excel-get-upload-url-function
       CodeUri: backend/src/
-      Handler: main.lambda_handler
+      Handler: get_upload_url.lambda_handler
+      Timeout: 30
+      MemorySize: 128
       Policies:
         - S3ReadPolicy:
             BucketName: !Ref ExcelBucket
@@ -47,8 +61,35 @@ Resources:
       Environment:
         Variables:
           S3_BUCKET_NAME: !Ref ExcelBucket
+          LOG_LEVEL: INFO
+          ALLOWED_USERS: !Ref AllowedUsers
       Events:
-        # This event creates an API Gateway endpoint that triggers the Lambda function
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /presigned-urls
+            Method: post
+
+  # Lambda Function for unlocking Excel files
+  UnlockFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: excel-unlock-function
+      CodeUri: backend/src/
+      Handler: unlock.lambda_handler
+      Timeout: 900  # 15分（Excel処理に時間がかかる場合があるため）
+      MemorySize: 512  # Excel処理にはより多くのメモリが必要
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Ref ExcelBucket
+        - S3WritePolicy:
+            BucketName: !Ref ExcelBucket
+      Environment:
+        Variables:
+          S3_BUCKET_NAME: !Ref ExcelBucket
+          LOG_LEVEL: INFO
+          ALLOWED_USERS: !Ref AllowedUsers
+      Events:
         ApiEvent:
           Type: Api
           Properties:
@@ -58,8 +99,14 @@ Resources:
 # Outputs to easily access created resources
 Outputs:
   ApiUrl:
-    Description: "API Gateway endpoint URL for the Excel Unlocker function"
+    Description: "API Gateway endpoint URL for the Excel Unlocker API"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod"
+  UnlockApiUrl:
+    Description: "API Gateway endpoint URL for the Excel Unlock function"
     Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/unlock"
+  PresignedUrlApiUrl:
+    Description: "API Gateway endpoint URL for the Presigned URL function"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/presigned-urls"
   BucketName:
     Description: "Name of the S3 bucket for storing Excel files"
     Value: !Ref ExcelBucket
