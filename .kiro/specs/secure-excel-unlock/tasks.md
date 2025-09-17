@@ -15,19 +15,19 @@
 
 ## 実装が必要なタスク
 
-- [ ] 1. Lambda関数の機能別分割
+- [x] 1. Lambda関数の機能別分割
   - 現在の単一main.pyを機能別に分割（getUploadUrl、unlock）
   - 共通ユーティリティ関数の分離（s3_utils.py、excel_utils.py）
   - 各Lambda関数の独立したエントリーポイント作成
   - _要件: アーキテクチャ設計に基づく機能分離_
 
-- [ ] 2. 署名付きURL生成Lambda関数の実装
+- [x] 2. 署名付きURL生成Lambda関数の実装
   - backend/src/get_upload_url.py の新規作成
   - S3アップロード用署名付きURL生成機能
   - フロントエンドが期待するレスポンス形式に対応
   - _要件: 4.1, 4.2_
 
-- [ ] 3. Excel解除Lambda関数の修正
+- [x] 3. Excel解除Lambda関数の修正
   - backend/src/unlock.py として既存機能を分離
   - フロントエンドが送信するリクエスト形式に対応
   - 複数ファイル処理のサポート
