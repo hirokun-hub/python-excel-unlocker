@@ -545,4 +545,90 @@ jobs:
 
 
 
+## 開発環境・デプロイメント設計
+
+### ローカル開発環境
+
+#### 前提条件
+- **AWS CLI**: 設定済み（プロファイル設定推奨）
+- **AWS SAM CLI**: Lambda関数のローカル実行・デプロイ用
+- **Node.js 18+**: フロントエンド開発用
+- **Python 3.9**: バックエンド開発用
+
+#### AWS CLI設定確認
+```bash
+# AWS設定確認
+aws configure list
+aws sts get-caller-identity
+
+# S3バケット作成（初回のみ）
+aws s3 mb s3://your-excel-unlock-bucket --region ap-northeast-1
+```
+
+#### ローカルテスト環境
+```bash
+# SAM CLI でローカルAPI起動
+sam build
+sam local start-api --port 3001
+
+# 個別Lambda関数テスト
+sam local invoke UnlockFunction --event events/unlock-event.json
+sam local invoke GetUploadUrlFunction --event events/upload-event.json
+```
+
+#### 環境変数設定
+```bash
+# ローカル開発用 .env.local
+export S3_BUCKET_NAME=your-excel-unlock-bucket
+export ALLOWED_USERS=user1@example.com,user2@example.com
+export LOG_LEVEL=DEBUG
+```
+
+### デプロイメント戦略
+
+#### 段階的デプロイ
+1. **開発環境**: `sam deploy --guided` で初回設定
+2. **ステージング環境**: 本番前の最終確認
+3. **本番環境**: 本番用パラメータでデプロイ
+
+#### デプロイコマンド
+```bash
+# 初回デプロイ（ガイド付き）
+sam deploy --guided
+
+# 通常デプロイ
+sam build && sam deploy
+
+# 特定環境へのデプロイ
+sam deploy --parameter-overrides Environment=staging
+```
+
+#### モニタリング設定
+- **CloudWatch Logs**: Lambda関数ログの集約
+- **CloudWatch Metrics**: パフォーマンス監視
+- **X-Ray**: 分散トレーシング（オプション）
+
+### CI/CD パイプライン設計
+
+#### GitHub Actions ワークフロー
+```yaml
+# .github/workflows/deploy.yml
+name: Deploy to AWS
+on:
+  push:
+    branches: [main]
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: aws-actions/setup-sam@v2
+      - run: sam build
+      - run: sam deploy --no-confirm-changeset
+```
+
+#### 環境別設定
+- **開発**: 自動デプロイ（プッシュ時）
+- **本番**: 手動承認後デプロイ
+
 この設計書に基づいて、要件定義書で定められた全ての機能要件と非機能要件を満たすシステムを構築します。
