@@ -137,3 +137,7 @@ venv.bak/
 
 # 開発時の一時物（パターンがある場合のみ）
 frontend/fe-debug-*
+
+# Google Colab専用ファイル（構文エラー回避）
+scripts/*Colab*.py
+*.py.bak

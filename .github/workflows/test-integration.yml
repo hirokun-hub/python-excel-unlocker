@@ -44,7 +44,7 @@ jobs:
           reporter: java-junit
 
       - name: 📋 Upload API test artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: api-integration-test-results
@@ -80,7 +80,7 @@ jobs:
           NEXTAUTH_SECRET: test-secret-for-integration
 
       - name: 📋 Upload auth test results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: auth-integration-test-results
@@ -115,7 +115,7 @@ jobs:
           AWS_SECRET_ACCESS_KEY: testing
 
       - name: 📋 Upload S3 integration test results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: s3-integration-test-results
