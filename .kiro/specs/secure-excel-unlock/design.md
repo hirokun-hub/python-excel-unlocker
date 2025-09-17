@@ -468,41 +468,44 @@ stages:
 
 #### 現在の状況（2025-01-17時点）
 **✅ 実装完了項目**:
-- AI向け軽量ワークフロー（ai-artifacts.yml）: 新規作成
-- 差分限定テスト実行: tj-actions/changed-filesによる変更検出
-- Jest JUnitレポート設定: jest-junit追加、カバレッジ有効化
-- 統合アーティファクト生成: ai-analysis-package.zip
+- CI Pipeline統合: テスト完了後にAI向けアーティファクト生成
+- 並列テスト実行: フロントエンド・バックエンド・セキュリティスキャンの並列実行
+- テスト結果統合: 他のワークフローからのテスト結果を自動収集
+- 包括的AI分析パッケージ: 実際のテスト結果を含む完全なデータ生成
 
-**🔄 新しいアプローチ**:
-- 重いテスト（E2E、統合、セキュリティスキャン）を停止
-- 差分限定の最小実行とメタデータ生成に特化
-- 各コミット/PRで効率的なAI分析データ収集
+**🔄 新しいCI Pipeline構造**:
+1. **並列テスト実行**: Frontend Tests, Backend Tests, Security Scan
+2. **AI向けアーティファクト生成**: 全テスト完了後に実行
+3. **失敗時対応**: テスト失敗時でもAI分析データは生成（`if: always()`）
+4. **自動統合**: 他のワークフローからテスト結果・カバレッジを自動収集
 
-#### 包含情報（実装版）
+#### 包含情報（CI統合版）
 ```yaml
 ai_package_contents:
-  test_results: ✅
-    - junit-fe.xml (フロントエンド JUnit)
-    - junit-be.xml (バックエンド JUnit)
-    - coverage-fe.json (フロントエンドカバレッジ存在フラグ)
+  test_results: ✅ (他のワークフローから自動収集)
+    - junit-fe.xml (フロントエンドテスト結果)
+    - junit-be.xml (バックエンドテスト結果)
+    - coverage/ (テストカバレッジデータ)
+    - security-scan-results (セキュリティスキャン結果)
     - eslint.json (差分限定ESLint結果)
     - tsc.log (差分限定TypeScript型チェック)
   
   project_metadata: ✅
-    - file-structure.txt (全ファイル相対パス)
-    - npm-deps.json (Node依存関係ツリー)
+    - file-structure.txt (リポジトリ全体のファイルパス一覧)
+    - npm-deps.json (Node.js依存関係ツリー)
     - pip-freeze.txt (Python依存関係)
-    - dependency-diff.json (ロック/依存の差分要約)
-    - change-map.json (簡易diff要約：追加/削除行数)
+    - dependency-diff.json (依存関係の差分要約)
+    - change-map.json (変更ファイルの追加/削除行数)
   
   analysis_data: ✅
-    - ai-analysis-package.zip (上記を全て格納)
+    - ai-analysis-package.zip (上記を全て統合)
 ```
 
-#### 新しいワークフロー特徴
-1. **差分限定実行**: 変更されたファイルのみテスト
-2. **軽量化**: 重いE2E/統合テストを停止
-3. **AI特化**: メタデータとテスト結果の効率的収集
+#### CI Pipeline統合の特徴
+1. **テスト完了後実行**: 実際のテスト結果を含む完全なデータ
+2. **並列実行**: フロントエンド・バックエンド・セキュリティテストの並列実行
+3. **自動統合**: 他のワークフローからアーティファクトを自動収集
+4. **堅牢性**: テスト失敗時でもAI分析データは生成
 
 #### 生成タイミング
 - **毎回**: 基本的なテスト結果とプロジェクト構造

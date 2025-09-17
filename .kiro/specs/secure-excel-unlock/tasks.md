@@ -134,44 +134,64 @@
 
 ### フェーズ5.5: テスト自動化とCI/CD
 
-- [x] 5.4 AI向け軽量ワークフロー実装（完了）
+- [x] 5.4 CI Pipeline統合とAI向けアーティファクト生成（完了）
   - **実装内容**:
-    - ✅ `.github/workflows/ai-artifacts.yml` 新規作成
-    - ✅ `.github/workflows/ci.yml` 軽量版に置換
+    - ✅ CI Pipeline統合: テスト完了後にAI向けアーティファクト生成
+    - ✅ 並列テスト実行: フロントエンド・バックエンド・セキュリティスキャン
+    - ✅ テスト結果自動収集: 他のワークフローからアーティファクトを統合
     - ✅ Jest設定でJUnitレポート生成（jest-junit追加）
-    - ✅ カバレッジレポート生成の有効化
-    - ✅ 差分限定テスト実行（tj-actions/changed-files使用）
+    - ✅ フロントエンド・バックエンドパス修正（working-directory対応）
+    - ✅ 失敗時対応: `if: always()`でテスト失敗時でもアーティファクト生成
+  - **CI Pipeline構造**:
+    ```
+    1. Frontend Tests (並列)
+    2. Backend Tests (並列)
+    3. Security Scan (並列)
+    4. AI Artifacts Collection (テスト完了後)
+    5. Upload AI Analysis Package
+    ```
   - **生成アーティファクト**:
     ```
     ai-analysis-package.zip
-    ├── test-results/
-    │   ├── junit-fe.xml (フロントエンド JUnit)
-    │   ├── junit-be.xml (バックエンド JUnit)
-    │   ├── coverage-fe.json (カバレッジ存在フラグ)
+    ├── test-results/ (他のワークフローから自動収集)
+    │   ├── junit-fe.xml (フロントエンドテスト結果)
+    │   ├── junit-be.xml (バックエンドテスト結果)
+    │   ├── coverage/ (テストカバレッジデータ)
+    │   ├── security-scan-results (セキュリティスキャン結果)
     │   ├── eslint.json (差分限定ESLint)
     │   └── tsc.log (差分限定TypeScript)
     ├── project-metadata/
-    │   ├── file-structure.txt (全ファイルパス)
-    │   ├── npm-deps.json (Node依存関係)
+    │   ├── file-structure.txt (リポジトリ全体のファイルパス一覧)
+    │   ├── npm-deps.json (Node.js依存関係ツリー)
     │   ├── pip-freeze.txt (Python依存関係)
-    │   ├── dependency-diff.json (依存差分)
+    │   ├── dependency-diff.json (依存関係差分)
     │   └── change-map.json (変更要約)
     └── analysis_data/ (将来拡張用)
     ```
-  - _要件: AI分析用データの効率的収集_
-  - **ブランチ**: `feature/ai-lightweight-workflow`
+  - _要件: 完全なテスト結果を含むAI分析用データの生成_
+  - **ブランチ**: `feature/ci-pipeline-integration`
 
-- [ ] 5.6 GitHub Actionsインフラ修正と最適化
-  - actions/upload-artifact@v3 → v4への更新（全ワークフロー）✅完了
+- [ ] 5.6 CI Pipeline最適化と拡張
+  - **現在の状況**: 基本的なCI Pipeline統合は完了
+  - **最適化項目**:
+    - E2Eテストの段階的復活（PRのみ実行）
+    - 統合テストの追加（フロントエンド・バックエンド連携テスト）
+    - パフォーマンステストの条件付き実行
+    - デプロイワークフローの自動化（mainブランチのみ）
+  - **AI分析の改善**:
+    - テスト実行時間の分析とボトルネック特定
+    - カバレッジトレンドの追跡
+    - 変更影響範囲の詳細分析
+  - _要件: CI/CDパイプラインの完全自動化_
+  - **ブランチ**: `feature/ci-pipeline-optimization`
+
+- [ ] 5.7 GitHub Actionsインフラ修正（レガシー対応）
   - 機密情報の削除（api_response.json内のAWSトークン）
   - 構文エラーファイルの修正（GoogleColabで正常起動してたコード.py）
+  - 古いワークフローファイルのクリーンアップ
   - ワークフロー実行権限の確認と修正
-  - **差分テスト機能の実装**:
-    - 変更されたフロントエンド/バックエンドのみテスト実行
-    - git diffベースの変更検出とテスト範囲の動的調整
-    - 開発ステージに応じたテスト戦略の選択
-  - _要件: テストインフラの安定化と開発効率向上_
-  - **ブランチ**: `fix/github-actions-infrastructure`
+  - _要件: レガシーファイルの整理とセキュリティ向上_
+  - **ブランチ**: `fix/github-actions-cleanup`
 
 - [ ] 5.5 GitHub Actionsテストパイプラインの実装
   - CI/CDワークフローの設定
@@ -243,7 +263,7 @@
 ## 実装優先順位
 
 ### 緊急優先度（即座に対応）
-0. **AI向け軽量ワークフロー実装** (5.4) - ✅ 完了
+0. **CI Pipeline統合とAI向けアーティファクト生成** (5.4) - ✅ 完了
 1. **GitHub Actionsインフラ修正** (5.6) - テスト環境の復旧
 
 ### 高優先度（必須）
