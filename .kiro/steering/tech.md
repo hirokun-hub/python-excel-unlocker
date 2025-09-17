@@ -1,11 +1,12 @@
 # 技術スタック
 
 ## フロントエンド
-- **フレームワーク**: Next.js 15.4.2 with React 19
+- **フレームワーク**: Next.js 15.4 with React 19（全ドキュメント統一）
 - **言語**: TypeScript
 - **スタイリング**: Tailwind CSS with shadcn/ui components
-- **認証**: NextAuth.js with Google OAuth
+- **認証**: Auth.js（旧 NextAuth.js）with Google OAuth
 - **HTTPクライアント**: Axios
+- **API呼び出し**: フロントエンドから API Gateway を直接呼び出す。Next.js API ルートは開発・デバッグ用途のみ
 - **テスト**: Jest + React Testing Library, Playwright for E2E
 - **ビルドツール**: Turbopack (Next.js built-in)
 

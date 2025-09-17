@@ -57,7 +57,7 @@
 - **ページ**: lowercase（例：`page.tsx`, `layout.tsx`）
 - **ユーティリティ**: camelCase（例：`googleDrive.ts`, `utils.ts`）
 - **テスト**: `*.test.tsx` または `*.spec.ts`
-- **ドキュメント**: kebab-caseで説明的なプレフィックス付き（例：`【出力】手順書_AWS_デプロイ準備.md`）
+- **ドキュメント**: ASCII の kebab-case のみ（日本語・全角記号・アンダースコア禁止）（例：`aws-deploy-prep-guide.md`）
 
 ### ディレクトリ
 - **コンポーネント**: 機能またはUIライブラリ別に整理（`ui/`, `components/`）
