@@ -49,10 +49,11 @@ graph TB
 
 ### アーキテクチャの特徴
 
-1. **サーバーレス構成**: AWS Lambdaによるコスト効率的な実行
+1. **サーバーレス構成**: AWS Lambda（機能別分割：getUploadUrl, unlock）によるコスト効率的な実行
 2. **フロントエンド分離**: Vercelでの独立デプロイ
-3. **セキュアなファイル転送**: S3署名付きURLによる直接転送
-4. **認証統合**: Google OAuthによる安全なアクセス制御
+3. **API呼び出しポリシー**: 本番環境ではフロントエンドから API Gateway を**直接**呼び出す。Next.js の API ルートは**開発・デバッグ用途のみ**とし、プロダクション経路には使用しない。
+4. **セキュアなファイル転送**: S3署名付きURLによる直接転送（Upload 60秒、Download 300秒）
+5. **認証統合**: Auth.js（旧 NextAuth.js）によるGoogle OAuth認証
 
 ## コンポーネント設計
 
@@ -66,17 +67,20 @@ graph TB
 - **DownloadManager**: 解除済みファイルのダウンロード管理
 
 #### 技術スタック
-- **Framework**: Next.js 14 (App Router)
+- **Framework**: Next.js 15.4 (App Router)
 - **UI Library**: shadcn/ui + Radix UI
-- **Authentication**: Auth.js (NextAuth.js)
+- **Authentication**: Auth.js（旧 NextAuth.js）
 - **Form Validation**: zod + react-hook-form
 - **State Management**: React hooks + Context API
 
 ### バックエンド (AWS Lambda)
 
+#### Lambda 分割ポリシー
+Lambda は機能単位で分割する（例：getUploadUrl／unlock）。これにより IAM 権限の最小化、障害切り分け、メトリクス計測が明瞭になる。
+
 #### API エンドポイント
 
-##### 1. GET /api/get-upload-url
+##### 1. **API Gateway 経由の対応エンドポイント（例：POST https://{api-id}.execute-api.{region}.amazonaws.com/prod/getUploadUrl）**
 **目的**: S3への安全なファイルアップロード用署名付きURL生成
 
 **リクエスト**:
@@ -97,7 +101,7 @@ graph TB
 }
 ```
 
-##### 2. POST /api/unlock
+##### 2. **API Gateway 経由の対応エンドポイント（例：POST https://{api-id}.execute-api.{region}.amazonaws.com/prod/unlock）**
 **目的**: パスワード付きExcelファイルの解除処理
 
 **リクエスト**:
@@ -230,12 +234,14 @@ async function authenticateUser(request: Request) {
 - **データ保持**: 処理完了後即時削除
 
 #### 署名付きURL設定
+Pre-signed URL の有効期限は Upload 60秒、Download 300秒とする。全ドキュメントでこの値に統一し、変更時は一括で更新する。
+
 ```python
 def generate_presigned_url(bucket: str, key: str, expiration: int = 60):
     return s3_client.generate_presigned_url(
         'put_object',
         Params={'Bucket': bucket, 'Key': key},
-        ExpiresIn=expiration,
+        ExpiresIn=expiration,  # Upload: 60秒, Download: 300秒
         HttpMethod='PUT'
     )
 ```

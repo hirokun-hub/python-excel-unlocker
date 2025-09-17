@@ -31,12 +31,13 @@
   - _要件: 要件4（セキュリティとデータ保護）_
   - **ブランチ**: `feature/upload-url-lambda`
 
-- [ ] 1.2 パスワード解除Lambda関数の分離
-  - 設計書通りのPOST /api/unlock エンドポイント実装
-  - 既存のmain.pyから単一ファイル処理ロジックを抽出
+- [ ] 1.2 Lambda機能別分割（getUploadUrl, unlock）
+  - getUploadUrl Lambda関数の独立実装
+  - unlock Lambda関数の独立実装
+  - 各Lambda関数のIAM権限最小化
   - 300秒有効期限のダウンロードURL生成
   - _要件: 要件1（基本的なパスワード解除機能）_
-  - **ブランチ**: `feature/unlock-lambda`
+  - **ブランチ**: `feature/lambda-separation`
 
 - [ ] 1.3 エラーレスポンスの標準化
   - 設計書で定義されたエラーコード体系の実装
@@ -45,39 +46,39 @@
   - _要件: 要件5（パフォーマンスと可用性）_
   - **ブランチ**: `feature/error-handling`
 
-### フェーズ2: フロントエンドAPIルートの実装
+### フェーズ2: API Gateway直接呼び出しの実装
 
-- [ ] 2.1 アップロードURL取得APIルートの作成
-  - /api/get-upload-url エンドポイントの実装
-  - バックエンドLambda関数との連携
-  - 認証チェックの統合
+- [ ] 2.1 API Gateway ステージ/リソース/メソッド定義
+  - getUploadUrl, unlock エンドポイントの定義
+  - CORS設定の実装
+  - 認証統合の設定
   - _要件: 要件4（セキュリティとデータ保護）_
-  - **ブランチ**: `feature/frontend-upload-api`
+  - **ブランチ**: `feature/api-gateway-setup`
 
-- [ ] 2.2 パスワード解除APIルートの作成
-  - /api/unlock エンドポイントの実装
-  - バックエンドLambda関数との連携
-  - 認証チェックの統合
+- [ ] 2.2 フロントエンドからAPI Gateway直接呼び出し
+  - Next.js APIルートを開発・デバッグ用に縮退
+  - API Gateway エンドポイントへの直接呼び出し実装
+  - 認証トークンの適切な送信
   - _要件: 要件1（基本的なパスワード解除機能）_
-  - **ブランチ**: `feature/frontend-unlock-api`
+  - **ブランチ**: `feature/direct-api-calls`
 
-- [ ] 2.3 認証ミドルウェアの強化
-  - 許可されたユーザーリストの実装
-  - APIルートの保護機能
-  - セッション管理の改善
+- [ ] 2.3 認証ミドルウェアの強化（社内限定・招待制）
+  - Auth.js（旧 NextAuth.js）による認証強化
+  - 社内限定アクセス制御の実装
+  - 管理者招待制の実装
   - _要件: 要件3（認証とアクセス制御）_
   - **ブランチ**: `feature/auth-middleware`
 
 ### フェーズ3: フロントエンド処理フローの修正
 
 - [ ] 3.1 ファイルアップロード処理の統合
-  - フロントエンドAPIルート（/api/get-upload-url）の実装
-  - バックエンドLambda関数との連携
+  - API Gateway 直接呼び出しによるアップロード処理
+  - 署名URL期限（Upload 60秒、Download 300秒）の実装
   - 既存のフロントエンドロジックとの統合
   - _要件: 要件4（セキュリティとデータ保護）_
   - **ブランチ**: `feature/upload-integration`
 
-- [ ] 3.2 複数ファイル処理の並列化
+- [ ] 3.2 複数ファイル処理の並列化（初期リリースから必須）
   - フロントエンドでの並列処理実装
   - 各ファイルの個別状態管理
   - 進捗表示とキャンセル機能
