@@ -1,24 +1,45 @@
 """
 Excel解除処理Lambda関数
+パフォーマンス最適化：コールドスタート対策を実装
 """
 import json
 import logging
 import os
 import time
 from typing import Dict, Any, List
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from s3_utils import download_file_from_s3, upload_file_to_s3, generate_presigned_url, generate_unique_key
-from excel_utils import unlock_excel_file, validate_excel_file
+# コールドスタート対策：グローバルスコープでインポートと初期化
+# 必要最小限のインポートで初期化時間を短縮
+from s3_utils import download_file_from_s3, upload_file_to_s3, generate_presigned_url, generate_unique_key, cleanup_local_file, cleanup_s3_object
+from excel_utils import unlock_excel_file, validate_excel_file, sanitize_filename_for_log
 from auth_utils import validate_user_access, extract_user_from_event
 from response_utils import create_success_response, create_error_response
 
-# ログ設定
+# ログ設定（グローバルスコープで初期化、コールドスタート対策）
 log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
 logger = logging.getLogger()
 logger.setLevel(log_level)
 
-# 定数
-DOWNLOAD_URL_EXPIRATION = 300  # ダウンロード用URL有効期限（300秒）
+# 定数をグローバルスコープで定義（コールドスタート対策）
+# 環境変数は初期化時に一度だけ読み込み
+DOWNLOAD_URL_EXPIRATION = 300  # ダウンロード用URL有効期限（300秒）- 統一仕様
+S3_BUCKET_NAME = os.environ.get('S3_BUCKET_NAME')
+MAX_PROCESSING_TIME = 900  # 最大処理時間（15分）
+MAX_PARALLEL_WORKERS = min(5, os.cpu_count() or 1)  # CPU数に基づく最適化
+
+# コールドスタート対策：ThreadPoolExecutorの再利用
+_thread_pool_executor = None
+
+def get_thread_pool_executor():
+    """
+    ThreadPoolExecutorのシングルトンインスタンスを取得
+    コールドスタート対策：プールの再利用でオーバーヘッドを削減
+    """
+    global _thread_pool_executor
+    if _thread_pool_executor is None:
+        _thread_pool_executor = ThreadPoolExecutor(max_workers=MAX_PARALLEL_WORKERS)
+    return _thread_pool_executor
 
 def process_single_file(s3_key: str, passwords: List[str], original_filename: str, s3_bucket_name: str = None) -> Dict[str, Any]:
     """
@@ -39,9 +60,9 @@ def process_single_file(s3_key: str, passwords: List[str], original_filename: st
     unlocked_file_path = None
     start_time = time.time()
     
-    # S3バケット名を取得
+    # S3バケット名を取得（グローバル変数を使用）
     if s3_bucket_name is None:
-        s3_bucket_name = os.environ.get('S3_BUCKET_NAME')
+        s3_bucket_name = S3_BUCKET_NAME
     
     # 解除済みファイル名を事前に決定（要件1.1対応）
     base, ext = os.path.splitext(original_filename)
@@ -94,13 +115,9 @@ def process_single_file(s3_key: str, passwords: List[str], original_filename: st
                 'message': '解除済みファイルのアップロードに失敗しました。再度お試しください。'
             }
 
-        # ダウンロード用署名付きURLを生成（要件1.4対応）
-        download_url = generate_presigned_url(
-            s3_bucket_name, 
-            unlocked_s3_key, 
-            'get_object', 
-            DOWNLOAD_URL_EXPIRATION
-        )
+        # ダウンロード用署名付きURLを生成（要件1.4対応、統一仕様を使用）
+        from s3_utils import generate_download_url
+        download_url = generate_download_url(s3_bucket_name, unlocked_s3_key)
         
         if not download_url:
             return {
@@ -110,7 +127,9 @@ def process_single_file(s3_key: str, passwords: List[str], original_filename: st
             }
 
         processing_time = time.time() - start_time
-        logger.info(f"Successfully processed {original_filename} in {processing_time:.2f}s using password: {'*' * len(unlock_result.get('password_used', ''))}")
+        # セキュリティ強化：ファイル名をサニタイズしてログ出力
+        sanitized_filename = sanitize_filename_for_log(original_filename)
+        logger.info(f"Successfully processed {sanitized_filename} in {processing_time:.2f}s")
         
         # ProcessResult形式で成功結果を返す
         return {
@@ -120,27 +139,84 @@ def process_single_file(s3_key: str, passwords: List[str], original_filename: st
         }
 
     except Exception as e:
-        logger.exception(f"Unexpected error processing file {original_filename}: {e}")
+        sanitized_filename = sanitize_filename_for_log(original_filename)
+        logger.exception(f"Unexpected error processing file {sanitized_filename}: {e}")
         return {
             'fileName': unlocked_filename,
             'status': 'error',
             'message': f'予期しないエラーが発生しました: {str(e)}'
         }
     finally:
-        # 一時ファイルのクリーンアップ（要件4.3対応）
-        if local_file_path and os.path.exists(local_file_path):
-            try:
-                os.remove(local_file_path)
-                logger.info(f"Cleaned up local file: {local_file_path}")
-            except Exception as e:
-                logger.warning(f"Failed to clean up local file {local_file_path}: {e}")
+        # セキュリティ強化：一時ファイルの確実な削除（要件4.3対応）
+        if local_file_path:
+            cleanup_local_file(local_file_path)
                 
-        if unlocked_file_path and os.path.exists(unlocked_file_path):
-            try:
-                os.remove(unlocked_file_path)
-                logger.info(f"Cleaned up unlocked file: {unlocked_file_path}")
-            except Exception as e:
-                logger.warning(f"Failed to clean up unlocked file {unlocked_file_path}: {e}")
+        if unlocked_file_path:
+            cleanup_local_file(unlocked_file_path)
+
+def process_files_parallel(files_data: List[Dict[str, Any]], passwords: List[str], s3_bucket_name: str) -> List[Dict[str, Any]]:
+    """
+    複数ファイルを並列処理する（パフォーマンス最適化）
+    
+    Args:
+        files_data: ファイル情報のリスト
+        passwords: パスワード候補のリスト
+        s3_bucket_name: S3バケット名
+    
+    Returns:
+        ProcessResult形式の処理結果リスト
+    """
+    results = []
+    
+    # 並列処理でファイルを処理（再利用可能なExecutorを使用）
+    executor = get_thread_pool_executor()
+    # 各ファイルの処理タスクを作成
+    future_to_file = {}
+    for i, file_info in enumerate(files_data):
+        s3_key = file_info.get('s3_key')
+        original_name = file_info.get('original_name', f'file_{i+1}.xlsx')
+        
+        if not s3_key:
+            # S3キーが無い場合はエラー結果を即座に追加
+            base, ext = os.path.splitext(original_name)
+            results.append({
+                'fileName': f"{base}_unlocked{ext}",
+                'status': 'error',
+                'message': 'ファイルのS3キーが見つかりません。',
+                'index': i  # 元の順序を保持
+            })
+            continue
+        
+        # 並列処理タスクを投入
+        future = executor.submit(process_single_file, s3_key, passwords, original_name, s3_bucket_name)
+        future_to_file[future] = {'index': i, 'original_name': original_name}
+    
+    # 完了したタスクから結果を収集
+    for future in as_completed(future_to_file):
+        file_info = future_to_file[future]
+        try:
+            result = future.result()
+            result['index'] = file_info['index']  # 元の順序を保持
+            results.append(result)
+            logger.info(f"Completed parallel processing: {file_info['original_name']} - {result['status']}")
+        except Exception as e:
+            logger.exception(f"Parallel processing failed for {file_info['original_name']}: {e}")
+            base, ext = os.path.splitext(file_info['original_name'])
+            results.append({
+                'fileName': f"{base}_unlocked{ext}",
+                'status': 'error',
+                'message': f'並列処理中にエラーが発生しました: {str(e)}',
+                'index': file_info['index']
+            })
+    
+    # 元の順序でソート
+    results.sort(key=lambda x: x.get('index', 0))
+    
+    # indexフィールドを削除（フロントエンドには不要）
+    for result in results:
+        result.pop('index', None)
+    
+    return results
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
@@ -221,32 +297,13 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
         logger.info(f"Processing {len(files_data)} files with {len(passwords)} password candidates")
         
-        results = []
-        for i, file_info in enumerate(files_data):
-            s3_key = file_info.get('s3_key')
-            original_name = file_info.get('original_name', f'file_{i+1}.xlsx')
-
-            if not s3_key:
-                # 要件6.3: 一部ファイルが失敗しても他は正常処理
-                base, ext = os.path.splitext(original_name)
-                results.append({
-                    'fileName': f"{base}_unlocked{ext}",
-                    'status': 'error',
-                    'message': 'ファイルのS3キーが見つかりません。'
-                })
-                continue
-            
-            # 各ファイルを個別に処理（要件6.1, 6.2対応）
-            result = process_single_file(s3_key, passwords, original_name, s3_bucket_name)
-            results.append(result)
-            
-            # 進捗ログ出力（要件6.2対応）
-            logger.info(f"Processed file {i+1}/{len(files_data)}: {original_name} - {result['status']}")
+        # 並列処理でファイルを処理（パフォーマンス最適化）
+        results = process_files_parallel(files_data, passwords, s3_bucket_name)
         
         # 処理結果サマリーをログ出力（要件6.4対応）
         success_count = sum(1 for r in results if r['status'] == 'success')
         error_count = len(results) - success_count
-        logger.info(f"Processing complete: {success_count} successful, {error_count} failed out of {len(results)} files")
+        logger.info(f"Parallel processing complete: {success_count} successful, {error_count} failed out of {len(results)} files")
         
         # ProcessResult[]形式でレスポンス返却
         return create_success_response({'results': results})

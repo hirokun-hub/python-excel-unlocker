@@ -1,0 +1,37 @@
+{
+  "name": "secure-excel-unlock-integration-tests",
+  "version": "1.0.0",
+  "description": "統合テスト for Secure Excel Unlock",
+  "scripts": {
+    "test": "jest",
+    "test:api": "jest api/",
+    "test:s3": "jest s3/",
+    "test:e2e": "jest e2e/",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:verbose": "jest --verbose",
+    "setup": "node setup/setup-test-environment.js",
+    "cleanup": "node setup/cleanup-test-environment.js"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "aws-sdk": "^2.1500.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "@types/jest": "^29.5.0"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testTimeout": 60000,
+    "setupFilesAfterEnv": ["<rootDir>/setup/jest.setup.js"],
+    "testMatch": [
+      "**/test-*.js"
+    ],
+    "collectCoverageFrom": [
+      "utils/**/*.js"
+    ],
+    "coverageDirectory": "coverage",
+    "verbose": true
+  }
+}

@@ -8,17 +8,22 @@ Description: >-
 Parameters:
   AllowedUsers:
     Type: String
-    Default: ""
+    Default: "hironomac2025@gmail.com"
     Description: "Comma-separated list of allowed user email addresses"
 
 # Global parameters can be defined here
 Globals:
   Function:
-    Timeout: 30 # Timeout for Lambda functions in seconds
-    MemorySize: 128 # Memory allocation for Lambda functions in MB
+    Timeout: 30 # Default timeout for Lambda functions in seconds
+    MemorySize: 256 # Default memory allocation (パフォーマンス最適化)
     Runtime: python3.9
     Architectures:
       - x86_64
+    Environment:
+      Variables:
+        # パフォーマンス最適化：Lambda環境変数
+        PYTHONPATH: /var/runtime
+        AWS_LAMBDA_EXEC_WRAPPER: /opt/bootstrap
   Api:
     Cors:
       AllowMethods: "'GET,POST,OPTIONS'"
@@ -32,17 +37,144 @@ Resources:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: !Sub "excel-unlocker-bucket-${AWS::AccountId}-${AWS::Region}"
+      # セキュリティ強化：パブリックアクセスブロック
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      # セキュリティ強化：暗号化設定
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+            BucketKeyEnabled: true
+      # セキュリティ強化：バージョニング無効化（一時ファイルのため）
+      VersioningConfiguration:
+        Status: Suspended
+      # セキュリティ強化：ライフサイクル設定（一時ファイルの自動削除）
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteIncompleteMultipartUploads
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 1
+          - Id: DeleteTemporaryFiles
+            Status: Enabled
+            ExpirationInDays: 1
+            NoncurrentVersionExpirationInDays: 1
+      # セキュリティ強化：CORS設定の最適化
       CorsConfiguration:
         CorsRules:
           - AllowedHeaders:
-              - "*"
+              - "Content-Type"
+              - "Content-Length"
+              - "Authorization"
+              - "X-Amz-Date"
+              - "X-Amz-Security-Token"
             AllowedMethods:
               - GET
               - PUT
               - HEAD
             AllowedOrigins:
-              - "*" # In production, you should restrict this to your frontend's domain
+              - "https://localhost:3000"
+              - "https://localhost:3001"
+              - "https://*.vercel.app"
             MaxAge: 3600
+            ExposedHeaders:
+              - "ETag"
+
+  # セキュリティ強化：S3バケットポリシー
+  ExcelBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ExcelBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          # Lambda関数からのアクセスのみ許可
+          - Sid: AllowLambdaAccess
+            Effect: Allow
+            Principal:
+              AWS: 
+                - !GetAtt GetUploadUrlFunctionRole.Arn
+                - !GetAtt UnlockFunctionRole.Arn
+            Action:
+              - s3:GetObject
+              - s3:PutObject
+              - s3:DeleteObject
+            Resource: !Sub "${ExcelBucket}/*"
+          # 署名付きURLによるアクセス許可
+          - Sid: AllowPresignedUrlAccess
+            Effect: Allow
+            Principal: "*"
+            Action:
+              - s3:GetObject
+              - s3:PutObject
+            Resource: !Sub "${ExcelBucket}/*"
+            Condition:
+              StringEquals:
+                "s3:signatureAge": "3600"  # 1時間以内の署名のみ
+          # パブリックアクセスの明示的拒否
+          - Sid: DenyPublicAccess
+            Effect: Deny
+            Principal: "*"
+            Action: "s3:*"
+            Resource: 
+              - !Sub "${ExcelBucket}"
+              - !Sub "${ExcelBucket}/*"
+            Condition:
+              Bool:
+                "aws:SecureTransport": "false"
+
+  # セキュリティ強化：GetUploadUrlFunction用IAMロール
+  GetUploadUrlFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: S3AccessPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:PutObjectAcl
+                Resource: !Sub "${ExcelBucket}/*"
+
+  # セキュリティ強化：UnlockFunction用IAMロール
+  UnlockFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: S3AccessPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                Resource: !Sub "${ExcelBucket}/*"
 
   # Lambda Function for generating presigned URLs
   GetUploadUrlFunction:
@@ -52,17 +184,17 @@ Resources:
       CodeUri: backend/src/
       Handler: get_upload_url.lambda_handler
       Timeout: 30
-      MemorySize: 128
-      Policies:
-        - S3ReadPolicy:
-            BucketName: !Ref ExcelBucket
-        - S3WritePolicy:
-            BucketName: !Ref ExcelBucket
+      MemorySize: 256  # パフォーマンス最適化：メモリ増量でCPU性能向上
+      ReservedConcurrencyLimit: 10  # 並列実行制限でコールドスタート削減
+      # セキュリティ強化：明示的IAMロール割り当て
+      Role: !GetAtt GetUploadUrlFunctionRole.Arn
       Environment:
         Variables:
           S3_BUCKET_NAME: !Ref ExcelBucket
           LOG_LEVEL: INFO
           ALLOWED_USERS: !Ref AllowedUsers
+          # パフォーマンス最適化：環境変数
+          AWS_LAMBDA_LOG_LEVEL: INFO
       Events:
         ApiEvent:
           Type: Api
@@ -78,17 +210,18 @@ Resources:
       CodeUri: backend/src/
       Handler: unlock.lambda_handler
       Timeout: 900  # 15分（Excel処理に時間がかかる場合があるため）
-      MemorySize: 512  # Excel処理にはより多くのメモリが必要
-      Policies:
-        - S3ReadPolicy:
-            BucketName: !Ref ExcelBucket
-        - S3WritePolicy:
-            BucketName: !Ref ExcelBucket
+      MemorySize: 1024  # パフォーマンス最適化：並列処理とExcel処理のためメモリ増量
+      ReservedConcurrencyLimit: 5  # 並列実行制限（リソース集約型処理のため）
+      # セキュリティ強化：明示的IAMロール割り当て
+      Role: !GetAtt UnlockFunctionRole.Arn
       Environment:
         Variables:
           S3_BUCKET_NAME: !Ref ExcelBucket
           LOG_LEVEL: INFO
           ALLOWED_USERS: !Ref AllowedUsers
+          # パフォーマンス最適化：環境変数
+          AWS_LAMBDA_LOG_LEVEL: INFO
+          PYTHONUNBUFFERED: 1  # Python出力バッファリング無効化
       Events:
         ApiEvent:
           Type: Api

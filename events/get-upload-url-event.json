@@ -1,0 +1,9 @@
+{
+  "httpMethod": "POST",
+  "path": "/presigned-urls",
+  "headers": {
+    "Content-Type": "application/json",
+    "X-User-Email": "user1@example.com"
+  },
+  "body": "{\"fileName\": \"test-file.xlsx\", \"fileSize\": 1024000, \"contentType\": \"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet\"}"
+}
