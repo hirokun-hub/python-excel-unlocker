@@ -1,7 +1,7 @@
 import pytest
 import boto3
 import os
-from moto import mock_s3
+from moto import mock_aws
 from unittest.mock import patch
 
 # Test environment setup
@@ -30,7 +30,7 @@ def aws_credentials():
 @pytest.fixture
 def s3_client(aws_credentials):
     """Create a mocked S3 client"""
-    with mock_s3():
+    with mock_aws():
         client = boto3.client('s3', region_name='us-east-1')
         # Create test bucket
         client.create_bucket(Bucket='test-bucket')
