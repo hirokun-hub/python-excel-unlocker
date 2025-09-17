@@ -1,0 +1,123 @@
+name: AI Artifacts (Reusable)
+
+on:
+  workflow_call:
+
+jobs:
+  ai-artifacts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (full history for diff)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed files
+        id: changed
+        uses: tj-actions/changed-files@v45
+        with:
+          separator: "\n"
+
+      - name: Show changed files (debug)
+        run: |
+          echo "${{ steps.changed.outputs.all_changed_files }}"
+
+      - name: Prepare dirs
+        run: |
+          mkdir -p project-metadata test-results analysis_data
+
+      - name: List repository files (relative paths)
+        run: |
+          git ls-files > project-metadata/file-structure.txt
+
+      - name: Summarize diff (numstat -> change-map.json)
+        run: |
+          git diff --numstat HEAD~1 HEAD | awk '{print "{\"added\":"$1",\"deleted\":"$2",\"file\":\""$3"\"}"}' | jq -s '.' > project-metadata/change-map.json || echo "[]">project-metadata/change-map.json
+
+      # ------- Frontend (if Node project exists) -------
+      - name: Setup Node
+        if: hashFiles('package.json') != ''
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Node deps (npm ci)
+        if: hashFiles('package-lock.json') != '' && hashFiles('package.json') != ''
+        run: npm ci
+
+      - name: Type check (changed only)
+        if: hashFiles('tsconfig.json') != '' && steps.changed.outputs.all_changed_files != ''
+        run: |
+          CHANGED=$(printf "%s" "${{ steps.changed.outputs.all_changed_files }}" | grep -E '\.(ts|tsx)$' || true)
+          if [ -n "$CHANGED" ]; then npx tsc --noEmit --pretty false $CHANGED | tee test-results/tsc.log || true; fi
+
+      - name: ESLint (changed only, JSON)
+        if: hashFiles('.eslintrc*') != '' && steps.changed.outputs.all_changed_files != ''
+        run: |
+          CHANGED=$(printf "%s" "${{ steps.changed.outputs.all_changed_files }}" | tr '\n' ' ')
+          npx eslint -f json $CHANGED > test-results/eslint.json || echo "[]" > test-results/eslint.json
+
+      - name: Frontend tests (find related)
+        if: hashFiles('package.json') != '' && steps.changed.outputs.all_changed_files != ''
+        env:
+          JEST_JUNIT_OUTPUT: test-results/junit-fe.xml
+        run: |
+          CHANGED=$(printf "%s" "${{ steps.changed.outputs.all_changed_files }}" | tr '\n' ' ')
+          npx jest --ci --runInBand --reporters=default --reporters=jest-junit --findRelatedTests $CHANGED || true
+          # coverageは有れば拾う（設定任せ）
+          if [ -d coverage ]; then jq -n --arg exists "true" '{coverageExists:$exists}' > test-results/coverage-fe.json; else jq -n '{coverageExists:false}' > test-results/coverage-fe.json; fi
+
+      - name: NPM dependency tree (JSON)
+        if: hashFiles('package.json') != ''
+        run: |
+          (npm ls --all --json > project-metadata/npm-deps.json) || echo "{}" > project-metadata/npm-deps.json
+
+      # ------- Backend (if Python project exists) -------
+      - name: Setup Python
+        if: hashFiles('requirements.txt') != '' || hashFiles('pyproject.toml') != ''
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python deps
+        if: hashFiles('requirements.txt') != ''
+        run: pip install -r requirements.txt || true
+
+      - name: Backend tests (nearby only)
+        if: hashFiles('pytest.ini') != '' || hashFiles('pyproject.toml') != '' || hashFiles('requirements.txt') != ''
+        run: |
+          mkdir -p test-results
+          # 変更ファイルのディレクトリに近いテストをおおまかに実行
+          TARGETS=$(printf "%s" "${{ steps.changed.outputs.all_changed_files }}" | sed 's#/[^/]*$##' | sort -u | tr '\n' ' ')
+          pytest -q -k "$TARGETS" --maxfail=1 --disable-warnings --junitxml=test-results/junit-be.xml || true
+
+      - name: Pip freeze
+        if: hashFiles('requirements.txt') != '' || hashFiles('pyproject.toml') != ''
+        run: pip freeze > project-metadata/pip-freeze.txt || true
+
+      # ------- Dependency diff (lockfiles) -------
+      - name: Dependency lock diff summary
+        run: |
+          BASE=$(git rev-parse HEAD~1)
+          {
+            echo '['
+            git diff --name-only $BASE HEAD | grep -E '(^|/)(package-lock\.json|pnpm-lock\.yaml|requirements\.txt)$' | while read f; do
+              echo "{\"file\":\"$f\"}"
+            done
+            echo ']'
+          } > project-metadata/dependency-diff.json || echo "[]" > project-metadata/dependency-diff.json
+
+      # ------- Package everything -------
+      - name: Zip AI analysis package
+        run: |
+          zip -r ai-analysis-package.zip project-metadata test-results analysis_data || true
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-analysis-package
+          path: |
+            ai-analysis-package.zip
+            project-metadata/**
+            test-results/**
+            analysis_data/**
