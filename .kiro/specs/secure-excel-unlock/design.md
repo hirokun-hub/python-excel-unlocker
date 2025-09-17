@@ -466,32 +466,51 @@ stages:
 
 ### AI向けアーティファクト生成
 
-#### 包含情報
+#### 現在の状況（2024-12-28時点）
+**✅ 成功している項目**:
+- セキュリティスキャン結果（bandit）: 正常アップロード
+- バックエンドテスト結果（pytest）: 8/8パス、92%カバレッジ、正常アップロード
+- actions/upload-artifact@v4への更新: 完了
+
+**❌ 修正が必要な項目**:
+- フロントエンドテスト結果のアップロード失敗
+  ```
+  No files were found with the provided path: coverage/
+  junit.xml. Make sure you have correctly specified the path.
+  ```
+- Jest設定でカバレッジレポートとJUnitレポートが生成されていない
+- プロジェクト構造情報を含むAI分析用統合データが不足
+
+#### 包含情報（修正版）
 ```yaml
 ai_package_contents:
   test_results:
-    - unit_test_reports/
-    - integration_test_reports/
-    - e2e_test_reports/
-    - coverage_reports/
+    - security_scan_results.json ✅
+    - backend_coverage.json ✅
+    - frontend_coverage/ ❌ (要修正)
+    - junit.xml ❌ (要修正)
   
-  project_metadata:
+  project_metadata: ❌ (未実装)
     - file_structure.txt
     - dependency_tree.json
     - git_history.txt
     - change_summary.md
   
-  configuration:
+  configuration: ❌ (未実装)
     - package.json
     - requirements.txt
     - template.yaml
     - workflow_configs/
   
-  analysis_data:
+  analysis_data: ❌ (未実装)
     - performance_metrics.json
-    - security_scan_results.sarif
     - code_quality_reports/
 ```
+
+#### 緊急修正が必要な項目
+1. **Jest設定の修正**: カバレッジとJUnitレポート生成
+2. **GitHub Actions設定の修正**: フロントエンドアーティファクトパス
+3. **プロジェクト構造情報の追加**: AI分析用メタデータ生成
 
 #### 生成タイミング
 - **毎回**: 基本的なテスト結果とプロジェクト構造

@@ -134,8 +134,49 @@
 
 ### フェーズ5.5: テスト自動化とCI/CD
 
-- [ ] 5.4 GitHub Actionsインフラ修正と最適化（緊急）
-  - actions/upload-artifact@v3 → v4への更新（全ワークフロー）
+- [ ] 5.4 GitHub Actionsフロントエンドテスト修正（緊急）
+  - **現在の問題**: フロントエンドテスト結果のアップロード失敗
+    ```
+    No files were found with the provided path: coverage/
+    junit.xml. Make sure you have correctly specified the path.
+    ```
+  - **修正内容**:
+    - Jest設定でカバレッジレポート生成の有効化（`collectCoverage: true`）
+    - JUnitレポート生成の設定追加（`jest-junit`パッケージ）
+    - GitHub Actionsワークフローのアーティファクトパス修正
+    - フロントエンドテスト実行後のファイル生成確認
+  - **検証方法**: ローカルで`npm test`実行後、coverage/とjunit.xmlが生成されることを確認
+  - _要件: テストインフラの安定化_
+  - **ブランチ**: `fix/frontend-test-artifacts`
+
+- [ ] 5.5 AI向けアーティファクト生成の実装（緊急）
+  - **現在の問題**: プロジェクト構造情報とメタデータが不足
+  - **実装内容**:
+    - プロジェクト全体のファイルパス一覧生成スクリプト
+    - 依存関係ツリー（package.json、requirements.txt）の収集
+    - Git履歴と変更差分の包含
+    - テスト結果とカバレッジの統合zip出力
+  - **生成ファイル**:
+    ```
+    ai-analysis-package.zip
+    ├── test-results/
+    │   ├── security-scan.json
+    │   ├── backend-coverage.json
+    │   └── frontend-coverage/
+    ├── project-metadata/
+    │   ├── file-structure.txt
+    │   ├── dependency-tree.json
+    │   └── git-history.txt
+    └── configurations/
+        ├── package.json
+        ├── requirements.txt
+        └── template.yaml
+    ```
+  - _要件: AI分析用データの充実_
+  - **ブランチ**: `feature/ai-artifacts`
+
+- [ ] 5.6 GitHub Actionsインフラ修正と最適化
+  - actions/upload-artifact@v3 → v4への更新（全ワークフロー）✅完了
   - 機密情報の削除（api_response.json内のAWSトークン）
   - 構文エラーファイルの修正（GoogleColabで正常起動してたコード.py）
   - ワークフロー実行権限の確認と修正
@@ -143,11 +184,6 @@
     - 変更されたフロントエンド/バックエンドのみテスト実行
     - git diffベースの変更検出とテスト範囲の動的調整
     - 開発ステージに応じたテスト戦略の選択
-  - **AI向けアーティファクト生成**:
-    - テスト結果、カバレッジレポート、ログの統合zip出力
-    - プロジェクト全体のファイルパス一覧とディレクトリ構造
-    - 変更差分とコミット情報の包含
-    - AI分析用のメタデータ（package.json、requirements.txt等）
   - _要件: テストインフラの安定化と開発効率向上_
   - **ブランチ**: `fix/github-actions-infrastructure`
 
@@ -221,7 +257,9 @@
 ## 実装優先順位
 
 ### 緊急優先度（即座に対応）
-0. **GitHub Actionsインフラ修正** (5.4) - テスト環境の復旧
+0. **フロントエンドテスト修正** (5.4) - Jest設定とアーティファクトパス修正
+1. **AI向けアーティファクト生成** (5.5) - プロジェクト構造情報の充実
+2. **GitHub Actionsインフラ修正** (5.6) - テスト環境の復旧
 
 ### 高優先度（必須）
 1. **認証システム** (1.1, 1.2) - セキュリティの基盤
