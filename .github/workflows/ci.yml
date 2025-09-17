@@ -1,4 +1,4 @@
-name: 🚦 CI (AI-first, lightweight)
+name: 🚦 CI Pipeline with AI Analysis
 
 on:
   push:
@@ -8,24 +8,50 @@ on:
   workflow_dispatch:
 
 jobs:
+  # --- 基本テストスイート ---
+  frontend-tests:
+    name: 🎨 Frontend Tests
+    uses: ./.github/workflows/test-frontend.yml
+    with:
+      node-version: '20'
+      coverage-threshold: 80
+    secrets: inherit
+
+  backend-tests:
+    name: 🐍 Backend Tests
+    uses: ./.github/workflows/test-backend.yml
+    secrets: inherit
+
+  security-scan:
+    name: 🔒 Security Scan
+    uses: ./.github/workflows/security-scan.yml
+    secrets: inherit
+
+  # --- AI向けアーティファクト生成（テスト完了後） ---
   ai-artifacts:
     name: 🧭 Collect AI Artifacts
+    needs: [frontend-tests, backend-tests, security-scan]
+    if: always() # テストが失敗してもアーティファクトは生成
     uses: ./.github/workflows/ai-artifacts.yml
     secrets: inherit
 
-  # --- 将来の安全網（必要になったらコメント解除） ---
-  # nightly-full:
-  #   name: 🌙 Nightly Full Suite
-  #   if: github.event_name == 'schedule'
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Placeholder for full E2E/perf/security
-  #       run: echo "Run heavy suites here on a schedule"
+  # --- 将来の拡張 ---
+  # integration-tests:
+  #   name: 🔗 Integration Tests
+  #   needs: [frontend-tests, backend-tests]
+  #   uses: ./.github/workflows/test-integration.yml
+  #   secrets: inherit
 
-  # --- デプロイは当面手動に ---
+  # e2e-tests:
+  #   name: 🎭 E2E Tests
+  #   needs: [frontend-tests, backend-tests]
+  #   if: github.event_name == 'pull_request'
+  #   uses: ./.github/workflows/test-e2e.yml
+  #   secrets: inherit
+
   # deploy:
-  #   name: 🚀 Deploy (manual)
+  #   name: 🚀 Deploy
   #   needs: [ai-artifacts]
-  #   if: ${{ false }}  # 手動に戻す／外す
+  #   if: github.ref == 'refs/heads/main' && github.event_name == 'push'
   #   uses: ./.github/workflows/deploy.yml
   #   secrets: inherit

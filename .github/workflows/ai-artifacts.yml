@@ -2,6 +2,12 @@ name: AI Artifacts (Reusable)
 
 on:
   workflow_call:
+    inputs:
+      collect-test-results:
+        description: 'Whether to collect test results from previous jobs'
+        required: false
+        default: true
+        type: boolean
 
 jobs:
   ai-artifacts:
@@ -26,6 +32,25 @@ jobs:
         run: |
           mkdir -p project-metadata test-results analysis_data
 
+      # --- 他のワークフローからテスト結果をダウンロード ---
+      - name: Download test artifacts
+        if: inputs.collect-test-results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: '*-test-results'
+          path: test-results/
+          merge-multiple: true
+        continue-on-error: true
+
+      - name: Download coverage artifacts
+        if: inputs.collect-test-results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: '*-coverage'
+          path: test-results/coverage/
+          merge-multiple: true
+        continue-on-error: true
+
       - name: List repository files (relative paths)
         run: |
           git ls-files > project-metadata/file-structure.txt
@@ -36,63 +61,68 @@ jobs:
 
       # ------- Frontend (if Node project exists) -------
       - name: Setup Node
-        if: hashFiles('package.json') != ''
+        if: hashFiles('frontend/package.json') != ''
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
       - name: Install Node deps (npm ci)
-        if: hashFiles('package-lock.json') != '' && hashFiles('package.json') != ''
+        if: hashFiles('frontend/package-lock.json') != '' && hashFiles('frontend/package.json') != ''
+        working-directory: frontend
         run: npm ci
 
       - name: Type check (changed only)
-        if: hashFiles('tsconfig.json') != '' && steps.changed.outputs.all_changed_files != ''
+        if: hashFiles('frontend/tsconfig.json') != '' && steps.changed.outputs.all_changed_files != ''
+        working-directory: frontend
         run: |
-          CHANGED=$(printf "%s" "${{ steps.changed.outputs.all_changed_files }}" | grep -E '\.(ts|tsx)$' || true)
-          if [ -n "$CHANGED" ]; then npx tsc --noEmit --pretty false $CHANGED | tee test-results/tsc.log || true; fi
+          CHANGED=$(printf "%s" "${{ steps.changed.outputs.all_changed_files }}" | grep -E 'frontend/.*\.(ts|tsx)$' || true)
+          if [ -n "$CHANGED" ]; then npx tsc --noEmit --pretty false $CHANGED | tee ../test-results/tsc.log || true; fi
 
       - name: ESLint (changed only, JSON)
-        if: hashFiles('.eslintrc*') != '' && steps.changed.outputs.all_changed_files != ''
+        if: hashFiles('frontend/.eslintrc*') != '' && steps.changed.outputs.all_changed_files != ''
+        working-directory: frontend
         run: |
-          CHANGED=$(printf "%s" "${{ steps.changed.outputs.all_changed_files }}" | tr '\n' ' ')
-          npx eslint -f json $CHANGED > test-results/eslint.json || echo "[]" > test-results/eslint.json
+          CHANGED=$(printf "%s" "${{ steps.changed.outputs.all_changed_files }}" | grep -E 'frontend/' | sed 's|frontend/||' | tr '\n' ' ')
+          if [ -n "$CHANGED" ]; then npx eslint -f json $CHANGED > ../test-results/eslint.json || echo "[]" > ../test-results/eslint.json; fi
 
       - name: Frontend tests (find related)
-        if: hashFiles('package.json') != '' && steps.changed.outputs.all_changed_files != ''
+        if: hashFiles('frontend/package.json') != '' && steps.changed.outputs.all_changed_files != ''
+        working-directory: frontend
         env:
-          JEST_JUNIT_OUTPUT: test-results/junit-fe.xml
+          JEST_JUNIT_OUTPUT: ../test-results/junit-fe.xml
         run: |
-          CHANGED=$(printf "%s" "${{ steps.changed.outputs.all_changed_files }}" | tr '\n' ' ')
-          npx jest --ci --runInBand --reporters=default --reporters=jest-junit --findRelatedTests $CHANGED || true
+          CHANGED=$(printf "%s" "${{ steps.changed.outputs.all_changed_files }}" | grep -E 'frontend/' | sed 's|frontend/||' | tr '\n' ' ')
+          if [ -n "$CHANGED" ]; then npx jest --ci --runInBand --reporters=default --reporters=jest-junit --findRelatedTests $CHANGED || true; fi
           # coverageは有れば拾う（設定任せ）
-          if [ -d coverage ]; then jq -n --arg exists "true" '{coverageExists:$exists}' > test-results/coverage-fe.json; else jq -n '{coverageExists:false}' > test-results/coverage-fe.json; fi
+          if [ -d coverage ]; then jq -n --arg exists "true" '{coverageExists:$exists}' > ../test-results/coverage-fe.json; else jq -n '{coverageExists:false}' > ../test-results/coverage-fe.json; fi
 
       - name: NPM dependency tree (JSON)
-        if: hashFiles('package.json') != ''
+        if: hashFiles('frontend/package.json') != ''
+        working-directory: frontend
         run: |
-          (npm ls --all --json > project-metadata/npm-deps.json) || echo "{}" > project-metadata/npm-deps.json
+          (npm ls --all --json > ../project-metadata/npm-deps.json) || echo "{}" > ../project-metadata/npm-deps.json
 
       # ------- Backend (if Python project exists) -------
       - name: Setup Python
-        if: hashFiles('requirements.txt') != '' || hashFiles('pyproject.toml') != ''
+        if: hashFiles('backend/src/requirements.txt') != '' || hashFiles('pyproject.toml') != ''
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
       - name: Install Python deps
-        if: hashFiles('requirements.txt') != ''
-        run: pip install -r requirements.txt || true
+        if: hashFiles('backend/src/requirements.txt') != ''
+        run: pip install -r backend/src/requirements.txt || true
 
       - name: Backend tests (nearby only)
-        if: hashFiles('pytest.ini') != '' || hashFiles('pyproject.toml') != '' || hashFiles('requirements.txt') != ''
+        if: hashFiles('backend/src/requirements.txt') != '' && steps.changed.outputs.all_changed_files != ''
         run: |
           mkdir -p test-results
           # 変更ファイルのディレクトリに近いテストをおおまかに実行
-          TARGETS=$(printf "%s" "${{ steps.changed.outputs.all_changed_files }}" | sed 's#/[^/]*$##' | sort -u | tr '\n' ' ')
-          pytest -q -k "$TARGETS" --maxfail=1 --disable-warnings --junitxml=test-results/junit-be.xml || true
+          TARGETS=$(printf "%s" "${{ steps.changed.outputs.all_changed_files }}" | grep -E 'backend/' | sed 's#/[^/]*$##' | sort -u | tr '\n' ' ')
+          if [ -n "$TARGETS" ]; then pytest backend/tests/ -q --maxfail=1 --disable-warnings --junitxml=test-results/junit-be.xml || true; fi
 
       - name: Pip freeze
-        if: hashFiles('requirements.txt') != '' || hashFiles('pyproject.toml') != ''
+        if: hashFiles('backend/src/requirements.txt') != '' || hashFiles('pyproject.toml') != ''
         run: pip freeze > project-metadata/pip-freeze.txt || true
 
       # ------- Dependency diff (lockfiles) -------
