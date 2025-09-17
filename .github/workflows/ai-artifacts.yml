@@ -38,6 +38,17 @@ jobs:
         run: |
           git diff --numstat HEAD~1 HEAD | awk '{print "{\"added\":"$1",\"deleted\":"$2",\"file\":\""$3"\"}"}' | jq -s '.' > project-metadata/change-map.json || echo "[]" > project-metadata/change-map.json
           
+      - name: Collect change context (diff with context)
+        run: |
+          mkdir -p analysis_data/change-context
+          git diff HEAD~1 HEAD > analysis_data/change-context/full-diff.patch || true
+          # 変更ファイルごとに前後5行の差分を個別保存
+          git diff --name-only HEAD~1 HEAD | while read file; do
+            if [ -f "$file" ]; then
+              git diff -U5 HEAD~1 HEAD -- "$file" > "analysis_data/change-context/$(echo "$file" | tr '/' '_').patch" || true
+            fi
+          done
+          
       - name: Commit meta
         run: |
           {
@@ -189,8 +200,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ai-analysis-package
-          path: |
-            ai-analysis-package.zip
-            project-metadata/**
-            test-results/**
-            analysis_data/**
+          path: ai-analysis-package.zip

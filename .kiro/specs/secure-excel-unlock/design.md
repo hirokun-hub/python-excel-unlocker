@@ -486,6 +486,9 @@ ai-analysis-package/
 └── analysis_data/             # AI分析用データ
     ├── runtime.json           # Node/Python/OSバージョン情報
     ├── todo-fixme.json        # 変更箇所のTODO/FIXME抽出
+    ├── change-context/        # 変更箇所の前後5行コンテキスト
+    │   ├── full-diff.patch    # 全体差分
+    │   └── *.patch            # ファイル別差分（前後5行）
     └── codeframes/            # JUnit失敗時のコードフレーム（±10行）
         ├── junit-fe.txt
         └── junit-be.txt
