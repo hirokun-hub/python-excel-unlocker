@@ -464,53 +464,69 @@ stages:
 - **負荷テスト**: Artillery.js
 - **目標値**: P95 < 8秒、同時実行50
 
-### AI向けアーティファクト生成
+### AI向けアーティファクト構造
 
-#### 現在の状況（2025-01-17時点）
-**✅ 実装完了項目**:
-- CI Pipeline統合: テスト完了後にAI向けアーティファクト生成
-- 並列テスト実行: フロントエンド・バックエンド・セキュリティスキャンの並列実行
-- テスト結果統合: 他のワークフローからのテスト結果を自動収集
-- 包括的AI分析パッケージ: 実際のテスト結果を含む完全なデータ生成
-
-**🔄 新しいCI Pipeline構造**:
-1. **並列テスト実行**: Frontend Tests, Backend Tests, Security Scan
-2. **AI向けアーティファクト生成**: 全テスト完了後に実行
-3. **失敗時対応**: テスト失敗時でもAI分析データは生成（`if: always()`）
-4. **自動統合**: 他のワークフローからテスト結果・カバレッジを自動収集
-
-#### 包含情報（CI統合版）
-```yaml
-ai_package_contents:
-  test_results: ✅ (他のワークフローから自動収集)
-    - junit-fe.xml (フロントエンドテスト結果)
-    - junit-be.xml (バックエンドテスト結果)
-    - coverage/ (テストカバレッジデータ)
-    - security-scan-results (セキュリティスキャン結果)
-    - eslint.json (差分限定ESLint結果)
-    - tsc.log (差分限定TypeScript型チェック)
-  
-  project_metadata: ✅
-    - file-structure.txt (リポジトリ全体のファイルパス一覧)
-    - npm-deps.json (Node.js依存関係ツリー)
-    - pip-freeze.txt (Python依存関係)
-    - dependency-diff.json (依存関係の差分要約)
-    - change-map.json (変更ファイルの追加/削除行数)
-  
-  analysis_data: ✅
-    - ai-analysis-package.zip (上記を全て統合)
+#### アーティファクト構造設計
+```
+ai-analysis-package/
+├── project-metadata/          # プロジェクト構造・メタデータ
+│   ├── file-structure.txt     # リポジトリ全ファイルの相対パス一覧
+│   ├── change-map.json        # git diff --numstat の要約
+│   ├── git-history.txt        # 直近コミットのメタ情報
+│   ├── blame-map.json         # 変更ファイルの最終更新者・時刻
+│   ├── npm-deps.json          # Node.js依存関係ツリー
+│   ├── pip-freeze.txt         # Python依存関係
+│   └── dependency-diff.json   # 依存関係ロックファイルの差分
+├── test-results/              # テスト・検査結果
+│   ├── junit-fe.xml           # フロントエンドテスト結果（Jest）
+│   ├── junit-be.xml           # バックエンドテスト結果（pytest）
+│   ├── coverage-fe.json       # フロントエンドカバレッジ
+│   ├── tsc.log                # TypeScript型チェック（差分限定）
+│   └── eslint.json            # ESLint結果（差分限定）
+└── analysis_data/             # AI分析用データ
+    ├── runtime.json           # Node/Python/OSバージョン情報
+    ├── todo-fixme.json        # 変更箇所のTODO/FIXME抽出
+    └── codeframes/            # JUnit失敗時のコードフレーム（±10行）
+        ├── junit-fe.txt
+        └── junit-be.txt
 ```
 
-#### CI Pipeline統合の特徴
-1. **テスト完了後実行**: 実際のテスト結果を含む完全なデータ
-2. **並列実行**: フロントエンド・バックエンド・セキュリティテストの並列実行
-3. **自動統合**: 他のワークフローからアーティファクトを自動収集
-4. **堅牢性**: テスト失敗時でもAI分析データは生成
+#### 生成フロー
+```mermaid
+graph TB
+    A[差分検出] --> B[軽量検査実行]
+    B --> C[メタデータ収集]
+    C --> D[テスト結果統合]
+    D --> E[アーティファクト集約]
+    E --> F[ZIP生成・アップロード]
+    
+    subgraph "軽量検査"
+        B1[TypeScript型チェック<br/>差分限定]
+        B2[ESLint<br/>差分限定]
+        B3[Jest<br/>関連テストのみ]
+        B4[pytest<br/>近傍テストのみ]
+    end
+    
+    subgraph "メタデータ"
+        C1[ファイル構造一覧]
+        C2[Git履歴・blame]
+        C3[依存関係スナップショット]
+        C4[TODO/FIXMEレーダー]
+    end
+```
 
-#### 生成タイミング
-- **毎回**: 基本的なテスト結果とプロジェクト構造
-- **PR時**: 変更差分と影響分析
-- **main更新時**: 完全なプロジェクト状態スナップショット
+#### 堅牢性設計
+- **`if: always()`**: テスト失敗時でも必ずアーティファクト生成
+- **`continue-on-error: true`**: 依存インストール失敗でも収集継続
+- **ベストエフォート**: 取得できない情報があっても処理継続
+- **相対パス記録**: ファイル構造は相対パスで記録（移植性確保）
+
+#### 差分限定実行の前提
+- **tj-actions/changed-files**: 変更ファイル検出
+- **TypeScript**: 変更された.ts/.tsxファイルのみ型チェック
+- **ESLint**: 変更されたファイルのみリント
+- **Jest**: `--findRelatedTests`で関連テストのみ実行
+- **pytest**: 変更ディレクトリ近傍のテストのみ実行
 
 ## 運用・監視
 

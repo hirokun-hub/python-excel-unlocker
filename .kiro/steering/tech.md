@@ -24,6 +24,23 @@
 - **API**: AWS API Gateway with Lambda integration
 - **ストレージ**: S3 bucket with presigned URLs for file operations
 
+## GitHub Actions実装指針
+
+### 再利用可能ワークフロー設計
+- **分離原則**: 呼び出し側（ci.yml）と呼び出され側（ai-artifacts.yml）を明確に分離
+- **パラメータ化**: `workflow_call`でinputsを定義し、柔軟な実行制御を実現
+- **視覚的明確性**: ワークフロー名とジョブ名で何をしているかを明確に表示
+
+### 堅牢性の確保
+- **`if: always()`**: アーティファクト生成は必ず実行（テスト失敗時でも）
+- **`continue-on-error: true`**: 依存インストール等のベストエフォート処理
+- **差分限定実行**: `tj-actions/changed-files`で変更ファイルのみ処理
+
+### 軽量化戦略
+- **重いテスト停止**: CodeQL、フルE2E、統合テストは週1または手動実行
+- **差分限定**: TypeScript型チェック、ESLint、テスト実行を変更ファイルに限定
+- **AI向け特化**: 原因特定に必要な「事実と文脈」の収集に集中
+
 ## よく使うコマンド
 
 ### フロントエンド開発

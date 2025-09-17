@@ -1,7 +1,10 @@
-name: 🔒 Security Scan Suite
+name: 🔐 Security Scan (Weekly)
 
 on:
-  workflow_call:
+  schedule:
+    - cron: '0 2 * * 1'  # 月曜 02:00 UTC
+  workflow_dispatch:
+  workflow_call:  # 手動呼び出し用に残す
 
 jobs:
   vulnerability-scan:
@@ -68,21 +71,17 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  code-quality:
-    name: 📊 Code Quality Analysis
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: 📥 Checkout code
-        uses: actions/checkout@v4
-
-      - name: 🔍 Run CodeQL Analysis
-        uses: github/codeql-action/init@v2
-        with:
-          languages: javascript, python
-
-      - name: 🏗️ Autobuild
-        uses: github/codeql-action/autobuild@v2
-
-      - name: 📊 Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v2
+  # code-quality:  # ← CodeQL停止（重いため週1に限定）
+  #   name: 📊 Code Quality Analysis
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: 📥 Checkout code
+  #       uses: actions/checkout@v4
+  #     - name: 🔍 Run CodeQL Analysis
+  #       uses: github/codeql-action/init@v2
+  #       with:
+  #         languages: javascript, python
+  #     - name: 🏗️ Autobuild
+  #       uses: github/codeql-action/autobuild@v2
+  #     - name: 📊 Perform CodeQL Analysis
+  #       uses: github/codeql-action/analyze@v2
