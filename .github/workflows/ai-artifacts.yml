@@ -243,14 +243,28 @@ jobs:
             echo ']'
           } > project-metadata/dependency-diff.json || echo "[]" > project-metadata/dependency-diff.json
 
-      # ---------- Package everything (always) ----------
-      - name: Zip AI analysis package
-        if: always()
-        run: zip -r ai-analysis-package.zip project-metadata test-results analysis_data || true
-        
+      # ---------- Collect .kiro project context ----------
+      - name: Collect Kiro project context
+        run: |
+          mkdir -p analysis_data/kiro-context
+          # スペック関連ファイル（要件・設計・タスク）
+          find .kiro/specs -name "*.md" -type f | while read f; do
+            cp "$f" "analysis_data/kiro-context/$(echo "$f" | sed 's|/|_|g')" 2>/dev/null || true
+          done
+          # ステアリングファイル（技術方針・制約）
+          find .kiro/steering -name "*.md" -type f | while read f; do
+            cp "$f" "analysis_data/kiro-context/$(echo "$f" | sed 's|/|_|g')" 2>/dev/null || true
+          done
+          # .kiroファイル一覧も作成
+          find .kiro -name "*.md" -type f > analysis_data/kiro-context/kiro-files-list.txt || true
+
+      # ---------- Upload raw directories (GitHub auto-zips) ----------
       - name: Upload artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ai-analysis-package
-          path: ai-analysis-package.zip
+          path: |
+            project-metadata/
+            test-results/
+            analysis_data/
