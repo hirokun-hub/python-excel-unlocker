@@ -11,86 +11,94 @@
 - ✅ フロントエンド基本構造（Next.js + shadcn/ui）
 - ✅ パスワード解除ロジック（msoffcrypto-tool）
 - ✅ 基本的なUI/UXコンポーネント
-- ✅ Google OAuth認証の基本実装
+- ✅ Google OAuth認証の基本実装（Auth.js + Google Drive API スコープ）
+- ✅ Google Drive連携機能（フォルダ選択、個別・一括保存）
+- ✅ 複数ファイル処理UI（ドラッグ&ドロップ、並列処理対応）
+- ✅ レスポンシブUI（shadcn/ui ベースの統一デザイン）
+- ✅ プログレス表示とフィードバック機能
+- ✅ ファイル管理機能（状態管理、削除・再試行）
+- ✅ 署名付きURL生成機能（バックエンド実装済み）
+- ✅ AI向けアーティファクト収集システム（軽量化・最適化済み）
+- ✅ GitHub Actions CI/CD基盤（差分限定実行）
 
 ### 設計書との差異・要修正
 - ❌ APIエンドポイントが設計書と異なる（単一Lambda vs 2つのエンドポイント）
-- ❌ フロントエンドAPIルート未実装（/api/get-upload-url, /api/unlock）
-- ❌ 署名付きURL方式への完全移行
-- ❌ 認証とバックエンドAPIの統合
+- ❌ フロントエンドから API Gateway 直接呼び出しが未実装（現在はモック）
+- ❌ 署名付きURL方式への完全移行（フロントエンドはモック実装）
+- ❌ 認証とバックエンドAPIの統合（社内限定制御未実装）
 - ❌ エラーハンドリングの標準化
 
 ## 実装タスク
 
 ### フェーズ1: バックエンドAPI構造の修正
 
-- [ ] 1.1 署名付きURL生成Lambda関数の作成
-  - 設計書通りのGET /api/get-upload-url エンドポイント実装
+- [ ] 1.1 署名付きURL生成Lambda関数の分離
+  - 現在の単一Lambda関数から署名付きURL生成機能を分離
+  - 設計書通りの POST /getUploadUrl エンドポイント実装
   - ファイルサイズ・形式バリデーション追加
-  - 60秒有効期限の署名付きURL生成
+  - 60秒有効期限の署名付きURL生成（現在は3600秒）
+  - template.yamlでの新しいLambda関数定義
   - _要件: 要件4（セキュリティとデータ保護）_
-  - **ブランチ**: `feature/upload-url-lambda`
 
-- [ ] 1.2 Lambda機能別分割（getUploadUrl, unlock）
-  - getUploadUrl Lambda関数の独立実装
-  - unlock Lambda関数の独立実装
+- [ ] 1.2 既存unlock Lambda関数の修正
+  - 現在の実装を設計書仕様に合わせて修正
+  - 署名付きURL生成機能を削除（分離済み機能）
+  - 300秒有効期限のダウンロードURL生成（現在は3600秒）
   - 各Lambda関数のIAM権限最小化
-  - 300秒有効期限のダウンロードURL生成
   - _要件: 要件1（基本的なパスワード解除機能）_
-  - **ブランチ**: `feature/lambda-separation`
 
 - [ ] 1.3 エラーレスポンスの標準化
   - 設計書で定義されたエラーコード体系の実装
   - password_incorrect, unsupported_format, timeout等の統一
   - ユーザーフレンドリーなメッセージと対処法の追加
+  - 現在のエラーハンドリングを標準化
   - _要件: 要件5（パフォーマンスと可用性）_
-  - **ブランチ**: `feature/error-handling`
 
 ### フェーズ2: API Gateway直接呼び出しの実装
 
-- [ ] 2.1 API Gateway ステージ/リソース/メソッド定義
-  - getUploadUrl, unlock エンドポイントの定義
-  - CORS設定の実装
-  - 認証統合の設定
-  - _要件: 要件4（セキュリティとデータ保護）_
-  - **ブランチ**: `feature/api-gateway-setup`
-
-- [ ] 2.2 フロントエンドからAPI Gateway直接呼び出し
-  - Next.js APIルートを開発・デバッグ用に縮退
-  - API Gateway エンドポイントへの直接呼び出し実装
-  - 認証トークンの適切な送信
+- [ ] 2.1 フロントエンドからAPI Gateway直接呼び出し
+  - 現在のモック実装（USE_MOCK=true）を実際のAPI Gateway呼び出しに変更
+  - page.tsxのgetPresignedUrls関数を実際のAPI呼び出しに修正
+  - unlock関数を実際のAPI Gateway呼び出しに変更
+  - 環境変数NEXT_PUBLIC_API_URLの設定と活用
+  - モック/実API切り替え機能の保持
   - _要件: 要件1（基本的なパスワード解除機能）_
-  - **ブランチ**: `feature/direct-api-calls`
 
-- [ ] 2.3 認証ミドルウェアの強化（社内限定・招待制）
-  - Auth.js（旧 NextAuth.js）による認証強化
-  - 社内限定アクセス制御の実装
-  - 管理者招待制の実装
+- [ ] 2.2 認証ミドルウェアの強化（社内限定・招待制）
+  - 現在のGoogle OAuth認証に社内限定制御を追加
+  - 許可されたメールアドレスリストの実装
+  - 未認証ユーザーのアクセス拒否機能
+  - auth.tsでの認証コールバック強化
   - _要件: 要件3（認証とアクセス制御）_
-  - **ブランチ**: `feature/auth-middleware`
+
+- [ ] 2.3 API Gateway CORS設定とセキュリティ
+  - template.yamlでのCORS設定追加（現在は基本設定のみ）
+  - セキュリティヘッダーの実装
+  - 認証統合の設定（必要に応じて）
+  - _要件: 要件4（セキュリティとデータ保護）_
 
 ### フェーズ3: フロントエンド処理フローの修正
 
 - [ ] 3.1 ファイルアップロード処理の統合
-  - API Gateway 直接呼び出しによるアップロード処理
-  - 署名URL期限（Upload 60秒、Download 300秒）の実装
-  - 既存のフロントエンドロジックとの統合
+  - 現在のモック実装を実際の署名付きURL処理に変更
+  - S3への直接アップロード実装（現在はモックでaxios.put実装済み）
+  - アップロード進捗の正確な表示（UI実装済み）
+  - エラーハンドリングの改善
   - _要件: 要件4（セキュリティとデータ保護）_
-  - **ブランチ**: `feature/upload-integration`
 
-- [ ] 3.2 複数ファイル処理の並列化（初期リリースから必須）
-  - フロントエンドでの並列処理実装
-  - 各ファイルの個別状態管理
-  - 進捗表示とキャンセル機能
+- [x] 3.2 複数ファイル処理の並列化（初期リリースから必須）
+  - ✅ フロントエンドでの並列処理実装済み
+  - ✅ 各ファイルの個別状態管理実装済み
+  - ✅ 進捗表示機能実装済み
+  - ✅ ドラッグ&ドロップ機能実装済み
   - _要件: 要件6（複数ファイル処理）_
-  - **ブランチ**: `feature/parallel-processing`
 
 - [ ] 3.3 ダウンロード機能の改善
-  - 署名付きURLからの直接ダウンロード
-  - ダウンロード状態の管理
+  - 現在の実装を署名付きURLベースに変更（バックエンドは実装済み）
+  - ダウンロード期限（300秒）の表示
   - ファイル名の適切な処理
+  - Google Drive保存機能との統合（実装済み）
   - _要件: 要件4（セキュリティとデータ保護）_
-  - **ブランチ**: `feature/download-enhancement`
 
 ### フェーズ4: エラーハンドリングとUX改善
 
@@ -118,6 +126,7 @@
   - CSP（Content Security Policy）の設定
   - HTTPS強制とセキュリティヘッダー
   - 入力値サニタイゼーションの強化
+  - 署名付きURL有効期限の統一（Upload: 60秒、Download: 300秒）
   - _要件: 要件4（セキュリティとデータ保護）_
 
 - [ ] 5.2 パフォーマンス最適化
@@ -143,63 +152,95 @@
     - ✅ 堅牢なアーティファクト生成（`if: always()`、`continue-on-error`）
     - ✅ 包括的メタデータ収集（blame、TODO/FIXME、コードフレーム）
     - ✅ 週1セキュリティスキャン化（CodeQL停止）
-  - **収集データ**:
-    ```
-    ai-analysis-package/
-    ├── project-metadata/          # プロジェクト構造・メタデータ
-    │   ├── file-structure.txt     # リポジトリ全ファイルの相対パス一覧
-    │   ├── change-map.json        # git diff --numstat の要約
-    │   ├── git-history.txt        # 直近コミットのメタ情報
-    │   ├── blame-map.json         # 変更ファイルの最終更新者・時刻
-    │   ├── npm-deps.json          # Node.js依存関係ツリー
-    │   ├── pip-freeze.txt         # Python依存関係
-    │   └── dependency-diff.json   # 依存関係ロックファイルの差分
-    ├── test-results/              # テスト・検査結果
-    │   ├── junit-fe.xml           # フロントエンドテスト結果（Jest）
-    │   ├── junit-be.xml           # バックエンドテスト結果（pytest）
-    │   ├── coverage-fe.json       # フロントエンドカバレッジ
-    │   ├── tsc.log                # TypeScript型チェック（差分限定）
-    │   └── eslint.json            # ESLint結果（差分限定）
-    └── analysis_data/             # AI分析用データ
-        ├── runtime.json           # Node/Python/OSバージョン情報
-        ├── todo-fixme.json        # 変更箇所のTODO/FIXME抽出
-        ├── change-context/        # 変更箇所の前後5行コンテキスト
-        │   ├── full-diff.patch    # 全体差分
-        │   └── *.patch            # ファイル別差分（前後5行）
-        ├── file-metrics.json      # ファイルサイズ・行数・複雑度統計
-        ├── hotspots.json          # 過去30日の変更頻度分析（ホットスポット）
-        ├── recent-commits.json    # 最近20コミットのパターン分析
-        ├── error-patterns.json    # ログファイルからのエラーパターン抽出
-        ├── npm-vulnerabilities.json # 依存関係の脆弱性情報
-        ├── kiro-context/          # プロジェクト全体像（要件・設計・タスク・方針）
-        │   ├── .kiro_specs_*_requirements.md
-        │   ├── .kiro_specs_*_design.md  
-        │   ├── .kiro_specs_*_tasks.md
-        │   ├── .kiro_steering_*.md
-        │   └── kiro-files-list.txt
-        └── codeframes/            # JUnit失敗時のコードフレーム（±10行）
-    ```
-  - **特徴**:
-    - 毎コミット/PRで確実に実行（テスト失敗でも継続）
-    - 差分限定で高速実行
-    - AIが原因特定に必要な「事実と文脈」に特化
-    - 重いテスト（E2E、統合、パフォーマンス）は手動/夜間に移行
-  - _要件: 要件7（AIアーカイブ・分析支援）_
-  - **ブランチ**: `feature/ai-artifacts-optimization`
+    - ✅ Kiroプロジェクトコンテキスト収集（要件・設計・タスク・方針）
+  - **収集データ**: プロジェクト構造、変更差分、テスト結果、依存関係、エラーパターン、Kiroコンテキスト等
+  - **特徴**: 毎コミット/PRで確実に実行、差分限定で高速実行、AI原因特定に特化
+  - _要件: 要件7（AI分析・診断支援システム）_
 
-- [ ] 5.6 AI分析データの拡張・改善
-  - **現在の状況**: 基本的なAI向けアーティファクト収集は完了
-  - **拡張項目**:
-    - blame/コードフレーム/ランタイム/TODOレーダーの精度向上
-    - 変更影響範囲の詳細分析（依存関係グラフ）
-    - テスト実行時間とボトルネック特定データ
-    - カバレッジトレンドの追跡データ
-  - **運用改善**:
-    - 夜間セキュリティスキャンの運用開始
-    - 必要時のフルテスト（E2E、統合、パフォーマンス）手動実行
-    - AI分析結果のフィードバックループ構築
-  - _要件: 要件7（AIアーカイブ・分析支援）の拡張_
-  - **ブランチ**: `feature/ai-analysis-enhancement`
+- [x] 5.4.1 GitHub Actions診断シグナル機能の実装
+  - **目的**: 詳細診断シグナル（01-04）による問題箇所の特定精度向上
+  - **実装内容**:
+    - ✅ 再利用可能ワークフロー（ai-diagnostics.yml）の新規作成
+    - ✅ ci.ymlへの診断ジョブ追加（🔎 Diagnostics (01–04)）
+    - ✅ 4つの診断シグナルの実装（最初の失敗トレース、スモークテスト、限定カバレッジ、統合ランキング）
+    - ✅ GitHub Actions画面での視覚的分離表示
+    - ✅ セキュリティ対策（機密情報マスキング、最小権限実行）
+  - **成果物**: analysis_data/logs/、coverage/、suspects.jsonのai-diagnosticsアーティファクト
+  - **特徴**: 既存ai-artifactsと連携、エラー時継続実行、2秒タイムアウト制限
+  - _要件: 要件7（AI分析・診断支援システム）_
+
+- [x] 5.4.2 ai-diagnostics.yml再利用可能ワークフローの作成
+  - ✅ workflow_callでの入力パラメータ定義（run_js, run_py, node_version, python_version）
+  - ✅ 8つのジョブ構成（js-quick-fail, py-quick-fail, next-api-smoke, py-import-smoke, coverage-js, coverage-py, rank-suspects, publish）
+  - ✅ 条件付きNode.js/Pythonセットアップ（hashFilesでガード）
+  - ✅ 各ジョブでのcontinue-on-error: true設定
+  - _要件: 要件7（AI分析・診断支援システム）_
+
+- [x] 5.4.3 診断シグナル01の実装（最初の失敗トレース）
+  - ✅ JavaScript/TypeScript: NODE_OPTIONS=--enable-source-maps + Vitest/Jest --bail 1
+  - ✅ Python: PYTHONFAULTHANDLER=1 + pytest -x --maxfail=1 -vv --tb=long
+  - ✅ JSON/テキスト形式でanalysis_data/logs/配下に保存
+  - ✅ GitHub Step Summaryへの上位1-3件表示
+  - _要件: 要件7（AI分析・診断支援システム）_
+
+- [x] 5.4.4 診断シグナル02の実装（スモークテスト）
+  - ✅ Next.js APIハンドラ: frontend/src/app/**/route.ts自動検出とモック呼び出し
+  - ✅ Python import: backend/src/**/*.py再帰的importテスト
+  - ✅ 2秒タイムアウト制限とSMOKE_FAIL形式でのエラー記録
+  - ✅ analysis_data/logs/next-smoke.txt, py-import-smoke.txtに保存
+  - _要件: 要件7（AI分析・診断支援システム）_
+
+- [x] 5.4.5 診断シグナル03の実装（限定カバレッジ）
+  - ✅ JavaScript/TypeScript: Vitest --bail 1 --coverage.enabled --coverage.reporter=json
+  - ✅ Python: coverage run -m pytest -x --maxfail=1 → coverage json
+  - ✅ analysis_data/coverage/js-coverage.json, py-coverage.jsonに保存
+  - ✅ 最初の失敗までの限定カバレッジ取得
+  - _要件: 要件7（AI分析・診断支援システム）_
+
+- [x] 5.4.6 診断シグナル04の実装（統合ランキング）
+  - ✅ スタックトレース上位フレーム（+50点）、直近変更ファイル（+20点）、ホットスポット（+15点）のスコアリング
+  - ✅ 既存ai-artifactsのchange-map.json, hotspots.jsonとの連携
+  - ✅ analysis_data/suspects.jsonに上位50件を保存
+  - ✅ GitHub Step Summaryに上位5件の表形式表示
+  - _要件: 要件7（AI分析・診断支援システム）_
+
+- [x] 5.4.7 ci.ymlの更新と視覚化
+  - ✅ 既存ai-artifactsジョブの後続として診断ジョブを追加
+  - ✅ needs: [ai-artifacts]での依存関係設定
+  - ✅ ジョブ名「🔎 Diagnostics (01–04)」での視覚的分離
+  - ✅ secrets: inheritでの認証情報継承
+  - _要件: 要件7（AI分析・診断支援システム）_
+
+- [x] 5.4.8 セキュリティとパフォーマンス最適化
+  - ✅ 機密情報マスキング（::add-mask::, sed）の実装
+  - ✅ 最小権限permissions設定（contents: read, actions: read）
+  - ✅ ::group::/::endgroup::でのログ折りたたみ
+  - ✅ 各ステップでのGitHub Step Summary更新
+  - _要件: 要件7（AI分析・診断支援システム）_
+
+- [ ] 5.4.9 追加の再利用可能ワークフローの整理
+  - **既存の再利用可能ワークフロー確認**: deploy.yml, security-scan.yml, test-backend.yml, test-frontend.yml, test-e2e.yml, test-integration.yml, test-performance.ymlは既にworkflow_call対応済み
+  - **新規再利用可能ワークフロー検討**: 
+    - database-migration.yml（将来のDB機能用）
+    - monitoring-setup.yml（CloudWatch/アラート設定用）
+    - cleanup-resources.yml（一時リソース削除用）
+  - **ワークフロー呼び出し最適化**: ci.ymlでの条件付き呼び出し（changed-filesベース）
+  - **共通パラメータ標準化**: Node.js/Pythonバージョン、カバレッジ閾値等の統一
+  - _要件: 要件7（AI分析・診断支援システム）_
+
+- [ ] 5.5 テストパイプラインの段階的実装
+  - 現在のAI向けアーティファクト収集を基盤として段階的にテスト追加
+  - フロントエンド単体テスト（Jest + React Testing Library）
+  - バックエンド単体テスト（pytest + moto）
+  - カバレッジ80%以上の達成
+  - _要件: 設計書のテスト戦略_
+
+- [ ] 5.6 統合・E2Eテストの実装
+  - API統合テスト（Postman/Newman）
+  - E2Eテスト（Playwright）
+  - パフォーマンステスト（Artillery.js）
+  - 手動実行またはPR時のみ実行
+  - _要件: 設計書のテスト戦略_
 
 - [ ] 5.7 GitHub Actionsインフラ修正（レガシー対応）
   - 機密情報の削除（api_response.json内のAWSトークン）
@@ -207,43 +248,6 @@
   - 古いワークフローファイルのクリーンアップ
   - ワークフロー実行権限の確認と修正
   - _要件: レガシーファイルの整理とセキュリティ向上_
-  - **ブランチ**: `fix/github-actions-cleanup`
-
-- [ ] 5.5 GitHub Actionsテストパイプラインの実装
-  - CI/CDワークフローの設定
-  - 単体テスト・統合テスト・E2Eテストの自動実行
-  - カバレッジレポートとセキュリティスキャン
-  - _要件: 品質保証とデプロイ自動化_
-
-- [ ] 5.6 フロントエンド単体テストの実装
-  - Jest + React Testing Libraryのセットアップ
-  - コンポーネント、hooks、ユーティリティのテスト
-  - カバレッジ80%以上の達成
-  - _要件: 設計書のテスト戦略_
-
-- [ ] 5.7 バックエンド単体テストの実装
-  - pytest + motoのセットアップ
-  - Lambda関数とAWS統合のテスト
-  - カバレッジ80%以上の達成
-  - _要件: 設計書のテスト戦略_
-
-- [ ] 5.8 API統合テストの実装
-  - Postman/Newmanテストスイートの作成
-  - 認証フローとAPIエンドポイントのテスト
-  - CI/CDパイプラインへの統合
-  - _要件: 設計書のテスト戦略_
-
-- [ ] 5.9 E2Eテストの実装
-  - Playwrightテストスイートの作成
-  - ユーザージャーニー全体のテスト
-  - 複数ブラウザ・デバイス対応
-  - _要件: 設計書のテスト戦略_
-
-- [ ] 5.10 パフォーマンステストの実装
-  - Artillery.jsテストスイートの作成
-  - P95 < 8秒、同時実行50の目標検証
-  - 本番環境でのパフォーマンス監視
-  - _要件: 設計書のテスト戦略_
 
 ### フェーズ6: 実装済み機能（完了）
 
@@ -251,13 +255,21 @@
   - ✅ 解除済みファイルの直接保存機能実装済み
   - ✅ フォルダ選択機能（検索付き）実装済み
   - ✅ 個別・一括保存オプション実装済み
+  - ✅ Google OAuth認証とDrive APIスコープ設定済み
   - _要件: 要件6（複数ファイル処理）の拡張_
 
 - [x] 6.2 バッチ処理UI改善
   - ✅ ドラッグ&ドロップ実装済み
   - ✅ 複数ファイル選択対応済み
   - ✅ 処理キューの管理機能実装済み
+  - ✅ ファイル削除・再試行機能実装済み
   - _要件: 要件6（複数ファイル処理）_
+
+- [x] 6.3 認証システム基盤
+  - ✅ Google OAuth 2.0認証実装済み
+  - ✅ セッション管理とトークン処理実装済み
+  - ✅ 認証状態に基づくUI制御実装済み
+  - _要件: 要件3（認証とアクセス制御）の基盤_
 
 ### フェーズ7: 将来拡張機能（新規）
 
@@ -279,21 +291,23 @@
 ## 実装優先順位
 
 ### 緊急優先度（即座に対応）
-0. **AI向けアーティファクト収集システム** (5.4) - ✅ 完了（軽量化・最適化済み）
-1. **GitHub Actionsインフラ修正** (5.7) - テスト環境の復旧
+1. **フロントエンド実装修正** (2.1, 3.1) - モックから実際のAPI呼び出しへの移行
+2. **バックエンドAPI分割** (1.1, 1.2) - 設計書準拠の実装
 
 ### 高優先度（必須）
-1. **認証システム** (1.1, 1.2) - セキュリティの基盤
-2. **API統合** (2.1, 2.2, 2.3) - 基本機能の完成
-3. **エラーハンドリング** (3.1) - 安定性の確保
+3. **認証強化** (2.2) - 社内限定制御の実装
+4. **エラーハンドリング統一** (1.3, 4.1) - 安定性の確保
+5. **セキュリティ強化** (2.3, 5.1) - 本番運用準備
 
 ### 中優先度（重要）
-4. **UX改善** (3.2, 3.3) - 使いやすさの向上
-5. **セキュリティ強化** (4.1) - 本番運用準備
+6. **ダウンロード機能改善** (3.3) - 署名付きURL対応
+7. **テストパイプライン** (5.5, 5.6) - 品質保証
+8. **GitHub Actionsインフラ修正** (5.7) - レガシー対応
 
 ### 低優先度（将来）
-6. **パフォーマンス最適化** (4.2, 4.3) - 運用改善
-7. **拡張機能** (5.1, 5.2) - 付加価値
+9. **パフォーマンス最適化** (5.2) - 運用改善
+10. **監視システム** (5.3) - 運用支援
+11. **拡張機能** (7.1, 7.2, 7.3) - 付加価値
 
 ## 成功基準
 

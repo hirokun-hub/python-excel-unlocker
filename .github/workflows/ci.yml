@@ -16,6 +16,17 @@ jobs:
       run_pytest: false
     secrets: inherit
 
+  ai-diagnostics:
+    name: 🔎 Diagnostics (01–04)
+    needs: [ai-artifacts]
+    uses: ./.github/workflows/ai-diagnostics.yml
+    with:
+      run_js: true
+      run_py: true
+      node_version: '20'
+      python_version: '3.11'
+    secrets: inherit
+
   # --- 停止中（必要になったら戻す） ---
   # frontend-tests:
   #   name: 🎨 Frontend Tests
