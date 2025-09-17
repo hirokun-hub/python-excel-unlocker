@@ -494,6 +494,12 @@ ai-analysis-package/
     ├── recent-commits.json    # 最近20コミットのパターン分析
     ├── error-patterns.json    # ログファイルからのエラーパターン抽出
     ├── npm-vulnerabilities.json # 依存関係の脆弱性情報
+    ├── kiro-context/          # プロジェクト全体像（要件・設計・タスク）
+    │   ├── .kiro_specs_*_requirements.md
+    │   ├── .kiro_specs_*_design.md
+    │   ├── .kiro_specs_*_tasks.md
+    │   ├── .kiro_steering_*.md
+    │   └── kiro-files-list.txt
     └── codeframes/            # JUnit失敗時のコードフレーム（±10行）
         ├── junit-fe.txt
         └── junit-be.txt
