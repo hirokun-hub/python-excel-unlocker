@@ -62,7 +62,7 @@ jobs:
           fi
 
       - name: 📋 Upload load test results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: load-test-results
@@ -120,7 +120,7 @@ jobs:
           fi
 
       - name: 📋 Upload stress test results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: stress-test-results
