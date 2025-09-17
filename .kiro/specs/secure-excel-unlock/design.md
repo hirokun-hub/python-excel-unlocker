@@ -466,51 +466,43 @@ stages:
 
 ### AI向けアーティファクト生成
 
-#### 現在の状況（2024-12-28時点）
-**✅ 成功している項目**:
-- セキュリティスキャン結果（bandit）: 正常アップロード
-- バックエンドテスト結果（pytest）: 8/8パス、92%カバレッジ、正常アップロード
-- actions/upload-artifact@v4への更新: 完了
+#### 現在の状況（2025-01-17時点）
+**✅ 実装完了項目**:
+- AI向け軽量ワークフロー（ai-artifacts.yml）: 新規作成
+- 差分限定テスト実行: tj-actions/changed-filesによる変更検出
+- Jest JUnitレポート設定: jest-junit追加、カバレッジ有効化
+- 統合アーティファクト生成: ai-analysis-package.zip
 
-**❌ 修正が必要な項目**:
-- フロントエンドテスト結果のアップロード失敗
-  ```
-  No files were found with the provided path: coverage/
-  junit.xml. Make sure you have correctly specified the path.
-  ```
-- Jest設定でカバレッジレポートとJUnitレポートが生成されていない
-- プロジェクト構造情報を含むAI分析用統合データが不足
+**🔄 新しいアプローチ**:
+- 重いテスト（E2E、統合、セキュリティスキャン）を停止
+- 差分限定の最小実行とメタデータ生成に特化
+- 各コミット/PRで効率的なAI分析データ収集
 
-#### 包含情報（修正版）
+#### 包含情報（実装版）
 ```yaml
 ai_package_contents:
-  test_results:
-    - security_scan_results.json ✅
-    - backend_coverage.json ✅
-    - frontend_coverage/ ❌ (要修正)
-    - junit.xml ❌ (要修正)
+  test_results: ✅
+    - junit-fe.xml (フロントエンド JUnit)
+    - junit-be.xml (バックエンド JUnit)
+    - coverage-fe.json (フロントエンドカバレッジ存在フラグ)
+    - eslint.json (差分限定ESLint結果)
+    - tsc.log (差分限定TypeScript型チェック)
   
-  project_metadata: ❌ (未実装)
-    - file_structure.txt
-    - dependency_tree.json
-    - git_history.txt
-    - change_summary.md
+  project_metadata: ✅
+    - file-structure.txt (全ファイル相対パス)
+    - npm-deps.json (Node依存関係ツリー)
+    - pip-freeze.txt (Python依存関係)
+    - dependency-diff.json (ロック/依存の差分要約)
+    - change-map.json (簡易diff要約：追加/削除行数)
   
-  configuration: ❌ (未実装)
-    - package.json
-    - requirements.txt
-    - template.yaml
-    - workflow_configs/
-  
-  analysis_data: ❌ (未実装)
-    - performance_metrics.json
-    - code_quality_reports/
+  analysis_data: ✅
+    - ai-analysis-package.zip (上記を全て格納)
 ```
 
-#### 緊急修正が必要な項目
-1. **Jest設定の修正**: カバレッジとJUnitレポート生成
-2. **GitHub Actions設定の修正**: フロントエンドアーティファクトパス
-3. **プロジェクト構造情報の追加**: AI分析用メタデータ生成
+#### 新しいワークフロー特徴
+1. **差分限定実行**: 変更されたファイルのみテスト
+2. **軽量化**: 重いE2E/統合テストを停止
+3. **AI特化**: メタデータとテスト結果の効率的収集
 
 #### 生成タイミング
 - **毎回**: 基本的なテスト結果とプロジェクト構造
