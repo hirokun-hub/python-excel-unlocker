@@ -34,6 +34,11 @@ on:
 env:
   AWS_REGION: ap-northeast-1
 
+# GitHub OIDC化：必要な権限を追加
+permissions:
+  id-token: write   # OIDC認証に必要
+  contents: read    # リポジトリ内容の読み取り
+
 jobs:
   # バックエンドテスト実行
   test-backend:
@@ -114,11 +119,11 @@ jobs:
         with:
           use-installer: true
 
-      - name: Configure AWS credentials
+      - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ secrets.AWS_GITHUB_ACTIONS_ROLE_ARN }}
+          role-session-name: GitHubActions-Backend-Deploy-${{ github.run_id }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Cache SAM build
@@ -187,11 +192,11 @@ jobs:
       - name: Set up AWS SAM CLI
         uses: aws-actions/setup-sam@v2
 
-      - name: Configure AWS credentials
+      - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ secrets.AWS_GITHUB_ACTIONS_ROLE_ARN }}
+          role-session-name: GitHubActions-Backend-Production-${{ github.run_id }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Build and deploy to production

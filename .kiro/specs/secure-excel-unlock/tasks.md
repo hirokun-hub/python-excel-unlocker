@@ -149,7 +149,7 @@
   - 認証失敗時の適切なエラーハンドリング
   - _要件: 認証システムの根本的セキュリティ強化_
 
-- [-] 16. CORS設定の厳格化
+- [x] 16. CORS設定の厳格化
   - API Gateway CORSのワイルドカード（*）廃止
   - 本番環境での固定オリジン設定（https://app.example.com）
   - response_utils.pyのAccess-Control-Allow-Origin修正（単一値返却）
@@ -157,7 +157,7 @@
   - 環境別CORS設定の実装
   - _要件: 任意オリジンからのAPI呼び出し防止_
 
-- [ ] 17. GitHub OIDC化（長期AWSキー廃止）
+- [-] 17. GitHub OIDC化（長期AWSキー廃止）
   - GitHub Actions SecretsのAWS_ACCESS_KEY_ID/SECRET削除
   - aws-actions/configure-aws-credentials@v4のOIDCモード設定
   - IAM OIDCプロバイダーの作成
