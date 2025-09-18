@@ -596,3 +596,63 @@ class TestSecurityFeatures:
         assert 'max-age=31536000' in headers['Strict-Transport-Security']
         assert 'Content-Security-Policy' in headers
         assert "default-src 'self'" in headers['Content-Security-Policy']
+
+class TestCORSStrictMode:
+    """CORS設定厳格化のテストケース"""
+    
+    def test_get_allowed_origin_single(self):
+        """単一オリジン設定のテスト"""
+        from response_utils import get_allowed_origin
+        
+        with patch.dict(os.environ, {'ALLOWED_ORIGINS': 'https://example.com'}):
+            origin = get_allowed_origin()
+            assert origin == 'https://example.com'
+    
+    def test_get_allowed_origin_multiple_first_selected(self):
+        """複数オリジン設定で最初のものが選択されるテスト"""
+        from response_utils import get_allowed_origin
+        
+        with patch.dict(os.environ, {'ALLOWED_ORIGINS': 'https://example.com,https://test.com'}):
+            origin = get_allowed_origin()
+            assert origin == 'https://example.com'
+    
+    def test_get_allowed_origin_default(self):
+        """デフォルトオリジンのテスト"""
+        from response_utils import get_allowed_origin
+        
+        with patch.dict(os.environ, {}, clear=True):
+            origin = get_allowed_origin()
+            assert origin == 'https://localhost:3000'
+    
+    def test_get_allowed_origin_with_spaces(self):
+        """スペースを含むオリジン設定のテスト"""
+        from response_utils import get_allowed_origin
+        
+        with patch.dict(os.environ, {'ALLOWED_ORIGINS': ' https://example.com , https://test.com '}):
+            origin = get_allowed_origin()
+            assert origin == 'https://example.com'
+    
+    def test_cors_strict_response(self):
+        """CORS厳格化レスポンスのテスト"""
+        with patch.dict(os.environ, {'ALLOWED_ORIGINS': 'https://secure-app.com'}):
+            response = create_response(200, {'message': 'test'})
+            headers = response['headers']
+            
+            # CORS設定の確認
+            assert 'Access-Control-Allow-Origin' in headers
+            assert headers['Access-Control-Allow-Origin'] == 'https://secure-app.com'
+            assert headers['Access-Control-Allow-Methods'] == 'GET,POST,OPTIONS'
+            assert headers['Access-Control-Allow-Credentials'] == 'true'
+            
+            # ワイルドカードが使用されていないことを確認
+            assert '*' not in headers['Access-Control-Allow-Origin']
+    
+    def test_cors_no_wildcard_in_production(self):
+        """本番環境でワイルドカードが使用されていないことのテスト"""
+        with patch.dict(os.environ, {'ALLOWED_ORIGINS': 'https://production-app.com', 'ENVIRONMENT': 'production'}):
+            response = create_response(200, {'message': 'test'})
+            headers = response['headers']
+            
+            # ワイルドカードの不使用を確認
+            assert headers['Access-Control-Allow-Origin'] != '*'
+            assert 'https://production-app.com' == headers['Access-Control-Allow-Origin']

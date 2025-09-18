@@ -7,10 +7,30 @@ from typing import Dict, Any
 
 logger = logging.getLogger(__name__)
 
+def get_allowed_origin() -> str:
+    """
+    環境に応じた許可オリジンを取得する
+    CORS設定の厳格化：ワイルドカード廃止、環境別固定オリジン
+    
+    Returns:
+        許可されたオリジン（単一値）
+    """
+    import os
+    
+    # 環境変数から許可オリジンを取得
+    allowed_origins = os.environ.get('ALLOWED_ORIGINS', 'https://localhost:3000')
+    
+    # 複数のオリジンが設定されている場合は最初のものを使用
+    # API Gatewayは単一のオリジンのみサポート
+    if ',' in allowed_origins:
+        return allowed_origins.split(',')[0].strip()
+    
+    return allowed_origins.strip()
+
 def create_response(status_code: int, body: Dict[str, Any], additional_headers: Dict[str, str] = None) -> Dict[str, Any]:
     """
     API Gateway用のレスポンスを生成する
-    セキュリティ強化：セキュリティヘッダーの追加
+    セキュリティ強化：CORS設定の厳格化、セキュリティヘッダーの追加
     
     Args:
         status_code: HTTPステータスコード
@@ -20,10 +40,13 @@ def create_response(status_code: int, body: Dict[str, Any], additional_headers: 
     Returns:
         API Gateway形式のレスポンス
     """
+    # CORS設定の厳格化：環境別固定オリジン
+    allowed_origin = get_allowed_origin()
+    
     headers = {
         'Content-Type': 'application/json',
-        # セキュリティ強化：CORS設定の最適化
-        'Access-Control-Allow-Origin': 'https://localhost:3000,https://localhost:3001,https://*.vercel.app',
+        # セキュリティ強化：CORS設定の厳格化（単一オリジン）
+        'Access-Control-Allow-Origin': allowed_origin,
         'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
         'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
         'Access-Control-Allow-Credentials': 'true',

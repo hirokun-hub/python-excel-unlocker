@@ -141,7 +141,7 @@
 
 ### 🟥 即座対応（緊急性：高）
 
-- [-] 15. JWT認証への移行（ヘッダ偽装対策）
+- [x] 15. JWT認証への移行（ヘッダ偽装対策）
   - X-User-Emailヘッダー認証の廃止
   - Authorization: Bearer <ID Token>による認証実装
   - Lambda関数でのGoogle公開鍵によるJWT検証
@@ -149,7 +149,7 @@
   - 認証失敗時の適切なエラーハンドリング
   - _要件: 認証システムの根本的セキュリティ強化_
 
-- [ ] 16. CORS設定の厳格化
+- [-] 16. CORS設定の厳格化
   - API Gateway CORSのワイルドカード（*）廃止
   - 本番環境での固定オリジン設定（https://app.example.com）
   - response_utils.pyのAccess-Control-Allow-Origin修正（単一値返却）
