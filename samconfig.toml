@@ -11,7 +11,8 @@ capabilities = "CAPABILITY_IAM"
 image_repositories = []
 parameter_overrides = [
     "Environment=development",
-    "AllowedUsers=hironomac2025@gmail.com"
+    "AllowedUsers=hironomac2025@gmail.com",
+    "AllowedOrigins=https://localhost:3000,https://localhost:3001"
 ]
 
 # ステージング環境設定
@@ -25,7 +26,8 @@ capabilities = "CAPABILITY_IAM"
 image_repositories = []
 parameter_overrides = [
     "Environment=staging",
-    "AllowedUsers=hironomac2025@gmail.com,staging-user@example.com"
+    "AllowedUsers=hironomac2025@gmail.com,staging-user@example.com",
+    "AllowedOrigins=https://localhost:3000,https://localhost:3001,https://excel-unlocker-staging.vercel.app"
 ]
 
 # 本番環境設定
@@ -39,5 +41,6 @@ capabilities = "CAPABILITY_IAM"
 image_repositories = []
 parameter_overrides = [
     "Environment=production",
-    "AllowedUsers=hironomac2025@gmail.com,user2@nsc.co.jp,user3@nsc.co.jp"
+    "AllowedUsers=hironomac2025@gmail.com,user2@nsc.co.jp,user3@nsc.co.jp",
+    "AllowedOrigins=https://excel-unlocker.vercel.app"
 ]

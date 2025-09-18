@@ -25,6 +25,15 @@ Parameters:
     Type: String
     Default: "hironomac2025@gmail.com"
     Description: "Comma-separated list of allowed user email addresses"
+  
+  AllowedOrigins:
+    Type: String
+    Default: "https://localhost:3000,https://localhost:3001"
+    Description: "Comma-separated list of allowed CORS origins"
+    AllowedValues:
+      - "https://localhost:3000,https://localhost:3001"  # development
+      - "https://localhost:3000,https://localhost:3001,https://excel-unlocker-staging.vercel.app"  # staging
+      - "https://excel-unlocker.vercel.app"  # production
 
 # Global parameters can be defined here
 Globals:
@@ -43,7 +52,7 @@ Globals:
     Cors:
       AllowMethods: "'GET,POST,OPTIONS'"
       AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-      AllowOrigin: "'*'"
+      AllowOrigin: !Sub "'${AllowedOrigins}'"
 
 # AWS Resources definition
 Resources:
@@ -78,7 +87,7 @@ Resources:
             Status: Enabled
             ExpirationInDays: 1
             NoncurrentVersionExpirationInDays: 1
-      # セキュリティ強化：CORS設定の最適化
+      # セキュリティ強化：CORS設定の厳格化
       CorsConfiguration:
         CorsRules:
           - AllowedHeaders:
@@ -91,10 +100,7 @@ Resources:
               - GET
               - PUT
               - HEAD
-            AllowedOrigins:
-              - "https://localhost:3000"
-              - "https://localhost:3001"
-              - "https://*.vercel.app"
+            AllowedOrigins: !Split [",", !Ref AllowedOrigins]
             MaxAge: 3600
             ExposedHeaders:
               - "ETag"
@@ -211,6 +217,8 @@ Resources:
           ENVIRONMENT: !Ref Environment
           # JWT認証用のGoogle Client ID
           GOOGLE_CLIENT_ID: "{{resolve:ssm:/excel-unlocker/google-client-id:1}}"
+          # CORS設定の厳格化：環境別許可オリジン
+          ALLOWED_ORIGINS: !Ref AllowedOrigins
           # パフォーマンス最適化：環境変数
           AWS_LAMBDA_LOG_LEVEL: !If [IsProduction, "WARN", "INFO"]
       Events:
@@ -240,6 +248,8 @@ Resources:
           ENVIRONMENT: !Ref Environment
           # JWT認証用のGoogle Client ID
           GOOGLE_CLIENT_ID: "{{resolve:ssm:/excel-unlocker/google-client-id:1}}"
+          # CORS設定の厳格化：環境別許可オリジン
+          ALLOWED_ORIGINS: !Ref AllowedOrigins
           # パフォーマンス最適化：環境変数
           AWS_LAMBDA_LOG_LEVEL: !If [IsProduction, "WARN", "INFO"]
           PYTHONUNBUFFERED: 1  # Python出力バッファリング無効化
