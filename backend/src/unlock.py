@@ -244,16 +244,16 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         )
 
     try:
-        # 認証チェック（要件3.1, 3.2対応）
+        # JWT認証チェック（要件3.1, 3.2対応）
         user_email = extract_user_from_event(event)
-        auth_result = validate_user_access(user_email)
+        if not user_email:
+            from response_utils import create_auth_error_response
+            return create_auth_error_response("authentication_failed")
         
+        auth_result = validate_user_access(user_email)
         if not auth_result['authorized']:
-            return create_error_response(
-                403,
-                'access_denied',
-                'アクセスが拒否されました。管理者にお問い合わせください。'
-            )
+            from response_utils import create_auth_error_response
+            return create_auth_error_response("unauthorized")
 
         # リクエストボディの解析
         body = json.loads(event.get('body', '{}'))

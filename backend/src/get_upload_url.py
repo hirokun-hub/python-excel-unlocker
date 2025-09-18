@@ -51,17 +51,16 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     try:
         logger.info("Starting presigned URL generation")
         
-        # 認証チェック
+        # JWT認証チェック
         user_email = extract_user_from_event(event)
-        auth_result = validate_user_access(user_email)
+        if not user_email:
+            from response_utils import create_auth_error_response
+            return create_auth_error_response("authentication_failed")
         
+        auth_result = validate_user_access(user_email)
         if not auth_result['authorized']:
-            return create_error_response(
-                status_code=403,
-                error_code='access_denied',
-                message='アクセスが拒否されました',
-                suggestion='管理者にアカウントの登録を依頼してください'
-            )
+            from response_utils import create_auth_error_response
+            return create_auth_error_response("unauthorized")
         
         # リクエストボディの解析
         try:

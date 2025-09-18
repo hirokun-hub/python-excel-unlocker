@@ -119,12 +119,27 @@ export default function ExcelUnlocker() {
 
     } catch (error) {
       console.error('Excel unlock error:', error)
+      
+      let errorMessage = '予期しないエラーが発生しました'
+      
+      if (error instanceof Error) {
+        errorMessage = error.message
+        
+        // JWT認証エラーの場合は特別な処理
+        if (errorMessage.includes('認証に失敗しました') || errorMessage.includes('認証が必要です')) {
+          toast.error('認証エラーが発生しました。ページを更新して再ログインしてください。')
+          // 必要に応じて自動的にログアウト処理を実行
+          // signOut()
+        } else {
+          toast.error('解除処理に失敗しました')
+        }
+      }
+      
       setProcessing({
         status: 'error',
         progress: 0,
-        message: error instanceof Error ? error.message : '予期しないエラーが発生しました'
+        message: errorMessage
       })
-      toast.error('解除処理に失敗しました')
     }
   }
 

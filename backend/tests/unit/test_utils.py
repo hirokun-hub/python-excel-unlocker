@@ -234,6 +234,156 @@ class TestAuthUtils:
         user_email = extract_user_from_event(event)
         assert user_email is None
 
+class TestJWTAuth:
+    """JWT認証機能のテストケース"""
+    
+    @patch('auth_utils.requests.get')
+    def test_get_google_public_keys_success(self, mock_get):
+        """Google公開鍵取得の成功テスト"""
+        from auth_utils import get_google_public_keys
+        
+        # モックレスポンス
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            'keys': [
+                {
+                    'kid': 'test-kid',
+                    'n': 'test-n',
+                    'e': 'AQAB'
+                }
+            ]
+        }
+        mock_response.raise_for_status.return_value = None
+        mock_get.return_value = mock_response
+        
+        # キャッシュをクリア
+        get_google_public_keys.cache_clear()
+        
+        keys = get_google_public_keys()
+        assert 'keys' in keys
+        assert len(keys['keys']) == 1
+        assert keys['keys'][0]['kid'] == 'test-kid'
+    
+    @patch('auth_utils.requests.get')
+    def test_get_google_public_keys_failure(self, mock_get):
+        """Google公開鍵取得の失敗テスト"""
+        from auth_utils import get_google_public_keys
+        
+        # モックでエラーを発生させる
+        mock_get.side_effect = Exception("Network error")
+        
+        # キャッシュをクリア
+        get_google_public_keys.cache_clear()
+        
+        with pytest.raises(Exception):
+            get_google_public_keys()
+    
+    @patch('auth_utils.get_google_public_keys')
+    @patch('auth_utils.jwt.decode')
+    @patch('auth_utils.jwt.get_unverified_header')
+    def test_verify_google_jwt_success(self, mock_get_header, mock_decode, mock_get_keys):
+        """JWT検証の成功テスト"""
+        from auth_utils import verify_google_jwt
+        
+        # モックデータ
+        mock_get_header.return_value = {'kid': 'test-kid'}
+        mock_get_keys.return_value = {
+            'keys': [
+                {
+                    'kid': 'test-kid',
+                    'n': 'test-n-value',
+                    'e': 'AQAB'
+                }
+            ]
+        }
+        mock_decode.return_value = {
+            'email': 'user@example.com',
+            'iss': 'https://accounts.google.com',
+            'aud': 'test-client-id'
+        }
+        
+        with patch.dict(os.environ, {'GOOGLE_CLIENT_ID': 'test-client-id'}):
+            result = verify_google_jwt('test-token')
+            
+            assert result['email'] == 'user@example.com'
+            assert result['iss'] == 'https://accounts.google.com'
+    
+    @patch('auth_utils.jwt.get_unverified_header')
+    def test_verify_google_jwt_missing_kid(self, mock_get_header):
+        """JWT検証でkidが見つからない場合のテスト"""
+        from auth_utils import verify_google_jwt
+        from jwt.exceptions import InvalidTokenError
+        
+        mock_get_header.return_value = {}  # kidなし
+        
+        with pytest.raises(InvalidTokenError):
+            verify_google_jwt('test-token')
+    
+    def test_extract_user_from_event_jwt_success(self):
+        """JWT認証でのユーザー抽出成功テスト"""
+        with patch('auth_utils.verify_google_jwt') as mock_verify:
+            mock_verify.return_value = {'email': 'user@example.com'}
+            
+            event = {
+                'headers': {
+                    'Authorization': 'Bearer test-jwt-token'
+                }
+            }
+            
+            user_email = extract_user_from_event(event)
+            assert user_email == 'user@example.com'
+            mock_verify.assert_called_once_with('test-jwt-token')
+    
+    def test_extract_user_from_event_jwt_no_auth_header(self):
+        """JWT認証でAuthorizationヘッダーがない場合のテスト"""
+        event = {
+            'headers': {}
+        }
+        
+        user_email = extract_user_from_event(event)
+        assert user_email is None
+    
+    def test_extract_user_from_event_jwt_invalid_bearer(self):
+        """JWT認証で無効なBearerトークンの場合のテスト"""
+        event = {
+            'headers': {
+                'Authorization': 'Invalid token-format'
+            }
+        }
+        
+        user_email = extract_user_from_event(event)
+        assert user_email is None
+    
+    def test_extract_user_from_event_jwt_verification_failed(self):
+        """JWT検証が失敗した場合のテスト"""
+        from jwt.exceptions import InvalidTokenError
+        
+        with patch('auth_utils.verify_google_jwt') as mock_verify:
+            mock_verify.side_effect = InvalidTokenError("Invalid token")
+            
+            event = {
+                'headers': {
+                    'Authorization': 'Bearer invalid-jwt-token'
+                }
+            }
+            
+            user_email = extract_user_from_event(event)
+            assert user_email is None
+    
+    def test_extract_user_from_event_jwt_no_email(self):
+        """JWT検証は成功したがemailがない場合のテスト"""
+        with patch('auth_utils.verify_google_jwt') as mock_verify:
+            mock_verify.return_value = {'sub': '123456789'}  # emailなし
+            
+            event = {
+                'headers': {
+                    'Authorization': 'Bearer test-jwt-token'
+                }
+            }
+            
+            user_email = extract_user_from_event(event)
+            assert user_email is None
+
 class TestResponseUtils:
     """レスポンスユーティリティ関数のテストケース"""
     
@@ -274,6 +424,50 @@ class TestResponseUtils:
         assert body['success'] is True
         assert body['result'] == 'processed'
         assert body['count'] == 5
+    
+    def test_create_auth_error_response_default(self):
+        """認証エラーレスポンス作成のテスト（デフォルト）"""
+        from response_utils import create_auth_error_response
+        
+        response = create_auth_error_response()
+        
+        assert response['statusCode'] == 401
+        
+        import json
+        body = json.loads(response['body'])
+        assert body['success'] is False
+        assert body['error'] == 'authentication_failed'
+        assert '認証に失敗しました' in body['message']
+        assert '再ログイン' in body['suggestion']
+    
+    def test_create_auth_error_response_token_expired(self):
+        """認証エラーレスポンス作成のテスト（トークン期限切れ）"""
+        from response_utils import create_auth_error_response
+        
+        response = create_auth_error_response("token_expired")
+        
+        assert response['statusCode'] == 401
+        
+        import json
+        body = json.loads(response['body'])
+        assert body['success'] is False
+        assert body['error'] == 'token_expired'
+        assert '有効期限が切れています' in body['message']
+    
+    def test_create_auth_error_response_unauthorized(self):
+        """認証エラーレスポンス作成のテスト（権限なし）"""
+        from response_utils import create_auth_error_response
+        
+        response = create_auth_error_response("unauthorized")
+        
+        assert response['statusCode'] == 401
+        
+        import json
+        body = json.loads(response['body'])
+        assert body['success'] is False
+        assert body['error'] == 'unauthorized'
+        assert '権限がありません' in body['message']
+        assert '管理者に' in body['suggestion']
 
 class TestSecurityFeatures:
     """セキュリティ強化機能のテストケース"""

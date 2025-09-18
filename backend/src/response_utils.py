@@ -24,7 +24,7 @@ def create_response(status_code: int, body: Dict[str, Any], additional_headers: 
         'Content-Type': 'application/json',
         # セキュリティ強化：CORS設定の最適化
         'Access-Control-Allow-Origin': 'https://localhost:3000,https://localhost:3001,https://*.vercel.app',
-        'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-User-Email',
+        'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
         'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
         'Access-Control-Allow-Credentials': 'true',
         # セキュリティ強化：セキュリティヘッダーの追加
@@ -112,3 +112,42 @@ def create_success_response(data: Dict[str, Any]) -> Dict[str, Any]:
     }
     
     return create_response(200, success_body)
+
+def create_auth_error_response(error_type: str = "authentication_failed") -> Dict[str, Any]:
+    """
+    認証エラーレスポンスを生成する
+    JWT認証失敗時の統一エラーレスポンス
+    
+    Args:
+        error_type: 認証エラーの種類
+    
+    Returns:
+        認証エラーレスポンス（401 Unauthorized）
+    """
+    error_messages = {
+        "authentication_failed": {
+            "message": "認証に失敗しました。再ログインしてください。",
+            "suggestion": "ブラウザを更新してGoogleアカウントで再ログインしてください。"
+        },
+        "token_expired": {
+            "message": "認証トークンの有効期限が切れています。",
+            "suggestion": "再ログインしてください。"
+        },
+        "token_invalid": {
+            "message": "認証トークンが無効です。",
+            "suggestion": "ブラウザのキャッシュをクリアして再ログインしてください。"
+        },
+        "unauthorized": {
+            "message": "このサービスを利用する権限がありません。",
+            "suggestion": "管理者にアクセス権限の付与を依頼してください。"
+        }
+    }
+    
+    error_info = error_messages.get(error_type, error_messages["authentication_failed"])
+    
+    return create_error_response(
+        status_code=401,
+        error_code=error_type,
+        message=error_info["message"],
+        suggestion=error_info["suggestion"]
+    )

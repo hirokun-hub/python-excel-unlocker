@@ -6,3 +6,6 @@ pytest-mock
 moto[s3]
 boto3-stubs
 openpyxl
+PyJWT[crypto]
+cryptography
+requests

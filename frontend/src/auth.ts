@@ -31,12 +31,16 @@ export const authOptions: NextAuthOptions = {
       if (account?.access_token) {
         (token as any).accessToken = account.access_token
         ;(token as any).scope = account.scope
+        // JWT認証用のID Tokenを保存
+        ;(token as any).idToken = account.id_token
       }
       return token
     },
     async session({ session, token }): Promise<Session> {
       ;(session as any).accessToken = (token as any).accessToken
       ;(session as any).scope = (token as any).scope
+      // JWT認証用のID Tokenをセッションに含める
+      ;(session as any).idToken = (token as any).idToken
       return session
     },
     async redirect({ url, baseUrl }) {

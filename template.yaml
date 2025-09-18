@@ -42,7 +42,7 @@ Globals:
   Api:
     Cors:
       AllowMethods: "'GET,POST,OPTIONS'"
-      AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-User-Email'"
+      AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
       AllowOrigin: "'*'"
 
 # AWS Resources definition
@@ -209,6 +209,8 @@ Resources:
           LOG_LEVEL: !If [IsProduction, "WARN", "INFO"]
           ALLOWED_USERS: !Ref AllowedUsers
           ENVIRONMENT: !Ref Environment
+          # JWT認証用のGoogle Client ID
+          GOOGLE_CLIENT_ID: "{{resolve:ssm:/excel-unlocker/google-client-id:1}}"
           # パフォーマンス最適化：環境変数
           AWS_LAMBDA_LOG_LEVEL: !If [IsProduction, "WARN", "INFO"]
       Events:
@@ -236,6 +238,8 @@ Resources:
           LOG_LEVEL: !If [IsProduction, "WARN", "INFO"]
           ALLOWED_USERS: !Ref AllowedUsers
           ENVIRONMENT: !Ref Environment
+          # JWT認証用のGoogle Client ID
+          GOOGLE_CLIENT_ID: "{{resolve:ssm:/excel-unlocker/google-client-id:1}}"
           # パフォーマンス最適化：環境変数
           AWS_LAMBDA_LOG_LEVEL: !If [IsProduction, "WARN", "INFO"]
           PYTHONUNBUFFERED: 1  # Python出力バッファリング無効化

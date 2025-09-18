@@ -207,6 +207,68 @@ interface UserSession {
 - **トークン管理**: httpOnly Cookie + Refresh Token Rotation
 - **セッション**: 24時間有効期限
 
+#### 🚨 セキュリティ強化対応（緊急実装必要）
+
+##### JWT認証への移行
+```typescript
+// 修正前（脆弱）: X-User-Emailヘッダー
+const headers = {
+  'X-User-Email': session.user.email, // 偽装可能
+}
+
+// 修正後（安全）: JWT Bearer Token
+const headers = {
+  'Authorization': `Bearer ${session.idToken}`, // JWT検証必要
+}
+```
+
+```python
+# Lambda側JWT検証
+import jwt
+from jwt import PyJWKClient
+
+def verify_google_jwt(id_token: str) -> Dict[str, Any]:
+    """Google ID TokenのJWT検証"""
+    jwks_client = PyJWKClient("https://www.googleapis.com/oauth2/v3/certs")
+    signing_key = jwks_client.get_signing_key_from_jwt(id_token)
+    
+    decoded_token = jwt.decode(
+        id_token,
+        signing_key.key,
+        algorithms=["RS256"],
+        audience=os.environ['GOOGLE_CLIENT_ID'],
+        issuer="https://accounts.google.com"
+    )
+    return decoded_token
+```
+
+##### CORS厳格化
+```yaml
+# template.yaml修正
+Globals:
+  Api:
+    Cors:
+      AllowMethods: "'GET,POST,OPTIONS'"
+      AllowHeaders: "'Content-Type,Authorization'"
+      AllowOrigin: !Sub "'https://${Environment}.example.com'"  # 環境別固定
+```
+
+```python
+# response_utils.py修正
+def create_cors_response(body: dict, status_code: int = 200) -> dict:
+    allowed_origin = os.environ.get('ALLOWED_ORIGIN', 'https://localhost:3000')
+    return {
+        'statusCode': status_code,
+        'headers': {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': allowed_origin,  # 単一値
+            'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type,Authorization'
+        },
+        'body': json.dumps(body, ensure_ascii=False)
+    }
+```
+
 #### アクセス制御
 
 **フロントエンド認証フロー**:
@@ -285,6 +347,64 @@ def extract_user_from_event(event: Dict[str, Any]) -> Optional[str]:
 - **保存時暗号化**: S3 Server-Side Encryption (SSE-S3)
 - **アクセス制御**: S3バケットポリシー + IAM最小権限
 - **データ保持**: 処理完了後即時削除
+
+#### 🚨 追加セキュリティ対策（緊急実装）
+
+##### S3プリサイン条件拘束
+```python
+# 修正前（脆弱）: 条件なし
+def generate_presigned_url(bucket: str, key: str, expiration: int = 60):
+    return s3_client.generate_presigned_url(
+        'put_object',
+        Params={'Bucket': bucket, 'Key': key},
+        ExpiresIn=expiration
+    )
+
+# 修正後（安全）: 厳格な条件拘束
+def generate_presigned_url(bucket: str, key: str, content_type: str, 
+                          max_size: int, expiration: int = 60):
+    return s3_client.generate_presigned_post(
+        Bucket=bucket,
+        Key=key,
+        Fields={'Content-Type': content_type},
+        Conditions=[
+            {'Content-Type': content_type},
+            ['content-length-range', 1, max_size]
+        ],
+        ExpiresIn=expiration
+    )
+```
+
+##### 基本的なファイル安全性チェック
+```python
+def basic_security_check(file_path: str, content_type: str) -> Dict[str, Any]:
+    """基本的なファイル安全性チェック（無料実装）"""
+    
+    # マクロ付きファイル検出
+    if file_path.endswith('.xlsm'):
+        return {'safe': False, 'reason': 'マクロ付きファイルは処理できません'}
+    
+    # ファイルサイズチェック
+    file_size = os.path.getsize(file_path)
+    if file_size > 20 * 1024 * 1024:  # 20MB
+        return {'safe': False, 'reason': 'ファイルサイズが上限を超えています'}
+    
+    # MIMEタイプ検証
+    allowed_types = [
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-excel'
+    ]
+    if content_type not in allowed_types:
+        return {'safe': False, 'reason': 'サポートされていないファイル形式です'}
+    
+    # マジックバイト検証
+    with open(file_path, 'rb') as f:
+        magic_bytes = f.read(8)
+        if not (magic_bytes.startswith(b'PK') or magic_bytes.startswith(b'\xd0\xcf')):
+            return {'safe': False, 'reason': 'ファイル形式が正しくありません'}
+    
+    return {'safe': True, 'reason': '基本チェック通過'}
+```
 
 #### 署名付きURL設定
 Pre-signed URL の有効期限は Upload 60秒、Download 300秒とする。全ドキュメントでこの値に統一し、変更時は一括で更新する。
