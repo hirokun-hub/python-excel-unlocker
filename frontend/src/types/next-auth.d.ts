@@ -6,6 +6,7 @@ declare module "next-auth" {
     accessToken?: string
     scope?: string
     expires_at?: number
+    idToken?: string  // JWT認証用のID Token
   }
 }
 declare module "next-auth/jwt" {
@@ -13,5 +14,6 @@ declare module "next-auth/jwt" {
     accessToken?: string
     scope?: string
     expires_at?: number
+    idToken?: string  // JWT認証用のID Token
   }
 }

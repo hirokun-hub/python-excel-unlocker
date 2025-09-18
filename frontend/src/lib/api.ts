@@ -7,6 +7,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 
 /**
  * 認証ヘッダー付きでAPIを呼び出す共通関数
+ * JWT認証: Authorization Bearerヘッダーを使用
  */
 async function apiCall(endpoint: string, options: RequestInit = {}) {
   const session = await getSession()
@@ -15,9 +16,15 @@ async function apiCall(endpoint: string, options: RequestInit = {}) {
     throw new Error('認証が必要です。ログインしてください。')
   }
 
+  // JWT認証: ID Tokenを使用
+  const idToken = (session as any).idToken
+  if (!idToken) {
+    throw new Error('認証トークンが見つかりません。再ログインしてください。')
+  }
+
   const headers = {
     'Content-Type': 'application/json',
-    'X-User-Email': session.user.email, // バックエンドが期待するヘッダー
+    'Authorization': `Bearer ${idToken}`, // JWT認証ヘッダー
     ...options.headers,
   }
 
@@ -28,6 +35,12 @@ async function apiCall(endpoint: string, options: RequestInit = {}) {
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}))
+    
+    // 認証エラーの場合は特別な処理
+    if (response.status === 401 || response.status === 403) {
+      throw new Error('認証に失敗しました。再ログインしてください。')
+    }
+    
     throw new Error(errorData.message || `API呼び出しエラー: ${response.status}`)
   }
 
