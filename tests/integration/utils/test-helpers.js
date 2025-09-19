@@ -12,6 +12,15 @@ const S3_BUCKET_NAME = process.env.S3_BUCKET_NAME || 'your-excel-unlock-bucket';
 const TEST_USER_EMAIL = process.env.TEST_USER_EMAIL || 'test@example.com';
 
 /**
+ * テスト用JWTトークンを生成（モック）
+ */
+function generateTestJWT() {
+  // 実際のJWTトークンの代わりにテスト用の識別子を使用
+  // 本来はGoogle OAuth2のID Tokenを使用するが、テスト環境では簡略化
+  return `test-jwt-token-${TEST_USER_EMAIL}`;
+}
+
+/**
  * APIクライアントの作成
  */
 function createApiClient() {
@@ -20,7 +29,7 @@ function createApiClient() {
     timeout: 30000,
     headers: {
       'Content-Type': 'application/json',
-      'X-User-Email': TEST_USER_EMAIL
+      'Authorization': `Bearer ${generateTestJWT()}`
     }
   });
 }
@@ -42,7 +51,7 @@ function loadTestFile(filename) {
 async function getUploadUrl(fileName, fileSize, contentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') {
   const client = createApiClient();
   
-  const response = await client.post('/getUploadUrl', {
+  const response = await client.post('/presigned-urls', {
     fileName,
     fileSize,
     contentType
@@ -185,6 +194,7 @@ module.exports = {
   API_BASE_URL,
   S3_BUCKET_NAME,
   TEST_USER_EMAIL,
+  generateTestJWT,
   createApiClient,
   loadTestFile,
   getUploadUrl,
