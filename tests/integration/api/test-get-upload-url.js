@@ -80,12 +80,12 @@ describe('署名付きURL生成API統合テスト', () => {
         timeout: 30000,
         headers: {
           'Content-Type': 'application/json'
-          // X-User-Emailヘッダーなし
+          // Authorizationヘッダーなし
         }
       });
 
       try {
-        await clientWithoutAuth.post('/getUploadUrl', {
+        await clientWithoutAuth.post('/presigned-urls', {
           fileName: 'test.xlsx',
           fileSize: 1024
         });
@@ -93,7 +93,7 @@ describe('署名付きURL生成API統合テスト', () => {
         // ここに到達したらテスト失敗
         expect(true).toBe(false);
       } catch (error) {
-        expect(error.response.status).toBe(403);
+        expect(error.response.status).toBe(401);
         console.log('✅ 認証なしアクセスが正しく拒否されました');
       }
     });
