@@ -13,7 +13,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 # 必要最小限のインポートで初期化時間を短縮
 from s3_utils import download_file_from_s3, upload_file_to_s3, generate_presigned_url, generate_unique_key, cleanup_local_file, cleanup_s3_object
 from excel_utils import unlock_excel_file, validate_excel_file, sanitize_filename_for_log
-from auth_utils import validate_user_access, extract_user_from_event
+from auth_utils import validate_user_access, extract_user_from_event, verify_google_jwt
 from response_utils import create_success_response, create_error_response
 
 # ログ設定（グローバルスコープで初期化、コールドスタート対策）
@@ -247,13 +247,21 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         # JWT認証チェック（要件3.1, 3.2対応）
         user_email = extract_user_from_event(event)
         if not user_email:
-            from response_utils import create_auth_error_response
-            return create_auth_error_response("authentication_failed")
+            return create_error_response(
+                status_code=401,
+                error_code='authentication_failed',
+                message='認証に失敗しました',
+                suggestion='ログインしてから再度お試しください'
+            )
         
         auth_result = validate_user_access(user_email)
         if not auth_result['authorized']:
-            from response_utils import create_auth_error_response
-            return create_auth_error_response("unauthorized")
+            return create_error_response(
+                status_code=403,
+                error_code='access_denied',
+                message='このサービスへのアクセス権限がありません',
+                suggestion='管理者にお問い合わせください'
+            )
 
         # リクエストボディの解析
         body = json.loads(event.get('body', '{}'))

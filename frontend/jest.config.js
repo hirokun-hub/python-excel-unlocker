@@ -30,7 +30,7 @@ const customJestConfig = {
     '<rootDir>/__tests__/**/*.(test|spec).{js,jsx,ts,tsx}',
     '<rootDir>/src/**/*.(test|spec).{js,jsx,ts,tsx}',
   ],
-  moduleNameMapping: {
+  moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
   reporters: [

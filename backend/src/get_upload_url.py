@@ -12,7 +12,7 @@ from typing import Dict, Any
 
 # コールドスタート対策：グローバルスコープでインポートと初期化
 # 必要最小限のインポートで初期化時間を短縮
-from auth_utils import extract_user_from_event, validate_user_access
+from auth_utils import extract_user_from_event, validate_user_access, verify_google_jwt
 from response_utils import create_success_response, create_error_response
 from s3_utils import generate_presigned_url, generate_unique_key
 
@@ -54,13 +54,21 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         # JWT認証チェック
         user_email = extract_user_from_event(event)
         if not user_email:
-            from response_utils import create_auth_error_response
-            return create_auth_error_response("authentication_failed")
+            return create_error_response(
+                status_code=401,
+                error_code='authentication_failed',
+                message='認証に失敗しました',
+                suggestion='ログインしてから再度お試しください'
+            )
         
         auth_result = validate_user_access(user_email)
         if not auth_result['authorized']:
-            from response_utils import create_auth_error_response
-            return create_auth_error_response("unauthorized")
+            return create_error_response(
+                status_code=403,
+                error_code='access_denied',
+                message='このサービスへのアクセス権限がありません',
+                suggestion='管理者にお問い合わせください'
+            )
         
         # リクエストボディの解析
         try:

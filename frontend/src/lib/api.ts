@@ -44,14 +44,21 @@ async function apiCall(endpoint: string, options: RequestInit = {}) {
     throw new Error(errorData.message || `API呼び出しエラー: ${response.status}`)
   }
 
-  return response.json()
+  const data = await response.json()
+  
+  // レスポンスバリデーション
+  if (typeof data !== 'object' || data === null) {
+    throw new Error('不正なAPIレスポンス形式です')
+  }
+
+  return data
 }
 
 /**
  * 署名付きアップロードURL取得
  */
 export async function getUploadUrl(fileName: string, fileSize: number, contentType: string) {
-  return apiCall('/presigned-urls', {
+  const data = await apiCall('/presigned-urls', {
     method: 'POST',
     body: JSON.stringify({
       fileName,
@@ -59,19 +66,33 @@ export async function getUploadUrl(fileName: string, fileSize: number, contentTy
       contentType,
     }),
   })
+
+  // レスポンス形式のバリデーション
+  if (!data.success || !data.uploadUrl || !data.fileKey) {
+    throw new Error('署名付きURL取得レスポンスの形式が不正です')
+  }
+
+  return data
 }
 
 /**
  * Excel解除処理
  */
 export async function unlockExcel(fileKey: string, passwords: string[]) {
-  return apiCall('/unlock', {
+  const data = await apiCall('/unlock', {
     method: 'POST',
     body: JSON.stringify({
       fileKey,
       passwords,
     }),
   })
+
+  // レスポンス形式のバリデーション
+  if (typeof data.success !== 'boolean') {
+    throw new Error('Excel解除レスポンスの形式が不正です')
+  }
+
+  return data
 }
 
 /**
