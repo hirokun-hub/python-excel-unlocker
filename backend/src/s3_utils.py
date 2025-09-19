@@ -85,9 +85,63 @@ def generate_presigned_url(bucket: str, key: str, client_method: str, expires_in
         logger.exception(f"Failed to generate presigned URL: {e}")
         return None
 
+def generate_constrained_upload_url(bucket: str, key: str, content_type: str, max_size: int) -> dict:
+    """
+    アップロード用署名付きURLを生成する（条件拘束付き）
+    
+    Args:
+        bucket: S3バケット名
+        key: S3オブジェクトキー
+        content_type: 必須のContent-Type（偽装防止）
+        max_size: 最大ファイルサイズ（バイト）
+    
+    Returns:
+        署名付きPOSTデータ辞書、失敗時はNone
+    """
+    try:
+        # 条件拘束の設定
+        fields = {}
+        conditions = []
+        
+        # Content-Type拘束（必須）
+        if content_type:
+            fields['Content-Type'] = content_type
+            conditions.append({'Content-Type': content_type})
+        
+        # ファイルサイズ拘束
+        if max_size:
+            conditions.append(['content-length-range', 1, max_size])
+        
+        # 追加のセキュリティ条件
+        conditions.extend([
+            {'bucket': bucket},
+            {'key': key},
+            ['starts-with', '$Content-Type', content_type.split('/')[0] + '/'] if content_type else ['starts-with', '$Content-Type', '']
+        ])
+        
+        # 署名付きPOSTを生成
+        response = s3_client.generate_presigned_post(
+            Bucket=bucket,
+            Key=key,
+            Fields=fields,
+            Conditions=conditions,
+            ExpiresIn=UPLOAD_URL_EXPIRES_IN
+        )
+        
+        # セキュリティ強化：機密情報をログから除外
+        sanitized_key = sanitize_for_log(key)
+        logger.info(f"Generated presigned POST for upload: {sanitized_key} (expires in {UPLOAD_URL_EXPIRES_IN}s)")
+        logger.info(f"Content-Type constraint: {content_type}, Max size: {max_size} bytes")
+        
+        return response
+        
+    except ClientError as e:
+        logger.exception(f"Failed to generate presigned POST: {e}")
+        return None
+
 def generate_upload_url(bucket: str, key: str) -> str:
     """
-    アップロード用署名付きURLを生成する（統一仕様）
+    アップロード用署名付きURLを生成する（従来版、後方互換性のため残存）
     
     Args:
         bucket: S3バケット名

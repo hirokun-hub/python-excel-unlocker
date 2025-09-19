@@ -112,8 +112,9 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 suggestion='20MB以下のファイルを選択してください'
             )
         
-        # S3バケット名の確認（グローバル変数を使用）
-        if not S3_BUCKET_NAME:
+        # S3バケット名の確認（テスト対応のため関数内で取得）
+        bucket_name = os.environ.get('S3_BUCKET_NAME') or S3_BUCKET_NAME
+        if not bucket_name:
             logger.error("S3_BUCKET_NAME environment variable not set")
             return create_error_response(
                 status_code=500,
@@ -125,11 +126,16 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         # ユニークなS3キーを生成
         file_key = generate_unique_key('uploads', file_name)
         
-        # 署名付きURLを生成（統一仕様を使用）
-        from s3_utils import generate_upload_url
-        upload_url = generate_upload_url(S3_BUCKET_NAME, file_key)
+        # 署名付きURLを生成（条件拘束付き）
+        from s3_utils import generate_constrained_upload_url
+        upload_data = generate_constrained_upload_url(
+            bucket=bucket_name, 
+            key=file_key,
+            content_type=content_type or 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            max_size=file_size or MAX_FILE_SIZE
+        )
         
-        if not upload_url:
+        if not upload_data:
             return create_error_response(
                 status_code=500,
                 error_code='url_generation_failed',
@@ -137,11 +143,13 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 suggestion='しばらく待ってから再度お試しください'
             )
         
-        # 成功レスポンスを返却
+        # 成功レスポンスを返却（POSTデータ形式）
         response_data = {
-            'uploadUrl': upload_url,
+            'uploadUrl': upload_data['url'],
+            'uploadFields': upload_data['fields'],
             'fileKey': file_key,
-            'expiresIn': UPLOAD_URL_EXPIRES_IN
+            'expiresIn': UPLOAD_URL_EXPIRES_IN,
+            'method': 'POST'  # フロントエンドにPOSTメソッドを指示
         }
         
         logger.info(f"Successfully generated presigned URL for file: {file_name}")
