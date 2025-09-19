@@ -2,12 +2,14 @@
  * バックエンドAPI呼び出し用のユーティリティ関数
  */
 import { getSession } from "next-auth/react"
+import { getBotProtectionTokens, type BotProtectionToken } from './botProtection'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 
 /**
  * 認証ヘッダー付きでAPIを呼び出す共通関数
  * JWT認証: Authorization Bearerヘッダーを使用
+ * Bot保護: reCAPTCHA/Turnstileトークンを自動付与
  */
 async function apiCall(endpoint: string, options: RequestInit = {}) {
   const session = await getSession()
@@ -22,15 +24,40 @@ async function apiCall(endpoint: string, options: RequestInit = {}) {
     throw new Error('認証トークンが見つかりません。再ログインしてください。')
   }
 
+  // Bot保護トークンを取得
+  let botProtectionTokens: BotProtectionToken = {}
+  try {
+    botProtectionTokens = await getBotProtectionTokens(endpoint.replace('/', '_'))
+  } catch (error) {
+    console.warn('Bot protection token generation failed:', error)
+    // Bot保護トークンの取得に失敗してもAPIコールは続行
+  }
+
   const headers = {
     'Content-Type': 'application/json',
     'Authorization': `Bearer ${idToken}`, // JWT認証ヘッダー
     ...options.headers,
   }
 
+  // リクエストボディにBot保護トークンを追加
+  let body = options.body
+  if (options.method === 'POST' && body) {
+    try {
+      const bodyData = typeof body === 'string' ? JSON.parse(body) : body
+      const enhancedBody = {
+        ...bodyData,
+        ...botProtectionTokens, // Bot保護トークンを追加
+      }
+      body = JSON.stringify(enhancedBody)
+    } catch (error) {
+      console.warn('Failed to add bot protection tokens to request body:', error)
+    }
+  }
+
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     ...options,
     headers,
+    body,
   })
 
   if (!response.ok) {

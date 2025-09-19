@@ -13,6 +13,8 @@ from jwt.exceptions import InvalidTokenError, ExpiredSignatureError
 import json
 from functools import lru_cache
 import time
+import hashlib
+import hmac
 
 logger = logging.getLogger(__name__)
 
@@ -254,3 +256,212 @@ def extract_user_from_event(event: Dict[str, Any]) -> Optional[str]:
     except (InvalidTokenError, ExpiredSignatureError) as e:
         logger.warning(f"JWT authentication failed: {e}")
         return None
+
+def is_bot_protection_enabled() -> bool:
+    """
+    Bot保護機能が有効かどうかを確認する
+    
+    Returns:
+        Bot保護が有効な場合True
+    """
+    return os.environ.get('ENABLE_BOT_PROTECTION', 'false').lower() == 'true'
+
+def validate_recaptcha_token(token: str, remote_ip: str) -> Dict[str, Any]:
+    """
+    reCAPTCHA v3トークンを検証する
+    
+    Args:
+        token: reCAPTCHAトークン
+        remote_ip: クライアントのIPアドレス
+    
+    Returns:
+        検証結果の辞書 {success: bool, score: float, action: str}
+    """
+    if not is_bot_protection_enabled():
+        return {'success': True, 'score': 1.0, 'action': 'disabled'}
+    
+    recaptcha_secret = os.environ.get('RECAPTCHA_SECRET_KEY')
+    if not recaptcha_secret:
+        logger.warning("RECAPTCHA_SECRET_KEY not configured")
+        return {'success': True, 'score': 1.0, 'action': 'not_configured'}
+    
+    try:
+        response = requests.post(
+            'https://www.google.com/recaptcha/api/siteverify',
+            data={
+                'secret': recaptcha_secret,
+                'response': token,
+                'remoteip': remote_ip
+            },
+            timeout=10
+        )
+        response.raise_for_status()
+        result = response.json()
+        
+        success = result.get('success', False)
+        score = result.get('score', 0.0)
+        action = result.get('action', 'unknown')
+        
+        logger.info(f"reCAPTCHA validation: success={success}, score={score}, action={action}")
+        
+        # スコアが0.5以上を人間と判定（調整可能）
+        if success and score >= 0.5:
+            return {'success': True, 'score': score, 'action': action}
+        else:
+            return {'success': False, 'score': score, 'action': action}
+            
+    except Exception as e:
+        logger.error(f"reCAPTCHA validation failed: {e}")
+        # エラー時は通す（可用性優先）
+        return {'success': True, 'score': 1.0, 'action': 'error'}
+
+def validate_turnstile_token(token: str, remote_ip: str) -> Dict[str, Any]:
+    """
+    Cloudflare Turnstileトークンを検証する
+    
+    Args:
+        token: Turnstileトークン
+        remote_ip: クライアントのIPアドレス
+    
+    Returns:
+        検証結果の辞書 {success: bool, challenge_ts: str, hostname: str}
+    """
+    if not is_bot_protection_enabled():
+        return {'success': True, 'challenge_ts': '', 'hostname': ''}
+    
+    turnstile_secret = os.environ.get('TURNSTILE_SECRET_KEY')
+    if not turnstile_secret:
+        logger.warning("TURNSTILE_SECRET_KEY not configured")
+        return {'success': True, 'challenge_ts': '', 'hostname': ''}
+    
+    try:
+        response = requests.post(
+            'https://challenges.cloudflare.com/turnstile/v0/siteverify',
+            data={
+                'secret': turnstile_secret,
+                'response': token,
+                'remoteip': remote_ip
+            },
+            timeout=10
+        )
+        response.raise_for_status()
+        result = response.json()
+        
+        success = result.get('success', False)
+        challenge_ts = result.get('challenge_ts', '')
+        hostname = result.get('hostname', '')
+        
+        logger.info(f"Turnstile validation: success={success}, hostname={hostname}")
+        
+        return {
+            'success': success,
+            'challenge_ts': challenge_ts,
+            'hostname': hostname
+        }
+        
+    except Exception as e:
+        logger.error(f"Turnstile validation failed: {e}")
+        # エラー時は通す（可用性優先）
+        return {'success': True, 'challenge_ts': '', 'hostname': ''}
+
+def validate_bot_protection(event: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Bot保護機能の総合検証を行う
+    
+    Args:
+        event: API Gatewayイベント
+    
+    Returns:
+        検証結果の辞書 {success: bool, message: str, details: dict}
+    """
+    if not is_bot_protection_enabled():
+        return {
+            'success': True,
+            'message': 'Bot protection disabled',
+            'details': {}
+        }
+    
+    # リクエストボディからBot保護トークンを取得
+    body = event.get('body', '{}')
+    try:
+        if isinstance(body, str):
+            body_data = json.loads(body)
+        else:
+            body_data = body
+    except json.JSONDecodeError:
+        body_data = {}
+    
+    # クライアントIPアドレスを取得
+    remote_ip = event.get('requestContext', {}).get('identity', {}).get('sourceIp', '')
+    
+    # reCAPTCHAトークンの検証
+    recaptcha_token = body_data.get('recaptcha_token')
+    if recaptcha_token:
+        recaptcha_result = validate_recaptcha_token(recaptcha_token, remote_ip)
+        if not recaptcha_result['success']:
+            return {
+                'success': False,
+                'message': 'reCAPTCHA validation failed',
+                'details': recaptcha_result
+            }
+    
+    # Turnstileトークンの検証
+    turnstile_token = body_data.get('turnstile_token')
+    if turnstile_token:
+        turnstile_result = validate_turnstile_token(turnstile_token, remote_ip)
+        if not turnstile_result['success']:
+            return {
+                'success': False,
+                'message': 'Turnstile validation failed',
+                'details': turnstile_result
+            }
+    
+    # どちらのトークンも提供されていない場合
+    if not recaptcha_token and not turnstile_token:
+        logger.warning("No bot protection token provided")
+        return {
+            'success': False,
+            'message': 'Bot protection token required',
+            'details': {}
+        }
+    
+    return {
+        'success': True,
+        'message': 'Bot protection validation passed',
+        'details': {}
+    }
+
+def check_request_rate_limit(event: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    リクエストレート制限をチェックする（簡易実装）
+    
+    Args:
+        event: API Gatewayイベント
+    
+    Returns:
+        チェック結果の辞書 {allowed: bool, message: str}
+    """
+    # 実際の実装では Redis や DynamoDB を使用してレート制限を実装
+    # ここでは基本的なヘッダーチェックのみ
+    
+    headers = event.get('headers', {})
+    user_agent = headers.get('User-Agent', '').lower()
+    
+    # 明らかなBot User-Agentをブロック
+    bot_patterns = [
+        'bot', 'crawler', 'spider', 'scraper', 'curl', 'wget',
+        'python-requests', 'go-http-client', 'java/', 'apache-httpclient'
+    ]
+    
+    for pattern in bot_patterns:
+        if pattern in user_agent:
+            logger.warning(f"Suspicious User-Agent detected: {user_agent}")
+            return {
+                'allowed': False,
+                'message': f'Blocked User-Agent pattern: {pattern}'
+            }
+    
+    return {
+        'allowed': True,
+        'message': 'Rate limit check passed'
+    }

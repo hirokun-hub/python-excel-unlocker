@@ -34,6 +34,14 @@ Parameters:
       - "https://localhost:3000"  # development
       - "https://excel-unlocker-staging.vercel.app"  # staging
       - "https://excel-unlocker.vercel.app"  # production
+  
+  EnableBotProtection:
+    Type: String
+    Default: "false"
+    AllowedValues:
+      - "true"
+      - "false"
+    Description: "Enable additional bot protection (reCAPTCHA/Turnstile)"
 
 # Global parameters can be defined here
 Globals:
@@ -53,6 +61,17 @@ Globals:
       AllowMethods: "'GET,POST,OPTIONS'"
       AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
       AllowOrigin: !Sub "'${AllowedOrigin}'"
+    # レート制限設定
+    MethodSettings:
+      - ResourcePath: "/*"
+        HttpMethod: "*"
+        # スロットリング設定（DDoS対策）
+        ThrottlingBurstLimit: !If [IsProduction, 100, 200]  # バーストリミット
+        ThrottlingRateLimit: !If [IsProduction, 50, 100]    # 継続レート制限（req/sec）
+        # ログ設定
+        LoggingLevel: !If [IsProduction, "ERROR", "INFO"]
+        DataTraceEnabled: !If [IsProduction, false, true]
+        MetricsEnabled: true
 
 # AWS Resources definition
 Resources:
@@ -219,6 +238,8 @@ Resources:
           GOOGLE_CLIENT_ID: "{{resolve:ssm:/excel-unlocker/google-client-id:1}}"
           # CORS設定の厳格化：環境別許可オリジン（単一値）
           ALLOWED_ORIGIN: !Ref AllowedOrigin
+          # Bot保護設定
+          ENABLE_BOT_PROTECTION: !Ref EnableBotProtection
           # パフォーマンス最適化：環境変数
           AWS_LAMBDA_LOG_LEVEL: !If [IsProduction, "WARN", "INFO"]
       Events:
@@ -249,6 +270,8 @@ Resources:
           GOOGLE_CLIENT_ID: "{{resolve:ssm:/excel-unlocker/google-client-id:1}}"
           # CORS設定の厳格化：環境別許可オリジン（単一値）
           ALLOWED_ORIGIN: !Ref AllowedOrigin
+          # Bot保護設定
+          ENABLE_BOT_PROTECTION: !Ref EnableBotProtection
           # パフォーマンス最適化：環境変数
           AWS_LAMBDA_LOG_LEVEL: !If [IsProduction, "WARN", "INFO"]
           PYTHONUNBUFFERED: 1  # Python出力バッファリング無効化
@@ -384,6 +407,203 @@ Resources:
         - Key: Environment
           Value: !Ref Environment
 
+  # WAFv2 Web ACL for API Gateway protection
+  ApiGatewayWebACL:
+    Type: AWS::WAFv2::WebACL
+    Properties:
+      Name: !Sub "ExcelUnlocker-WebACL-${Environment}"
+      Description: "WAF Web ACL for Excel Unlocker API protection"
+      Scope: REGIONAL  # API Gateway用
+      DefaultAction:
+        Allow: {}
+      Rules:
+        # レートベースルール（DDoS対策）
+        - Name: RateLimitRule
+          Priority: 1
+          Statement:
+            RateBasedStatement:
+              Limit: !If [IsProduction, 1000, 2000]  # 5分間のリクエスト制限
+              AggregateKeyType: IP
+          Action:
+            Block: {}
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: !Sub "ExcelUnlocker-RateLimit-${Environment}"
+        
+        # 地理的制限（日本のみ許可）
+        - Name: GeoBlockRule
+          Priority: 2
+          Statement:
+            GeoMatchStatement:
+              CountryCodes:
+                - JP  # 日本のみ許可
+          Action:
+            Allow: {}
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: !Sub "ExcelUnlocker-GeoBlock-${Environment}"
+        
+        # 既知の悪意のあるIPアドレスブロック（AWS Managed Rule）
+        - Name: AWSManagedRulesKnownBadInputsRuleSet
+          Priority: 3
+          OverrideAction:
+            None: {}
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesKnownBadInputsRuleSet
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: !Sub "ExcelUnlocker-KnownBadInputs-${Environment}"
+        
+        # Core Rule Set（一般的な攻撃パターン）
+        - Name: AWSManagedRulesCommonRuleSet
+          Priority: 4
+          OverrideAction:
+            None: {}
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesCommonRuleSet
+              # 除外ルール（必要に応じて調整）
+              ExcludedRules:
+                - Name: SizeRestrictions_BODY  # ファイルアップロード用に除外
+                - Name: GenericRFI_BODY       # 正当なリクエストが誤検知される場合
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: !Sub "ExcelUnlocker-CommonRules-${Environment}"
+        
+        # Bot制御（AWS Managed Rule）
+        - Name: AWSManagedRulesBotControlRuleSet
+          Priority: 5
+          OverrideAction:
+            None: {}
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesBotControlRuleSet
+              # Bot制御の設定
+              ManagedRuleGroupConfigs:
+                - AWSManagedRulesBotControlRuleSet:
+                    InspectionLevel: COMMON  # COMMON | TARGETED
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: !Sub "ExcelUnlocker-BotControl-${Environment}"
+        
+        # カスタムIPブロックリスト（必要に応じて）
+        - Name: CustomIPBlockRule
+          Priority: 6
+          Statement:
+            IPSetReferenceStatement:
+              Arn: !GetAtt BlockedIPSet.Arn
+          Action:
+            Block: {}
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: !Sub "ExcelUnlocker-CustomIPBlock-${Environment}"
+      
+      VisibilityConfig:
+        SampledRequestsEnabled: true
+        CloudWatchMetricsEnabled: true
+        MetricName: !Sub "ExcelUnlocker-WebACL-${Environment}"
+      
+      Tags:
+        - Key: Name
+          Value: !Sub "ExcelUnlocker-WebACL-${Environment}"
+        - Key: Environment
+          Value: !Ref Environment
+
+  # カスタムIPセット（ブロック対象IP）
+  BlockedIPSet:
+    Type: AWS::WAFv2::IPSet
+    Properties:
+      Name: !Sub "ExcelUnlocker-BlockedIPs-${Environment}"
+      Description: "Blocked IP addresses for Excel Unlocker API"
+      Scope: REGIONAL
+      IPAddressVersion: IPV4
+      Addresses: []  # 初期は空、必要に応じて追加
+      Tags:
+        - Key: Name
+          Value: !Sub "ExcelUnlocker-BlockedIPs-${Environment}"
+        - Key: Environment
+          Value: !Ref Environment
+
+  # 許可IPセット（ホワイトリスト、必要に応じて）
+  AllowedIPSet:
+    Type: AWS::WAFv2::IPSet
+    Properties:
+      Name: !Sub "ExcelUnlocker-AllowedIPs-${Environment}"
+      Description: "Allowed IP addresses for Excel Unlocker API"
+      Scope: REGIONAL
+      IPAddressVersion: IPV4
+      Addresses: []  # 必要に応じて社内IPアドレスを追加
+      Tags:
+        - Key: Name
+          Value: !Sub "ExcelUnlocker-AllowedIPs-${Environment}"
+        - Key: Environment
+          Value: !Ref Environment
+
+  # WAF Web ACLをAPI Gatewayに関連付け
+  WebACLAssociation:
+    Type: AWS::WAFv2::WebACLAssociation
+    Properties:
+      ResourceArn: !Sub "arn:aws:apigateway:${AWS::Region}::/restapis/${ServerlessRestApi}/stages/Prod"
+      WebACLArn: !GetAtt ApiGatewayWebACL.Arn
+
+  # WAF用CloudWatchアラーム（高レート制限検知）
+  HighRateLimitAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "ExcelUnlocker-HighRateLimit-${Environment}"
+      AlarmDescription: "High rate limit blocks detected in WAF"
+      MetricName: !Sub "ExcelUnlocker-RateLimit-${Environment}"
+      Namespace: "AWS/WAFV2"
+      Statistic: "Sum"
+      Period: 300  # 5分間
+      EvaluationPeriods: 2
+      Threshold: 50  # 5分間で50回以上のブロック
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: "WebACL"
+          Value: !Sub "ExcelUnlocker-WebACL-${Environment}"
+        - Name: "Rule"
+          Value: "RateLimitRule"
+        - Name: "Region"
+          Value: !Ref AWS::Region
+      AlarmActions:
+        - !Ref AlertTopic
+      TreatMissingData: notBreaching
+
+  # WAF用CloudWatchアラーム（Bot攻撃検知）
+  BotAttackAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "ExcelUnlocker-BotAttack-${Environment}"
+      AlarmDescription: "Bot attacks detected in WAF"
+      MetricName: !Sub "ExcelUnlocker-BotControl-${Environment}"
+      Namespace: "AWS/WAFV2"
+      Statistic: "Sum"
+      Period: 300  # 5分間
+      EvaluationPeriods: 1
+      Threshold: 10  # 5分間で10回以上のBot検知
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: "WebACL"
+          Value: !Sub "ExcelUnlocker-WebACL-${Environment}"
+        - Name: "Rule"
+          Value: "AWSManagedRulesBotControlRuleSet"
+        - Name: "Region"
+          Value: !Ref AWS::Region
+      AlarmActions:
+        - !Ref AlertTopic
+      TreatMissingData: notBreaching
+
   # CloudWatch Dashboard
   MonitoringDashboard:
     Type: AWS::CloudWatch::Dashboard
@@ -443,6 +663,40 @@ Resources:
                 "region": "${AWS::Region}",
                 "title": "S3 Bucket Size"
               }
+            },
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 12,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "AWS/WAFV2", "AllowedRequests", "WebACL", "ExcelUnlocker-WebACL-${Environment}", "Region", "${AWS::Region}" ],
+                  [ ".", "BlockedRequests", ".", ".", ".", "." ]
+                ],
+                "period": 300,
+                "stat": "Sum",
+                "region": "${AWS::Region}",
+                "title": "WAF Requests"
+              }
+            },
+            {
+              "type": "metric",
+              "x": 12,
+              "y": 12,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "AWS/WAFV2", "ExcelUnlocker-RateLimit-${Environment}", "WebACL", "ExcelUnlocker-WebACL-${Environment}", "Rule", "RateLimitRule", "Region", "${AWS::Region}" ],
+                  [ ".", "ExcelUnlocker-BotControl-${Environment}", ".", ".", "Rule", "AWSManagedRulesBotControlRuleSet", ".", "." ]
+                ],
+                "period": 300,
+                "stat": "Sum",
+                "region": "${AWS::Region}",
+                "title": "WAF Security Events"
+              }
             }
           ]
         }
@@ -486,3 +740,28 @@ Outputs:
     Value: !Ref GitHubOIDCProvider
     Export:
       Name: !Sub "${AWS::StackName}-GitHubOIDCProviderArn"
+  
+  # WAF関連の出力
+  WebACLArn:
+    Description: "WAF Web ACL ARN for API protection"
+    Value: !GetAtt ApiGatewayWebACL.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-WebACLArn"
+  
+  WebACLId:
+    Description: "WAF Web ACL ID"
+    Value: !Ref ApiGatewayWebACL
+    Export:
+      Name: !Sub "${AWS::StackName}-WebACLId"
+  
+  BlockedIPSetArn:
+    Description: "Blocked IP Set ARN for manual IP blocking"
+    Value: !GetAtt BlockedIPSet.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-BlockedIPSetArn"
+  
+  AllowedIPSetArn:
+    Description: "Allowed IP Set ARN for IP whitelisting"
+    Value: !GetAtt AllowedIPSet.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-AllowedIPSetArn"
