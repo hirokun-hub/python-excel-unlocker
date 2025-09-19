@@ -5,7 +5,7 @@ import { NextRequest } from "next/server"
 
 /**
  * サーバーサイドでのみアクセス可能なトークン取得
- * フロントエンドには露出されない
+ * フロントエンドには一切露出されない
  */
 export async function getServerAccessToken(req?: NextRequest): Promise<string | null> {
   try {
@@ -15,12 +15,26 @@ export async function getServerAccessToken(req?: NextRequest): Promise<string | 
         req, 
         secret: process.env.NEXTAUTH_SECRET 
       })
-      return (token as any)?.serverAccessToken || null
+      
+      // トークンの有効性を確認
+      const accessToken = (token as any)?.serverAccessToken
+      const expiresAt = (token as any)?.expiresAt
+      
+      if (!accessToken) {
+        return null
+      }
+      
+      // トークンが期限切れかチェック
+      if (expiresAt && Date.now() >= expiresAt * 1000) {
+        // 期限切れの場合はnullを返す（呼び出し側でリフレッシュを試行）
+        return null
+      }
+      
+      return accessToken
     } else {
       // Server Component での使用
-      const session = await getServerSession(authOptions)
-      // サーバーサイドでのみアクセス可能
-      return null // Server Component では直接トークンアクセス不可
+      // セキュリティ上、Server Componentでは直接トークンアクセス不可
+      return null
     }
   } catch (error) {
     console.error("Failed to get server access token:", error)
