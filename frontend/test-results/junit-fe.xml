@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="jest tests" tests="23" failures="0" errors="0" time="0.484">
+  <testsuite name="API統合テスト" errors="0" failures="0" skipped="0" timestamp="2025-09-19T02:14:34" time="0.252" tests="18">
+    <testcase classname="API統合テスト › getUploadUrl API" name="署名付きURL取得が成功する" time="0.001">
+    </testcase>
+    <testcase classname="API統合テスト › getUploadUrl API" name="認証エラーが適切に処理される" time="0.004">
+    </testcase>
+    <testcase classname="API統合テスト › getUploadUrl API" name="ネットワークエラーが適切に処理される" time="0.001">
+    </testcase>
+    <testcase classname="API統合テスト › unlockExcel API" name="Excel解除が成功する" time="0">
+    </testcase>
+    <testcase classname="API統合テスト › unlockExcel API" name="パスワード間違いエラーが適切に処理される" time="0">
+    </testcase>
+    <testcase classname="API統合テスト › unlockExcel API" name="複数パスワードでの解除リクエストが正しく送信される" time="0">
+    </testcase>
+    <testcase classname="API統合テスト › エラーハンドリング" name="APIレスポンスのバリデーションが機能する" time="0">
+    </testcase>
+    <testcase classname="API統合テスト › エラーハンドリング" name="タイムアウトが適切に処理される" time="0.102">
+    </testcase>
+    <testcase classname="API統合テスト › JWT認証" name="セッションがない場合は認証エラーが発生する" time="0">
+    </testcase>
+    <testcase classname="API統合テスト › JWT認証" name="IDトークンがない場合は認証エラーが発生する" time="0">
+    </testcase>
+    <testcase classname="API統合テスト › JWT認証" name="401エラーで適切な認証エラーメッセージが表示される" time="0.001">
+    </testcase>
+    <testcase classname="API統合テスト › JWT認証" name="403エラーで適切な認証エラーメッセージが表示される" time="0">
+    </testcase>
+    <testcase classname="API統合テスト › レスポンスバリデーション" name="getUploadUrl: 必須フィールドが不足している場合はエラーが発生する" time="0">
+    </testcase>
+    <testcase classname="API統合テスト › レスポンスバリデーション" name="unlockExcel: successフィールドが不正な場合はエラーが発生する" time="0">
+    </testcase>
+    <testcase classname="API統合テスト › レスポンスバリデーション" name="null レスポンスの場合はエラーが発生する" time="0.001">
+    </testcase>
+    <testcase classname="API統合テスト › uploadFileToS3" name="S3へのファイルアップロードが成功する" time="0">
+    </testcase>
+    <testcase classname="API統合テスト › uploadFileToS3" name="S3アップロードエラーが適切に処理される" time="0">
+    </testcase>
+    <testcase classname="API統合テスト › リトライ機構" name="一時的なエラーでリトライが実行される" time="0">
+    </testcase>
+  </testsuite>
+  <testsuite name="FileUpload Component" errors="0" failures="0" skipped="0" timestamp="2025-09-19T02:14:34" time="0.1" tests="5">
+    <testcase classname="FileUpload Component" name="renders file upload area" time="0.011">
+    </testcase>
+    <testcase classname="FileUpload Component" name="handles file selection via input" time="0.003">
+    </testcase>
+    <testcase classname="FileUpload Component" name="handles drag and drop" time="0.001">
+    </testcase>
+    <testcase classname="FileUpload Component" name="prevents default behavior on drag over" time="0.001">
+    </testcase>
+    <testcase classname="FileUpload Component" name="opens file dialog when clicked" time="0.005">
+    </testcase>
+  </testsuite>
+</testsuites>
