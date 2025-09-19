@@ -12,7 +12,10 @@ from typing import Dict, Any
 
 # コールドスタート対策：グローバルスコープでインポートと初期化
 # 必要最小限のインポートで初期化時間を短縮
-from auth_utils import extract_user_from_event, validate_user_access, verify_google_jwt
+from auth_utils import (
+    extract_user_from_event, validate_user_access, verify_google_jwt,
+    validate_bot_protection, check_request_rate_limit
+)
 from response_utils import create_success_response, create_error_response
 from s3_utils import generate_presigned_url, generate_unique_key
 
@@ -50,6 +53,26 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
     try:
         logger.info("Starting presigned URL generation")
+        
+        # レート制限チェック（Bot対策）
+        rate_limit_result = check_request_rate_limit(event)
+        if not rate_limit_result['allowed']:
+            return create_error_response(
+                status_code=429,
+                error_code='rate_limit_exceeded',
+                message='リクエスト頻度が高すぎます',
+                suggestion='しばらく待ってから再度お試しください'
+            )
+        
+        # Bot保護チェック
+        bot_protection_result = validate_bot_protection(event)
+        if not bot_protection_result['success']:
+            return create_error_response(
+                status_code=403,
+                error_code='bot_protection_failed',
+                message=bot_protection_result['message'],
+                suggestion='ブラウザから正常にアクセスしてください'
+            )
         
         # JWT認証チェック
         user_email = extract_user_from_event(event)

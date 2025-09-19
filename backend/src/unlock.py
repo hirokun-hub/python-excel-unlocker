@@ -13,7 +13,10 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 # 必要最小限のインポートで初期化時間を短縮
 from s3_utils import download_file_from_s3, upload_file_to_s3, generate_presigned_url, generate_unique_key, cleanup_local_file, cleanup_s3_object
 from excel_utils import unlock_excel_file, validate_excel_file, sanitize_filename_for_log
-from auth_utils import validate_user_access, extract_user_from_event, verify_google_jwt
+from auth_utils import (
+    validate_user_access, extract_user_from_event, verify_google_jwt,
+    validate_bot_protection, check_request_rate_limit
+)
 from response_utils import create_success_response, create_error_response
 
 # ログ設定（グローバルスコープで初期化、コールドスタート対策）
@@ -257,6 +260,26 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         )
 
     try:
+        # レート制限チェック（Bot対策）
+        rate_limit_result = check_request_rate_limit(event)
+        if not rate_limit_result['allowed']:
+            return create_error_response(
+                status_code=429,
+                error_code='rate_limit_exceeded',
+                message='リクエスト頻度が高すぎます',
+                suggestion='しばらく待ってから再度お試しください'
+            )
+        
+        # Bot保護チェック
+        bot_protection_result = validate_bot_protection(event)
+        if not bot_protection_result['success']:
+            return create_error_response(
+                status_code=403,
+                error_code='bot_protection_failed',
+                message=bot_protection_result['message'],
+                suggestion='ブラウザから正常にアクセスしてください'
+            )
+        
         # JWT認証チェック（要件3.1, 3.2対応）
         user_email = extract_user_from_event(event)
         if not user_email:
