@@ -78,9 +78,14 @@ def process_single_file(s3_key: str, passwords: List[str], original_filename: st
                 'message': 'ファイルのダウンロードに失敗しました。再度アップロードしてお試しください。'
             }
 
-        # ファイル形式の検証（強化版）
+        # ファイル形式の検証（セキュリティ強化版）
         validation_result = validate_excel_file(local_file_path)
         if not validation_result['valid']:
+            # セキュリティリスクが高い場合の特別処理
+            security_details = validation_result.get('security_details', {})
+            if security_details.get('risk_level') in ['high', 'critical']:
+                logger.warning(f"High-risk file detected and rejected: {sanitize_filename_for_log(original_filename)}")
+                
             return {
                 'fileName': unlocked_filename,
                 'status': 'error',
