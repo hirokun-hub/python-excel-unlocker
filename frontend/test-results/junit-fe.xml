@@ -1,73 +1,45 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites name="jest tests" tests="34" failures="0" errors="0" time="0.446">
-  <testsuite name="ファイル安全性チェック機能" errors="0" failures="0" skipped="0" timestamp="2025-09-19T05:23:21" time="0.22" tests="34">
-    <testcase classname="ファイル安全性チェック機能 › checkFileExtension" name="許可された拡張子（.xlsx）" time="0.001">
+<testsuites name="jest tests" tests="20" failures="0" errors="0" time="0.477">
+  <testsuite name="API統合テスト" errors="0" failures="0" skipped="0" timestamp="2025-09-19T06:24:54" time="0.245" tests="20">
+    <testcase classname="API統合テスト › getUploadUrl API" name="署名付きURL取得が成功する" time="0.001">
     </testcase>
-    <testcase classname="ファイル安全性チェック機能 › checkFileExtension" name="許可された拡張子（.xls）" time="0">
+    <testcase classname="API統合テスト › getUploadUrl API" name="認証エラーが適切に処理される" time="0.005">
     </testcase>
-    <testcase classname="ファイル安全性チェック機能 › checkFileExtension" name="大文字小文字を区別しない" time="0.001">
+    <testcase classname="API統合テスト › getUploadUrl API" name="ネットワークエラーが適切に処理される" time="0.001">
     </testcase>
-    <testcase classname="ファイル安全性チェック機能 › checkFileExtension" name="マクロ付きファイル（.xlsm）の拒否" time="0">
+    <testcase classname="API統合テスト › unlockExcel API" name="Excel解除が成功する" time="0">
     </testcase>
-    <testcase classname="ファイル安全性チェック機能 › checkFileExtension" name="危険な実行ファイル（.exe）の拒否" time="0">
+    <testcase classname="API統合テスト › unlockExcel API" name="パスワード間違いエラーが適切に処理される" time="0">
     </testcase>
-    <testcase classname="ファイル安全性チェック機能 › checkFileExtension" name="サポートされていない拡張子（.pdf）" time="0.001">
+    <testcase classname="API統合テスト › unlockExcel API" name="複数パスワードでの解除リクエストが正しく送信される" time="0.001">
     </testcase>
-    <testcase classname="ファイル安全性チェック機能 › checkFileExtension" name="拡張子なしのファイル" time="0">
+    <testcase classname="API統合テスト › エラーハンドリング" name="APIレスポンスのバリデーションが機能する" time="0">
     </testcase>
-    <testcase classname="ファイル安全性チェック機能 › checkFileSize" name="有効なファイルサイズ（1KB）" time="0">
+    <testcase classname="API統合テスト › エラーハンドリング" name="タイムアウトが適切に処理される" time="0.102">
     </testcase>
-    <testcase classname="ファイル安全性チェック機能 › checkFileSize" name="有効なファイルサイズ（10MB）" time="0">
+    <testcase classname="API統合テスト › JWT認証" name="セッションがない場合は認証エラーが発生する" time="0">
     </testcase>
-    <testcase classname="ファイル安全性チェック機能 › checkFileSize" name="ファイルサイズ上限超過（25MB）" time="0">
+    <testcase classname="API統合テスト › JWT認証" name="IDトークンがない場合は認証エラーが発生する" time="0">
     </testcase>
-    <testcase classname="ファイル安全性チェック機能 › checkFileSize" name="ファイルサイズ下限未満（50バイト）" time="0.001">
+    <testcase classname="API統合テスト › JWT認証" name="401エラーで適切な認証エラーメッセージが表示される" time="0.001">
     </testcase>
-    <testcase classname="ファイル安全性チェック機能 › checkFileSize" name="空ファイル（0バイト）" time="0">
+    <testcase classname="API統合テスト › JWT認証" name="403エラーで適切な認証エラーメッセージが表示される" time="0">
     </testcase>
-    <testcase classname="ファイル安全性チェック機能 › checkMimeType" name="許可されたMIMEタイプ（.xlsx）" time="0">
+    <testcase classname="API統合テスト › レスポンスバリデーション" name="getUploadUrl: 必須フィールドが不足している場合はエラーが発生する" time="0">
     </testcase>
-    <testcase classname="ファイル安全性チェック機能 › checkMimeType" name="許可されたMIMEタイプ（.xls）" time="0">
+    <testcase classname="API統合テスト › レスポンスバリデーション" name="unlockExcel: successフィールドが不正な場合はエラーが発生する" time="0">
     </testcase>
-    <testcase classname="ファイル安全性チェック機能 › checkMimeType" name="MIMEタイプ未設定" time="0">
+    <testcase classname="API統合テスト › レスポンスバリデーション" name="null レスポンスの場合はエラーが発生する" time="0.001">
     </testcase>
-    <testcase classname="ファイル安全性チェック機能 › checkMimeType" name="許可されていないMIMEタイプ" time="0">
+    <testcase classname="API統合テスト › uploadFileToS3" name="S3へのファイルアップロードが成功する" time="0">
     </testcase>
-    <testcase classname="ファイル安全性チェック機能 › checkFileName" name="有効なファイル名" time="0">
+    <testcase classname="API統合テスト › uploadFileToS3" name="S3アップロードエラーが適切に処理される" time="0">
     </testcase>
-    <testcase classname="ファイル安全性チェック機能 › checkFileName" name="日本語ファイル名" time="0.001">
+    <testcase classname="API統合テスト › uploadFileToS3" name="S3へのファイルアップロード (POST形式・条件拘束付き)" time="0.001">
     </testcase>
-    <testcase classname="ファイル安全性チェック機能 › checkFileName" name="危険な文字を含むファイル名" time="0">
+    <testcase classname="API統合テスト › uploadFileToS3" name="POST形式アップロードエラーが適切に処理される" time="0">
     </testcase>
-    <testcase classname="ファイル安全性チェック機能 › checkFileName" name="長すぎるファイル名" time="0">
-    </testcase>
-    <testcase classname="ファイル安全性チェック機能 › checkFileName" name="Windows予約語" time="0">
-    </testcase>
-    <testcase classname="ファイル安全性チェック機能 › comprehensiveFileSecurityCheck" name="安全なファイル" time="0">
-    </testcase>
-    <testcase classname="ファイル安全性チェック機能 › comprehensiveFileSecurityCheck" name="マクロ付きファイル" time="0.001">
-    </testcase>
-    <testcase classname="ファイル安全性チェック機能 › comprehensiveFileSecurityCheck" name="実行ファイル" time="0">
-    </testcase>
-    <testcase classname="ファイル安全性チェック機能 › comprehensiveFileSecurityCheck" name="複数の問題があるファイル" time="0">
-    </testcase>
-    <testcase classname="ファイル安全性チェック機能 › batchFileSecurityCheck" name="全て安全なファイル" time="0">
-    </testcase>
-    <testcase classname="ファイル安全性チェック機能 › batchFileSecurityCheck" name="一部危険なファイル" time="0">
-    </testcase>
-    <testcase classname="ファイル安全性チェック機能 › batchFileSecurityCheck" name="空の配列" time="0.001">
-    </testcase>
-    <testcase classname="ファイル安全性チェック機能 › formatSecurityCheckResult" name="クリティカルレベルのフォーマット" time="0">
-    </testcase>
-    <testcase classname="ファイル安全性チェック機能 › formatSecurityCheckResult" name="安全レベルのフォーマット" time="0">
-    </testcase>
-    <testcase classname="ファイル安全性チェック機能 › エッジケース" name="非常に長いファイル名" time="0">
-    </testcase>
-    <testcase classname="ファイル安全性チェック機能 › エッジケース" name="特殊文字を含むファイル名" time="0">
-    </testcase>
-    <testcase classname="ファイル安全性チェック機能 › エッジケース" name="最大サイズぎりぎりのファイル" time="0">
-    </testcase>
-    <testcase classname="ファイル安全性チェック機能 › エッジケース" name="最大サイズを1バイト超過" time="0">
+    <testcase classname="API統合テスト › リトライ機構" name="一時的なエラーでリトライが実行される" time="0">
     </testcase>
   </testsuite>
 </testsuites>
