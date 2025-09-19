@@ -25,6 +25,162 @@ Excel Unlocker 社内展開用統合セットアップスクリプトは、初�
 - **動作確認テスト**: デプロイ後の自動動作確認
 - **包括的ログ**: 詳細な実行ログとトラブルシューティング情報
 
+## 前提条件
+
+### 🔐 AWS IAMユーザー設定（重要）
+
+統合セットアップスクリプトを実行する前に、**プロジェクト専用のIAMユーザー**を作成することを強く推奨します。
+
+#### **なぜ専用IAMユーザーが必要か**
+- **セキュリティ**: 最小権限の原則に従った安全な運用
+- **管理性**: Excel Unlocker専用の独立した権限管理
+- **監査性**: 明確な操作ログと追跡
+- **将来性**: プロジェクト終了時の簡単な清理
+
+#### **IAMユーザー作成手順**
+1. **AWSマネジメントコンソール**にルートアカウント（または管理者権限ユーザー）でログイン
+2. **IAM** → **Users** → **Create user**
+3. ユーザー名: `excel-unlocker-deploy-user`（推奨）
+4. **Programmatic access**を選択（コンソールアクセスは不要）
+5. **Attach policies directly** → **Create policy**
+6. 以下の**修正版最小権限ポリシー**を使用
+
+#### **修正版最小権限ポリシー（セキュリティ警告対応済み）**
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "ExcelUnlockerS3Access",
+            "Effect": "Allow",
+            "Action": [
+                "s3:CreateBucket",
+                "s3:DeleteBucket",
+                "s3:GetBucketLocation",
+                "s3:ListBucket",
+                "s3:GetObject",
+                "s3:PutObject",
+                "s3:DeleteObject",
+                "s3:PutBucketCORS",
+                "s3:PutBucketPublicAccessBlock",
+                "s3:GetBucketCORS",
+                "s3:GetBucketPublicAccessBlock"
+            ],
+            "Resource": [
+                "arn:aws:s3:::excel-unlock-*",
+                "arn:aws:s3:::excel-unlock-*/*"
+            ]
+        },
+        {
+            "Sid": "ExcelUnlockerLambdaAccess",
+            "Effect": "Allow",
+            "Action": [
+                "lambda:CreateFunction",
+                "lambda:UpdateFunctionCode",
+                "lambda:UpdateFunctionConfiguration",
+                "lambda:DeleteFunction",
+                "lambda:GetFunction",
+                "lambda:ListFunctions",
+                "lambda:InvokeFunction",
+                "lambda:AddPermission",
+                "lambda:RemovePermission",
+                "lambda:TagResource",
+                "lambda:UntagResource"
+            ],
+            "Resource": "arn:aws:lambda:*:*:function:excel-unlocker-*"
+        },
+        {
+            "Sid": "ExcelUnlockerAPIGatewayAccess",
+            "Effect": "Allow",
+            "Action": [
+                "apigateway:GET",
+                "apigateway:POST",
+                "apigateway:PUT",
+                "apigateway:DELETE",
+                "apigateway:PATCH"
+            ],
+            "Resource": [
+                "arn:aws:apigateway:*::/restapis",
+                "arn:aws:apigateway:*::/restapis/*"
+            ]
+        },
+        {
+            "Sid": "ExcelUnlockerCloudFormationAccess",
+            "Effect": "Allow",
+            "Action": [
+                "cloudformation:CreateStack",
+                "cloudformation:UpdateStack",
+                "cloudformation:DeleteStack",
+                "cloudformation:DescribeStacks",
+                "cloudformation:DescribeStackEvents",
+                "cloudformation:DescribeStackResources",
+                "cloudformation:DescribeStackResource",
+                "cloudformation:GetTemplate",
+                "cloudformation:ValidateTemplate",
+                "cloudformation:ListStackResources"
+            ],
+            "Resource": "arn:aws:cloudformation:*:*:stack/excel-unlocker-*/*"
+        },
+        {
+            "Sid": "ExcelUnlockerIAMRoleAccess",
+            "Effect": "Allow",
+            "Action": [
+                "iam:CreateRole",
+                "iam:DeleteRole",
+                "iam:GetRole",
+                "iam:UpdateRole",
+                "iam:AttachRolePolicy",
+                "iam:DetachRolePolicy",
+                "iam:PutRolePolicy",
+                "iam:DeleteRolePolicy",
+                "iam:GetRolePolicy",
+                "iam:ListRolePolicies",
+                "iam:ListAttachedRolePolicies",
+                "iam:TagRole",
+                "iam:UntagRole"
+            ],
+            "Resource": "arn:aws:iam::*:role/excel-unlocker-*"
+        },
+        {
+            "Sid": "ExcelUnlockerIAMPassRole",
+            "Effect": "Allow",
+            "Action": "iam:PassRole",
+            "Resource": "arn:aws:iam::*:role/excel-unlocker-*",
+            "Condition": {
+                "StringEquals": {
+                    "iam:PassedToService": [
+                        "lambda.amazonaws.com",
+                        "apigateway.amazonaws.com"
+                    ]
+                }
+            }
+        },
+        {
+            "Sid": "ExcelUnlockerLogsAccess",
+            "Effect": "Allow",
+            "Action": [
+                "logs:CreateLogGroup",
+                "logs:CreateLogStream",
+                "logs:PutLogEvents",
+                "logs:DescribeLogGroups",
+                "logs:DescribeLogStreams"
+            ],
+            "Resource": "arn:aws:logs:*:*:log-group:/aws/lambda/excel-unlocker-*"
+        }
+    ]
+}
+```
+
+7. ポリシー名: `ExcelUnlockerDeployPolicy`
+8. ユーザーを作成し、**Access Key ID**と**Secret Access Key**を安全に保存
+9. AWS CLIで認証情報を設定: `aws configure`
+
+#### **既存IAMユーザーがある場合**
+既存のIAMユーザーでも使用可能ですが、**プロジェクト専用ユーザーの新規作成を推奨**します：
+- セキュリティ上のメリット（最小権限、権限分離）
+- 運用上のメリット（独立管理、簡単な清理）
+- 監査上のメリット（明確な操作追跡）
+
 ## クイックスタート
 
 ### 1. 簡易セットアップ（推奨）

@@ -347,6 +347,28 @@ run_test "新機能テスト" "test_new_feature" "新機能の動作確認"
 
 ## セキュリティ
 
+### AWS IAMユーザー設定（重要）
+
+**プロジェクト専用のIAMユーザー作成を強く推奨します**：
+
+#### **専用IAMユーザーのメリット**
+- **セキュリティ**: 最小権限の原則に従った安全な運用
+- **管理性**: Excel Unlocker専用の独立した権限管理
+- **監査性**: 明確な操作ログと追跡
+- **将来性**: プロジェクト終了時の簡単な清理
+
+#### **推奨設定**
+- **ユーザー名**: `excel-unlocker-deploy-user`
+- **ポリシー名**: `ExcelUnlockerDeployPolicy`
+- **アクセスタイプ**: Programmatic accessのみ
+
+#### **セキュリティ警告対応済みポリシー**
+統合セットアップスクリプトで使用するポリシーは、以下のセキュリティ警告を解決済みです：
+- "Create SLR With Star In Action And Resource"
+- "PassRole With Star In Action And Resource"
+
+修正版ポリシーでは、PassRole権限を特定のAWSサービス（Lambda、API Gateway）のみに制限し、セキュリティを強化しています。
+
 ### 機密情報の保護
 
 - **設定ファイル**: `setup-config.json` は `.gitignore` で除外
