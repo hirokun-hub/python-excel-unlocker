@@ -278,7 +278,7 @@ export default function ExcelUnlocker() {
 
         {/* ユーザー情報表示 */}
         <div className="text-sm text-muted-foreground">
-          ログイン中: {session.user.email}
+          ログイン中: {session.user?.email}
         </div>
       </CardContent>
     </Card>

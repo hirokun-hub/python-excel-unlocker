@@ -43,7 +43,7 @@ describe('API統合テスト', () => {
         json: async () => mockResponse
       });
 
-      const result = await getUploadUrl('test-file.xlsx', 1024);
+      const result = await getUploadUrl('test-file.xlsx', 1024, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
 
       expect(fetch).toHaveBeenCalledWith(
         expect.stringContaining('/api/get-upload-url'),
@@ -75,13 +75,13 @@ describe('API統合テスト', () => {
         })
       });
 
-      await expect(getUploadUrl('test-file.xlsx', 1024)).rejects.toThrow();
+      await expect(getUploadUrl('test-file.xlsx', 1024, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')).rejects.toThrow();
     });
 
     test('ネットワークエラーが適切に処理される', async () => {
       (fetch as jest.Mock).mockRejectedValueOnce(new Error('Network error'));
 
-      await expect(getUploadUrl('test-file.xlsx', 1024)).rejects.toThrow('Network error');
+      await expect(getUploadUrl('test-file.xlsx', 1024, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')).rejects.toThrow('Network error');
     });
   });
 
@@ -177,7 +177,7 @@ describe('API統合テスト', () => {
         })
       });
 
-      await expect(getUploadUrl('test-file.xlsx', 1024)).rejects.toThrow();
+      await expect(getUploadUrl('test-file.xlsx', 1024, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')).rejects.toThrow();
     });
 
     test('タイムアウトが適切に処理される', async () => {
@@ -188,7 +188,7 @@ describe('API統合テスト', () => {
         )
       );
 
-      await expect(getUploadUrl('test-file.xlsx', 1024)).rejects.toThrow('Request timeout');
+      await expect(getUploadUrl('test-file.xlsx', 1024, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')).rejects.toThrow('Request timeout');
     });
   });
 
