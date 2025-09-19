@@ -59,9 +59,32 @@ def get_allowed_users() -> list:
     logger.info(f"Loaded {len(allowed_users)} allowed users")
     return allowed_users
 
+def is_development_environment() -> bool:
+    """
+    開発環境かどうかを判定する
+    
+    Returns:
+        開発環境の場合True、本番環境の場合False
+    """
+    environment = os.environ.get('ENVIRONMENT', '').lower()
+    stage = os.environ.get('STAGE', '').lower()
+    
+    # 開発環境の判定条件
+    development_indicators = [
+        environment in ['development', 'dev', 'local'],
+        stage in ['development', 'dev', 'local'],
+        os.environ.get('AWS_SAM_LOCAL') == 'true',  # SAM Local実行時
+        os.environ.get('DEVELOPMENT_MODE') == 'true'  # 明示的な開発モード指定
+    ]
+    
+    is_dev = any(development_indicators)
+    logger.info(f"Environment check: ENVIRONMENT={environment}, STAGE={stage}, is_development={is_dev}")
+    return is_dev
+
 def validate_user_access(user_email: Optional[str]) -> Dict[str, Any]:
     """
     ユーザーのアクセス権限を検証する
+    セキュリティ強化：本番環境では許可ユーザーリスト必須、開発環境のみ全許可
     
     Args:
         user_email: 検証するユーザーのメールアドレス
@@ -76,13 +99,24 @@ def validate_user_access(user_email: Optional[str]) -> Dict[str, Any]:
         }
     
     allowed_users = get_allowed_users()
+    is_dev_env = is_development_environment()
+    
+    # 許可ユーザーリストが空の場合の処理
     if not allowed_users:
-        # 許可ユーザーリストが空の場合は開発モードとして全て許可
-        logger.warning("No allowed users configured - allowing all access (development mode)")
-        return {
-            'authorized': True,
-            'message': 'Development mode - access granted'
-        }
+        if is_dev_env:
+            # 開発環境：全て許可（従来の動作）
+            logger.warning("No allowed users configured - allowing all access (development mode)")
+            return {
+                'authorized': True,
+                'message': 'Development mode - access granted'
+            }
+        else:
+            # 本番環境：全て拒否（セキュリティ強化）
+            logger.error("CRITICAL: No allowed users configured in production environment - denying all access")
+            return {
+                'authorized': False,
+                'message': 'Access denied - no users authorized (configuration required)'
+            }
     
     # メールアドレスの正規化（小文字変換、空白除去）
     normalized_email = user_email.strip().lower()
@@ -92,13 +126,15 @@ def validate_user_access(user_email: Optional[str]) -> Dict[str, Any]:
     sanitized_email = sanitize_email_for_log(user_email)
     
     if normalized_email in normalized_allowed_users:
-        logger.info(f"Access granted for user: {sanitized_email}")
+        env_type = "development" if is_dev_env else "production"
+        logger.info(f"Access granted for user: {sanitized_email} (environment: {env_type})")
         return {
             'authorized': True,
             'message': 'Access granted'
         }
     else:
-        logger.warning(f"Access denied for user: {sanitized_email}")
+        env_type = "development" if is_dev_env else "production"
+        logger.warning(f"Access denied for user: {sanitized_email} (environment: {env_type})")
         return {
             'authorized': False,
             'message': 'Access denied - user not authorized'
