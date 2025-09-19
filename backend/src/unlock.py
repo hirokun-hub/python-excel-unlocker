@@ -78,24 +78,32 @@ def process_single_file(s3_key: str, passwords: List[str], original_filename: st
                 'message': 'ファイルのダウンロードに失敗しました。再度アップロードしてお試しください。'
             }
 
-        # ファイル形式の検証
+        # ファイル形式の検証（強化版）
         validation_result = validate_excel_file(local_file_path)
         if not validation_result['valid']:
             return {
                 'fileName': unlocked_filename,
                 'status': 'error',
-                'message': f'サポートされていないファイル形式です。.xlsx または .xls ファイルを選択してください。'
+                'message': validation_result['message']
             }
 
         # パスワード解除の実行（要件1.1, 1.2対応）
         unlock_result = unlock_excel_file(local_file_path, passwords)
 
         if not unlock_result['success']:
-            # 要件1.3: 明確な失敗理由を表示
-            if 'password' in unlock_result['message'].lower():
+            # 要件1.3: 明確な失敗理由を表示（改善版）
+            error_message = unlock_result.get('message', '')
+            
+            if 'パスワード' in error_message or 'password' in error_message.lower():
                 message = '入力されたパスワードでは解除できませんでした。別のパスワード候補をお試しください。'
+            elif '暗号化されていません' in error_message:
+                message = 'ファイルは暗号化されていませんでした。そのまま使用できます。'
+            elif 'ファイル形式' in error_message or 'format' in error_message.lower():
+                message = 'サポートされていないファイル形式です。.xlsx または .xls ファイルを選択してください。'
+            elif 'module not available' in error_message:
+                message = 'Excel処理モジュールが利用できません。システム管理者にお問い合わせください。'
             else:
-                message = 'ファイルの解除に失敗しました。ファイルが破損している可能性があります。'
+                message = f'ファイルの処理に失敗しました: {error_message}'
             
             return {
                 'fileName': unlocked_filename,
