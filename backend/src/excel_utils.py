@@ -203,117 +203,78 @@ def _get_file_stats(file_path: str) -> tuple:
     _, ext = os.path.splitext(file_path.lower())
     return stat.st_size, ext, stat.st_mtime
 
-def validate_excel_file(file_path: str) -> Dict[str, Any]:
+def validate_excel_file(file_path: str, declared_mime_type: str = None) -> Dict[str, Any]:
     """
-    Excelファイルの形式を検証する（強化版）
-    マジックバイト検証とファイル構造チェックを含む
+    Excelファイルの形式を検証する（セキュリティ強化版）
+    基本的なファイル安全性チェックを統合
     
     Args:
         file_path: 検証するファイルのパス
+        declared_mime_type: クライアントが宣言したMIMEタイプ
     
     Returns:
-        検証結果の辞書 {valid: bool, message: str, file_type: str, is_encrypted: bool}
+        検証結果の辞書 {valid: bool, message: str, file_type: str, is_encrypted: bool, security_details: dict}
     """
-    # キャッシュ付きでファイル統計を取得
-    file_size, ext, _ = _get_file_stats(file_path)
+    # 新しいセキュリティチェック機能を使用
+    from file_security import comprehensive_security_check
     
-    if file_size is None:
-        return {
-            'valid': False,
-            'message': 'ファイルが存在しません',
-            'file_type': None,
-            'is_encrypted': False
-        }
+    # 包括的なセキュリティチェックを実行
+    security_result = comprehensive_security_check(file_path, declared_mime_type)
     
-    # ファイル拡張子チェック（frozensetで高速化）
-    supported_extensions = frozenset(['.xlsx', '.xls'])
-    if ext not in supported_extensions:
-        return {
-            'valid': False,
-            'message': f'サポートされていないファイル形式です: {ext}',
-            'file_type': ext,
-            'is_encrypted': False
-        }
-    
-    # ファイルサイズチェック（20MB制限）
-    max_size = 20 * 1024 * 1024  # 20MB
-    if file_size > max_size:
-        return {
-            'valid': False,
-            'message': f'ファイルサイズ ({file_size} bytes) が上限 ({max_size} bytes) を超えています',
-            'file_type': ext,
-            'is_encrypted': False
-        }
-    
-    # 最小ファイルサイズチェック
-    min_size = 100  # 100バイト未満は無効
-    if file_size < min_size:
-        return {
-            'valid': False,
-            'message': f'ファイルサイズが小さすぎます ({file_size} bytes)',
-            'file_type': ext,
-            'is_encrypted': False
-        }
-    
-    # マジックバイト検証（改善版）
-    try:
-        with open(file_path, 'rb') as f:
-            magic_bytes = f.read(8)
-            
-        is_encrypted = False
+    # セキュリティチェックが失敗した場合は即座に返却
+    if not security_result['safe']:
+        # 最初の失敗理由を使用（最も重要な問題）
+        primary_failure = security_result['failed_checks'][0] if security_result['failed_checks'] else {}
         
-        # Officeファイルの一般的なマジックバイト
-        # PK: ZIP形式（非暗号化.xlsx）
-        # \xd0\xcf\x11\xe0: OLE2形式（.xlsまたは暗号化されたOfficeファイル）
-        valid_magic_bytes = [
-            b'PK',  # ZIP形式（.xlsx）
-            b'\xd0\xcf\x11\xe0'  # OLE2形式（.xlsまたは暗号化ファイル）
-        ]
-        
-        is_valid_format = any(magic_bytes.startswith(magic) for magic in valid_magic_bytes)
-        
-        if not is_valid_format:
+        return {
+            'valid': False,
+            'message': primary_failure.get('reason', security_result['summary']),
+            'file_type': _get_file_extension(file_path),
+            'is_encrypted': False,
+            'security_details': security_result
+        }
+    
+    # セキュリティチェック通過後、暗号化状態をチェック
+    is_encrypted = False
+    msoffcrypto = _get_msoffcrypto()
+    if msoffcrypto:
+        try:
+            import io
+            with open(file_path, 'rb') as f:
+                file_content = f.read()
+            file_stream = io.BytesIO(file_content)
+            office_file = msoffcrypto.OfficeFile(file_stream)
+            is_encrypted = office_file.is_encrypted()
+        except msoffcrypto.exceptions.FileFormatError:
             return {
                 'valid': False,
-                'message': 'Excelファイルの形式が認識できません',
-                'file_type': ext,
-                'is_encrypted': False
+                'message': 'ファイル形式が認識できません',
+                'file_type': _get_file_extension(file_path),
+                'is_encrypted': False,
+                'security_details': security_result
             }
-        
-        # msoffcrypto-toolを使用して暗号化状態をチェック
-        msoffcrypto = _get_msoffcrypto()
-        if msoffcrypto:
-            try:
-                import io
-                with open(file_path, 'rb') as f:
-                    file_content = f.read()
-                file_stream = io.BytesIO(file_content)
-                office_file = msoffcrypto.OfficeFile(file_stream)
-                is_encrypted = office_file.is_encrypted()
-            except msoffcrypto.exceptions.FileFormatError:
-                return {
-                    'valid': False,
-                    'message': 'ファイル形式が認識できません',
-                    'file_type': ext,
-                    'is_encrypted': False
-                }
-            except Exception as e:
-                logger.warning(f"Could not check encryption status: {e}")
-                # 暗号化チェックに失敗しても、ファイル自体は有効とみなす
-                is_encrypted = None
-        
-        return {
-            'valid': True,
-            'message': 'ファイル検証に合格しました',
-            'file_type': ext,
-            'is_encrypted': is_encrypted
-        }
-        
-    except Exception as e:
-        logger.exception(f"File validation error: {e}")
-        return {
-            'valid': False,
-            'message': f'ファイル検証中にエラーが発生しました: {str(e)}',
-            'file_type': ext,
-            'is_encrypted': False
-        }
+        except Exception as e:
+            logger.warning(f"Could not check encryption status: {e}")
+            # 暗号化チェックに失敗しても、ファイル自体は有効とみなす
+            is_encrypted = None
+    
+    return {
+        'valid': True,
+        'message': 'ファイル検証に合格しました（セキュリティチェック含む）',
+        'file_type': _get_file_extension(file_path),
+        'is_encrypted': is_encrypted,
+        'security_details': security_result
+    }
+
+def _get_file_extension(file_path: str) -> str:
+    """
+    ファイル拡張子を取得するヘルパー関数
+    
+    Args:
+        file_path: ファイルパス
+    
+    Returns:
+        str: ファイル拡張子（小文字）
+    """
+    import os
+    return os.path.splitext(file_path.lower())[1]

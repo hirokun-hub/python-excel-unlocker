@@ -87,7 +87,7 @@ def generate_presigned_url(bucket: str, key: str, client_method: str, expires_in
 
 def generate_constrained_upload_url(bucket: str, key: str, content_type: str, max_size: int) -> dict:
     """
-    アップロード用署名付きURLを生成する（条件拘束付き）
+    アップロード用署名付きURLを生成する（厳格な条件拘束付き）
     
     Args:
         bucket: S3バケット名
@@ -99,25 +99,43 @@ def generate_constrained_upload_url(bucket: str, key: str, content_type: str, ma
         署名付きPOSTデータ辞書、失敗時はNone
     """
     try:
-        # 条件拘束の設定
+        # セキュリティ強化：許可されたContent-Typeの厳格チェック
+        allowed_content_types = [
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',  # .xlsx
+            'application/vnd.ms-excel',  # .xls
+            'application/octet-stream'  # 一部のブラウザで送信される場合
+        ]
+        
+        if content_type not in allowed_content_types:
+            logger.warning(f"Rejected content type for S3 upload: {content_type}")
+            return None
+        
+        # 条件拘束の設定（厳格化）
         fields = {}
         conditions = []
         
-        # Content-Type拘束（必須）
-        if content_type:
-            fields['Content-Type'] = content_type
-            conditions.append({'Content-Type': content_type})
+        # Content-Type拘束（厳格・必須）
+        fields['Content-Type'] = content_type
+        conditions.append({'Content-Type': content_type})
         
-        # ファイルサイズ拘束
-        if max_size:
-            conditions.append(['content-length-range', 1, max_size])
+        # ファイルサイズ拘束（厳格）
+        min_size = 100  # 最小100バイト
+        conditions.append(['content-length-range', min_size, max_size])
         
-        # 追加のセキュリティ条件
+        # セキュリティ強化：追加の厳格な条件
         conditions.extend([
             {'bucket': bucket},
             {'key': key},
-            ['starts-with', '$Content-Type', content_type.split('/')[0] + '/'] if content_type else ['starts-with', '$Content-Type', '']
+            # Content-Typeの厳格な一致（starts-withではなく完全一致）
+            {'Content-Type': content_type},
+            # キーのプレフィックス制限
+            ['starts-with', '$key', 'uploads/'],
+            # サーバーサイド暗号化の強制
+            {'x-amz-server-side-encryption': 'AES256'}
         ])
+        
+        # サーバーサイド暗号化を強制
+        fields['x-amz-server-side-encryption'] = 'AES256'
         
         # 署名付きPOSTを生成
         response = s3_client.generate_presigned_post(
@@ -130,13 +148,13 @@ def generate_constrained_upload_url(bucket: str, key: str, content_type: str, ma
         
         # セキュリティ強化：機密情報をログから除外
         sanitized_key = sanitize_for_log(key)
-        logger.info(f"Generated presigned POST for upload: {sanitized_key} (expires in {UPLOAD_URL_EXPIRES_IN}s)")
-        logger.info(f"Content-Type constraint: {content_type}, Max size: {max_size} bytes")
+        logger.info(f"Generated constrained presigned POST: {sanitized_key} (expires in {UPLOAD_URL_EXPIRES_IN}s)")
+        logger.info(f"Constraints: Content-Type={content_type}, Size={min_size}-{max_size} bytes, Encryption=AES256")
         
         return response
         
     except ClientError as e:
-        logger.exception(f"Failed to generate presigned POST: {e}")
+        logger.exception(f"Failed to generate constrained presigned POST: {e}")
         return None
 
 def generate_upload_url(bucket: str, key: str) -> str:

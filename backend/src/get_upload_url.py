@@ -94,13 +94,14 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 suggestion='fileNameパラメータを指定してください'
             )
         
-        # ファイル形式の検証（最適化済み関数を使用）
-        if not _is_supported_file_type(file_name, content_type):
+        # ファイル形式の検証（セキュリティ強化版）
+        security_check = _perform_upload_security_check(file_name, content_type, file_size)
+        if not security_check['safe']:
             return create_error_response(
                 status_code=400,
-                error_code='unsupported_format',
-                message='サポートされていないファイル形式です',
-                suggestion='.xlsx または .xls ファイルを選択してください'
+                error_code=security_check.get('error_code', 'security_check_failed'),
+                message=security_check['message'],
+                suggestion=security_check.get('suggestion', 'セキュリティ要件を満たすファイルを選択してください')
             )
         
         # ファイルサイズの検証（グローバル定数を使用）
@@ -164,9 +165,87 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             suggestion='しばらく待ってから再度お試しください'
         )
 
+def _perform_upload_security_check(file_name: str, content_type: str = None, file_size: int = None) -> Dict[str, Any]:
+    """
+    アップロード時のセキュリティチェック（事前検証）
+    
+    Args:
+        file_name: ファイル名
+        content_type: MIMEタイプ
+        file_size: ファイルサイズ
+    
+    Returns:
+        Dict[str, Any]: セキュリティチェック結果
+    """
+    from file_security import (
+        check_file_extension, check_file_size, check_mime_type,
+        DANGEROUS_EXTENSIONS, ALLOWED_EXTENSIONS, ALLOWED_MIME_TYPES
+    )
+    
+    # ファイル拡張子の事前チェック
+    file_ext = os.path.splitext(file_name.lower())[1]
+    
+    # 危険な拡張子のチェック（最優先）
+    if file_ext in DANGEROUS_EXTENSIONS:
+        if file_ext == '.xlsm':
+            return {
+                'safe': False,
+                'error_code': 'macro_file_rejected',
+                'message': 'マクロ付きExcelファイル（.xlsm）は処理できません',
+                'suggestion': '.xlsx または .xls ファイルを選択してください'
+            }
+        else:
+            return {
+                'safe': False,
+                'error_code': 'dangerous_file_type',
+                'message': f'危険なファイル形式（{file_ext}）が検出されました',
+                'suggestion': '.xlsx または .xls ファイルのみアップロード可能です'
+            }
+    
+    # 許可された拡張子のチェック
+    if file_ext not in ALLOWED_EXTENSIONS:
+        return {
+            'safe': False,
+            'error_code': 'unsupported_format',
+            'message': f'サポートされていないファイル形式です（{file_ext}）',
+            'suggestion': '.xlsx または .xls ファイルを選択してください'
+        }
+    
+    # ファイルサイズの事前チェック
+    if file_size:
+        if file_size > MAX_FILE_SIZE:
+            return {
+                'safe': False,
+                'error_code': 'file_too_large',
+                'message': f'ファイルサイズ（{file_size:,} bytes）が上限（{MAX_FILE_SIZE:,} bytes）を超えています',
+                'suggestion': '20MB以下のファイルを選択してください'
+            }
+        
+        if file_size < 100:  # 最小サイズチェック
+            return {
+                'safe': False,
+                'error_code': 'file_too_small',
+                'message': 'ファイルサイズが小さすぎます',
+                'suggestion': '有効なExcelファイルを選択してください'
+            }
+    
+    # MIMEタイプの事前チェック
+    if content_type and content_type not in ALLOWED_MIME_TYPES:
+        return {
+            'safe': False,
+            'error_code': 'invalid_mime_type',
+            'message': f'許可されていないMIMEタイプです: {content_type}',
+            'suggestion': 'Excelファイル（.xlsx/.xls）を選択してください'
+        }
+    
+    return {
+        'safe': True,
+        'message': 'アップロード前セキュリティチェック通過'
+    }
+
 def _is_supported_file_type(file_name: str, content_type: str = None) -> bool:
     """
-    サポートされているファイル形式かどうかを判定する（パフォーマンス最適化済み）
+    サポートされているファイル形式かどうかを判定する（後方互換性のため保持）
     
     Args:
         file_name: ファイル名
@@ -175,21 +254,5 @@ def _is_supported_file_type(file_name: str, content_type: str = None) -> bool:
     Returns:
         サポートされている場合True
     """
-    # キャッシュを使用してファイル拡張子の計算を高速化
-    if file_name in _EXTENSION_CACHE:
-        file_extension = _EXTENSION_CACHE[file_name]
-    else:
-        file_extension = os.path.splitext(file_name.lower())[1]
-        # キャッシュサイズ制限（メモリリーク防止）
-        if len(_EXTENSION_CACHE) < 100:
-            _EXTENSION_CACHE[file_name] = file_extension
-    
-    # frozensetによる高速な判定
-    if file_extension in SUPPORTED_EXTENSIONS:
-        return True
-    
-    # MIMEタイプによる判定（補助的、frozensetで高速化）
-    if content_type and content_type in SUPPORTED_MIME_TYPES:
-        return True
-    
-    return False
+    security_check = _perform_upload_security_check(file_name, content_type)
+    return security_check['safe']
