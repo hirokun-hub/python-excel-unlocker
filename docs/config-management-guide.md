@@ -204,6 +204,78 @@ GOOGLE_CLIENT_ID=your-client-id
 3. **バックアップ**: 設定変更前に自動バックアップが作成されます
 4. **アクセス制御**: 設定ファイルのファイル権限を適切に設定してください
 
+### AWS IAMユーザー設定の重要性
+
+**プロジェクト専用のIAMユーザー作成を強く推奨します**：
+
+#### **専用IAMユーザーのメリット**
+- **セキュリティ**: 最小権限の原則に従った安全な運用
+- **管理性**: Excel Unlocker専用の独立した権限管理
+- **監査性**: 明確な操作ログと追跡
+- **将来性**: プロジェクト終了時の簡単な清理
+
+#### **推奨IAMポリシー（セキュリティ警告対応済み）**
+設定管理システムで使用するAWSリソースに対する最小権限ポリシー：
+
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "ExcelUnlockerS3Access",
+            "Effect": "Allow",
+            "Action": [
+                "s3:CreateBucket",
+                "s3:DeleteBucket",
+                "s3:GetBucketLocation",
+                "s3:ListBucket",
+                "s3:GetObject",
+                "s3:PutObject",
+                "s3:DeleteObject",
+                "s3:PutBucketCORS",
+                "s3:PutBucketPublicAccessBlock"
+            ],
+            "Resource": [
+                "arn:aws:s3:::excel-unlock-*",
+                "arn:aws:s3:::excel-unlock-*/*"
+            ]
+        },
+        {
+            "Sid": "ExcelUnlockerLambdaAccess",
+            "Effect": "Allow",
+            "Action": [
+                "lambda:CreateFunction",
+                "lambda:UpdateFunctionCode",
+                "lambda:UpdateFunctionConfiguration",
+                "lambda:DeleteFunction",
+                "lambda:GetFunction",
+                "lambda:InvokeFunction"
+            ],
+            "Resource": "arn:aws:lambda:*:*:function:excel-unlocker-*"
+        },
+        {
+            "Sid": "ExcelUnlockerIAMPassRole",
+            "Effect": "Allow",
+            "Action": "iam:PassRole",
+            "Resource": "arn:aws:iam::*:role/excel-unlocker-*",
+            "Condition": {
+                "StringEquals": {
+                    "iam:PassedToService": [
+                        "lambda.amazonaws.com",
+                        "apigateway.amazonaws.com"
+                    ]
+                }
+            }
+        }
+    ]
+}
+```
+
+このポリシーは以下のセキュリティ警告を解決しています：
+- PassRole権限を特定のAWSサービスのみに制限
+- リソース名にプレフィックスを付けて制限
+- 不要なワイルドカード（*）の使用を排除
+
 ### 推奨セキュリティ設定
 
 ```bash

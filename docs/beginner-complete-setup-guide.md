@@ -239,9 +239,11 @@ NextAuthシークレット: （後で記入）
 
 4. **ユーザー詳細を入力**
    ```
-   ユーザー名: github-deploy-bot
+   ユーザー名: excel-unlocker-deploy-user
    AWSマネジメントコンソールへのアクセス: チェックしない
    ```
+   
+   💡 **推奨**: プロジェクト専用のユーザー名を使用することで、セキュリティと管理性が向上します。
 
 5. **「次へ」をクリック**
 
@@ -249,34 +251,157 @@ NextAuthシークレット: （後で記入）
 
 7. **「ポリシーの作成」をクリック（新しいタブで開く）**
 
-### 2-3. 最小権限ポリシーの作成
+### 2-3. 最小権限ポリシーの作成（セキュリティ強化版）
 
 1. **新しいタブで「JSON」タブをクリック**
 
-2. **以下のJSONをコピーして貼り付け**
+2. **以下の修正版JSONをコピーして貼り付け**
+   
+   ⚠️ **重要**: 以下のポリシーはセキュリティ警告を解決した修正版です。
+   
    ```json
    {
-     "Version": "2012-10-17",
-     "Statement": [
-       {
-         "Effect": "Allow",
-         "Action": [
-           "cloudformation:*",
-           "s3:*",
-           "lambda:*",
-           "apigateway:*",
-           "iam:*",
-           "logs:*"
-         ],
-         "Resource": "*"
-       }
-     ]
+       "Version": "2012-10-17",
+       "Statement": [
+           {
+               "Sid": "ExcelUnlockerS3Access",
+               "Effect": "Allow",
+               "Action": [
+                   "s3:CreateBucket",
+                   "s3:DeleteBucket",
+                   "s3:GetBucketLocation",
+                   "s3:ListBucket",
+                   "s3:GetObject",
+                   "s3:PutObject",
+                   "s3:DeleteObject",
+                   "s3:PutBucketCORS",
+                   "s3:PutBucketPublicAccessBlock",
+                   "s3:GetBucketCORS",
+                   "s3:GetBucketPublicAccessBlock"
+               ],
+               "Resource": [
+                   "arn:aws:s3:::excel-unlock-*",
+                   "arn:aws:s3:::excel-unlock-*/*"
+               ]
+           },
+           {
+               "Sid": "ExcelUnlockerLambdaAccess",
+               "Effect": "Allow",
+               "Action": [
+                   "lambda:CreateFunction",
+                   "lambda:UpdateFunctionCode",
+                   "lambda:UpdateFunctionConfiguration",
+                   "lambda:DeleteFunction",
+                   "lambda:GetFunction",
+                   "lambda:ListFunctions",
+                   "lambda:InvokeFunction",
+                   "lambda:AddPermission",
+                   "lambda:RemovePermission",
+                   "lambda:TagResource",
+                   "lambda:UntagResource"
+               ],
+               "Resource": "arn:aws:lambda:*:*:function:excel-unlocker-*"
+           },
+           {
+               "Sid": "ExcelUnlockerAPIGatewayAccess",
+               "Effect": "Allow",
+               "Action": [
+                   "apigateway:GET",
+                   "apigateway:POST",
+                   "apigateway:PUT",
+                   "apigateway:DELETE",
+                   "apigateway:PATCH"
+               ],
+               "Resource": [
+                   "arn:aws:apigateway:*::/restapis",
+                   "arn:aws:apigateway:*::/restapis/*"
+               ]
+           },
+           {
+               "Sid": "ExcelUnlockerCloudFormationAccess",
+               "Effect": "Allow",
+               "Action": [
+                   "cloudformation:CreateStack",
+                   "cloudformation:UpdateStack",
+                   "cloudformation:DeleteStack",
+                   "cloudformation:DescribeStacks",
+                   "cloudformation:DescribeStackEvents",
+                   "cloudformation:DescribeStackResources",
+                   "cloudformation:DescribeStackResource",
+                   "cloudformation:GetTemplate",
+                   "cloudformation:ValidateTemplate",
+                   "cloudformation:ListStackResources"
+               ],
+               "Resource": "arn:aws:cloudformation:*:*:stack/excel-unlocker-*/*"
+           },
+           {
+               "Sid": "ExcelUnlockerIAMRoleAccess",
+               "Effect": "Allow",
+               "Action": [
+                   "iam:CreateRole",
+                   "iam:DeleteRole",
+                   "iam:GetRole",
+                   "iam:UpdateRole",
+                   "iam:AttachRolePolicy",
+                   "iam:DetachRolePolicy",
+                   "iam:PutRolePolicy",
+                   "iam:DeleteRolePolicy",
+                   "iam:GetRolePolicy",
+                   "iam:ListRolePolicies",
+                   "iam:ListAttachedRolePolicies",
+                   "iam:TagRole",
+                   "iam:UntagRole"
+               ],
+               "Resource": "arn:aws:iam::*:role/excel-unlocker-*"
+           },
+           {
+               "Sid": "ExcelUnlockerIAMPassRole",
+               "Effect": "Allow",
+               "Action": "iam:PassRole",
+               "Resource": "arn:aws:iam::*:role/excel-unlocker-*",
+               "Condition": {
+                   "StringEquals": {
+                       "iam:PassedToService": [
+                           "lambda.amazonaws.com",
+                           "apigateway.amazonaws.com"
+                       ]
+                   }
+               }
+           },
+           {
+               "Sid": "ExcelUnlockerLogsAccess",
+               "Effect": "Allow",
+               "Action": [
+                   "logs:CreateLogGroup",
+                   "logs:CreateLogStream",
+                   "logs:PutLogEvents",
+                   "logs:DescribeLogGroups",
+                   "logs:DescribeLogStreams"
+               ],
+               "Resource": "arn:aws:logs:*:*:log-group:/aws/lambda/excel-unlocker-*"
+           }
+       ]
    }
    ```
 
+   💡 **セキュリティ改善点**:
+   - PassRole権限を特定のAWSサービス（Lambda、API Gateway）のみに制限
+   - ワイルドカード（*）の使用を最小限に抑制
+   - リソース名にプレフィックス（excel-unlock-*）を付けて制限
+
 3. **「次へ」をクリック**
 
-4. **ポリシー詳細を入力**
+3. **セキュリティ警告について**
+   
+   ポリシー貼り付け時に以下の警告が表示される場合がありますが、上記のポリシーは既に対策済みです：
+   - "Create SLR With Star In Action And Resource"
+   - "PassRole With Star In Action And Resource"
+   
+   これらの警告は修正版ポリシーで解決されているため、安全に使用できます。
+
+4. **「次へ」をクリック**
+
+5. **ポリシー詳細を入力**
    ```
    ポリシー名: ExcelUnlockerDeployPolicy
    説明: Excel Unlocker deployment policy
