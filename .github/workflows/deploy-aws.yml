@@ -14,6 +14,18 @@ on:
         - staging
         - production
 
+  # 他のワークフローから呼び出し
+  workflow_call:
+    inputs:
+      environment:
+        description: 'デプロイ環境'
+        required: true
+        type: string
+    outputs:
+      api-url:
+        description: 'API Gateway URL'
+        value: ${{ jobs.deploy-aws.outputs.api-url }}
+
   # 自動実行（オプション）
   push:
     branches:
@@ -29,9 +41,11 @@ jobs:
   deploy-aws:
     name: Deploy to AWS
     runs-on: ubuntu-latest
+    outputs:
+      api-url: ${{ steps.get-api-url.outputs.api-url }}
     
     # 環境別設定
-    environment: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'staging') || 'development' }}
+    environment: ${{ inputs.environment || github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'staging') || 'development' }}
     
     steps:
     - name: Checkout
@@ -47,11 +61,11 @@ jobs:
       with:
         use-installer: true
 
-    - name: Configure AWS credentials (OIDC)
+    - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
-        role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-        role-session-name: GitHubActions-${{ github.run_id }}
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ap-northeast-1
 
     - name: Install backend dependencies
@@ -68,43 +82,50 @@ jobs:
       run: sam build
 
     - name: SAM Deploy (Development)
-      if: contains(fromJson('["development"]'), github.event.inputs.environment) || github.ref == 'refs/heads/develop'
+      if: contains(fromJson('["development"]'), inputs.environment || github.event.inputs.environment) || github.ref == 'refs/heads/develop'
       run: |
         sam deploy \
           --config-env default \
           --no-confirm-changeset \
           --parameter-overrides \
             Environment=development \
-            AllowedUsers="${{ secrets.ALLOWED_USERS_DEV }}"
+            AllowedUsers="${{ secrets.ALLOWED_USERS || 'admin@example.com' }}"
 
     - name: SAM Deploy (Staging)
-      if: contains(fromJson('["staging"]'), github.event.inputs.environment) || github.ref == 'refs/heads/main'
+      if: contains(fromJson('["staging"]'), inputs.environment || github.event.inputs.environment) || github.ref == 'refs/heads/main'
       run: |
         sam deploy \
           --config-env staging \
           --no-confirm-changeset \
           --parameter-overrides \
             Environment=staging \
-            AllowedUsers="${{ secrets.ALLOWED_USERS_STAGING }}"
+            AllowedUsers="${{ secrets.ALLOWED_USERS || 'admin@example.com' }}"
 
     - name: SAM Deploy (Production)
-      if: contains(fromJson('["production"]'), github.event.inputs.environment)
+      if: contains(fromJson('["production"]'), inputs.environment || github.event.inputs.environment)
       run: |
         sam deploy \
           --config-env production \
           --no-confirm-changeset \
           --parameter-overrides \
             Environment=production \
-            AllowedUsers="${{ secrets.ALLOWED_USERS_PROD }}"
+            AllowedUsers="${{ secrets.ALLOWED_USERS || 'admin@example.com' }}"
 
     - name: Get API Gateway URL
       id: get-api-url
       run: |
-        STACK_NAME="excel-unlocker-api-${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'staging') || 'development' }}"
+        ENV="${{ inputs.environment || github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'staging') || 'development' }}"
+        STACK_NAME="excel-unlocker-api-$ENV"
         API_URL=$(aws cloudformation describe-stacks \
           --stack-name "$STACK_NAME" \
           --query "Stacks[0].Outputs[?OutputKey=='ApiGatewayUrl'].OutputValue" \
-          --output text)
+          --output text 2>/dev/null || echo "")
+        
+        if [ -z "$API_URL" ] || [ "$API_URL" = "None" ]; then
+          echo "⚠️ API Gateway URL not found for stack: $STACK_NAME"
+          API_URL="https://api-not-deployed.example.com"
+        fi
+        
         echo "api-url=$API_URL" >> $GITHUB_OUTPUT
         echo "API Gateway URL: $API_URL"
 
@@ -116,7 +137,7 @@ jobs:
         cd frontend
         
         # 環境に応じてVercel環境変数を更新
-        ENV_TARGET="${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'production') || 'preview' }}"
+        ENV_TARGET="${{ inputs.environment || github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'production') || 'preview' }}"
         
         echo "${{ secrets.VERCEL_TOKEN }}" | vercel login --stdin
         vercel link --yes --token "${{ secrets.VERCEL_TOKEN }}"
@@ -150,7 +171,7 @@ jobs:
       run: |
         echo "## 🚀 AWS デプロイ完了" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "- **環境**: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'staging') || 'development' }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **環境**: ${{ inputs.environment || github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'staging') || 'development' }}" >> $GITHUB_STEP_SUMMARY
         echo "- **API Gateway URL**: ${{ steps.get-api-url.outputs.api-url }}" >> $GITHUB_STEP_SUMMARY
         echo "- **デプロイ時刻**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY

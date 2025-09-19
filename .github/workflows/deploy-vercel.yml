@@ -13,6 +13,18 @@ on:
         - preview
         - production
 
+  # 他のワークフローから呼び出し
+  workflow_call:
+    inputs:
+      environment:
+        description: 'デプロイ環境'
+        required: true
+        type: string
+    outputs:
+      vercel-url:
+        description: 'Vercel deployment URL'
+        value: ${{ jobs.deploy-vercel.outputs.vercel-url }}
+
   # 自動実行（オプション）
   push:
     branches:
@@ -32,6 +44,8 @@ jobs:
   deploy-vercel:
     name: Deploy to Vercel
     runs-on: ubuntu-latest
+    outputs:
+      vercel-url: ${{ steps.deploy.outputs.preview-url || steps.deploy-prod.outputs.preview-url || 'https://excel-unlocker.vercel.app' }}
     
     steps:
     - name: Checkout
@@ -62,7 +76,8 @@ jobs:
         NEXT_PUBLIC_USE_MOCK_API: false
 
     - name: Deploy to Vercel (Preview)
-      if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'preview') || github.ref == 'refs/heads/develop'
+      id: deploy
+      if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.environment == 'preview' || inputs.environment == 'preview')) || github.ref == 'refs/heads/develop'
       uses: amondnet/vercel-action@v25
       with:
         vercel-token: ${{ secrets.VERCEL_TOKEN }}
@@ -72,7 +87,8 @@ jobs:
         scope: ${{ secrets.VERCEL_ORG_ID }}
 
     - name: Deploy to Vercel (Production)
-      if: (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production') || github.ref == 'refs/heads/main'
+      id: deploy-prod
+      if: (github.event_name == 'workflow_dispatch' && (github.event.inputs.environment == 'production' || inputs.environment == 'production')) || github.ref == 'refs/heads/main'
       uses: amondnet/vercel-action@v25
       with:
         vercel-token: ${{ secrets.VERCEL_TOKEN }}
