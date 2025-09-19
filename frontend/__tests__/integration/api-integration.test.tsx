@@ -342,7 +342,57 @@ describe('API統合テスト', () => {
       });
 
       await expect(uploadFileToS3(mockUploadUrl, mockFile))
-        .rejects.toThrow('ファイルアップロードエラー: 403');
+        .rejects.toThrow('ファイルアップロードエラー (PUT): 403');
+    });
+
+    test('S3へのファイルアップロード (POST形式・条件拘束付き)', async () => {
+      const mockUploadUrl = 'https://s3.amazonaws.com/bucket';
+      const mockUploadFields = {
+        'key': 'uploads/test-file.xlsx',
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'policy': 'base64-encoded-policy',
+        'x-amz-algorithm': 'AWS4-HMAC-SHA256',
+        'x-amz-credential': 'credential',
+        'x-amz-date': '20250119T000000Z',
+        'x-amz-signature': 'signature'
+      };
+      const mockFile = new File(['test content'], 'test.xlsx', {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      });
+
+      (fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 204,
+      });
+
+      const result = await uploadFileToS3(mockUploadUrl, mockFile, mockUploadFields);
+
+      expect(fetch).toHaveBeenCalledWith(mockUploadUrl, {
+        method: 'POST',
+        body: expect.any(FormData),
+      });
+
+      expect(result.ok).toBe(true);
+    });
+
+    test('POST形式アップロードエラーが適切に処理される', async () => {
+      const mockUploadUrl = 'https://s3.amazonaws.com/bucket';
+      const mockUploadFields = {
+        'key': 'uploads/test-file.xlsx',
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      };
+      const mockFile = new File(['test content'], 'test.xlsx', {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      });
+
+      (fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        text: jest.fn().mockResolvedValue('Policy violation')
+      });
+
+      await expect(uploadFileToS3(mockUploadUrl, mockFile, mockUploadFields))
+        .rejects.toThrow('ファイルアップロードエラー (POST): 400 - Policy violation');
     });
   });
 

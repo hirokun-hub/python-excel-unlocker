@@ -177,7 +177,7 @@
   - OAuth スコープの最小化
   - _要件: XSS攻撃によるトークン流出防止_
 
-- [ ] 19. S3プリサイン条件拘束
+- [x] 19. S3プリサイン条件拘束
   - generate_presigned_urlにContentType指定追加
   - POSTポリシーでのcontent-length-range制限
   - ファイルサイズ・MIMEタイプの厳格な拘束

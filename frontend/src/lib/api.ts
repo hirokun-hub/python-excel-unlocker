@@ -96,9 +96,36 @@ export async function unlockExcel(fileKey: string, passwords: string[]) {
 }
 
 /**
- * ファイルをS3にアップロード
+ * ファイルをS3にアップロード（条件拘束付きPOST形式対応）
  */
-export async function uploadFileToS3(uploadUrl: string, file: File) {
+export async function uploadFileToS3(uploadUrl: string, file: File, uploadFields?: Record<string, string>) {
+  // 新しいPOST形式の場合
+  if (uploadFields) {
+    const formData = new FormData()
+    
+    // 署名付きPOSTのフィールドを追加
+    Object.entries(uploadFields).forEach(([key, value]) => {
+      formData.append(key, value)
+    })
+    
+    // ファイルを最後に追加（S3の要件）
+    formData.append('file', file)
+    
+    const response = await fetch(uploadUrl, {
+      method: 'POST',
+      body: formData,
+      // Content-Typeヘッダーは自動設定（multipart/form-data）
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => 'Unknown error')
+      throw new Error(`ファイルアップロードエラー (POST): ${response.status} - ${errorText}`)
+    }
+
+    return response
+  }
+  
+  // 従来のPUT形式（後方互換性）
   const response = await fetch(uploadUrl, {
     method: 'PUT',
     body: file,
@@ -108,7 +135,7 @@ export async function uploadFileToS3(uploadUrl: string, file: File) {
   })
 
   if (!response.ok) {
-    throw new Error(`ファイルアップロードエラー: ${response.status}`)
+    throw new Error(`ファイルアップロードエラー (PUT): ${response.status}`)
   }
 
   return response

@@ -90,7 +90,11 @@ export default function ExcelUnlocker() {
         message: 'ファイルアップロード中...'
       })
 
-      await uploadFileToS3(uploadResponse.uploadUrl, file)
+      await uploadFileToS3(
+        uploadResponse.uploadUrl, 
+        file, 
+        uploadResponse.uploadFields
+      )
 
       // 3. Excel解除処理
       setProcessing({
