@@ -37,6 +37,13 @@
 - 環境変数による許可ユーザーリスト管理
 - メールアドレス正規化による柔軟な認証
 
+### ユーザー管理機能 🆕
+- **自動化スクリプト**: ユーザー追加・削除・一覧表示の自動化
+- **緊急時対応**: セキュリティインシデント時の即座対応機能
+- **アクセステスト**: ユーザー権限の動作確認機能
+- **監査レポート**: 定期的なユーザー監査とレポート生成
+- **包括的ログ**: 全操作の詳細ログ記録と履歴管理
+
 ## 主要機能
 
 ### Excel解除機能
@@ -136,6 +143,10 @@ npm run dev
 - [要件定義書](.kiro/specs/secure-excel-unlock/requirements.md)
 - [設計書](.kiro/specs/secure-excel-unlock/design.md)
 - [実装計画](.kiro/specs/secure-excel-unlock/tasks.md)
+
+### ユーザー管理・運用
+- [ユーザー管理運用ガイド](docs/user-management-operations-guide.md) 🆕 **包括的運用手順**
+- [ユーザー管理クイックリファレンス](docs/user-management-quick-reference.md) 🆕 **よく使うコマンド**
 
 ### 実装完了状況
 - [実装完了サマリー](docs/implementation-complete-summary.md) ✅ **統合テスト環境完了**
