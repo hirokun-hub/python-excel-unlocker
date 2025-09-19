@@ -10,22 +10,28 @@ logger = logging.getLogger(__name__)
 def get_allowed_origin() -> str:
     """
     環境に応じた許可オリジンを取得する
-    CORS設定の厳格化：ワイルドカード廃止、環境別固定オリジン
+    CORS設定の厳格化：ワイルドカード廃止、環境別固定オリジン（単一値）
     
     Returns:
         許可されたオリジン（単一値）
     """
     import os
     
-    # 環境変数から許可オリジンを取得
-    allowed_origins = os.environ.get('ALLOWED_ORIGINS', 'https://localhost:3000')
+    # 環境変数から許可オリジン（単一値）を取得
+    allowed_origin = os.environ.get('ALLOWED_ORIGIN', 'https://localhost:3000')
     
-    # 複数のオリジンが設定されている場合は最初のものを使用
-    # API Gatewayは単一のオリジンのみサポート
-    if ',' in allowed_origins:
-        return allowed_origins.split(',')[0].strip()
+    # セキュリティ強化：ワイルドカード（*）の使用を禁止
+    if allowed_origin == '*':
+        logger.warning("Wildcard origin detected, falling back to localhost for security")
+        return 'https://localhost:3000'
     
-    return allowed_origins.strip()
+    # セキュリティ強化：HTTPSの強制（本番環境）
+    environment = os.environ.get('ENVIRONMENT', 'development')
+    if environment == 'production' and not allowed_origin.startswith('https://'):
+        logger.error(f"Non-HTTPS origin in production: {allowed_origin}")
+        raise ValueError("Production environment requires HTTPS origins")
+    
+    return allowed_origin.strip()
 
 def create_response(status_code: int, body: Dict[str, Any], additional_headers: Dict[str, str] = None) -> Dict[str, Any]:
     """

@@ -1,350 +1,241 @@
-# GitHub OIDC化ガイド（長期AWSキー廃止）
+# GitHub OIDC移行ガイド
 
 ## 概要
 
-このドキュメントは、GitHub ActionsでのAWS認証を長期キー（AWS_ACCESS_KEY_ID/SECRET）からOIDC（OpenID Connect）による短期クレデンシャルに移行する手順を説明します。この移行により、AWSキー漏洩リスクを根本的に解決します。
+このドキュメントは、GitHub ActionsでのAWS認証を長期アクセスキーからOIDC（OpenID Connect）による短期クレデンシャルに移行する手順を説明します。
 
-## 移行の背景
+## 🚨 セキュリティ上の重要性
 
-### 従来の認証方式の問題点
+### 従来の問題点
+- **長期アクセスキー**: AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEYが漏洩すると永続的なリスク
+- **権限管理の困難**: キーローテーションが手動で煩雑
+- **監査の複雑さ**: どのワークフローがどのキーを使用しているか追跡困難
 
-1. **長期キーの漏洩リスク**: GitHub Secretsに保存されたAWSキーが漏洩する可能性
-2. **キーローテーションの困難**: 手動でのキー更新が必要
-3. **権限管理の複雑さ**: IAMユーザーベースの権限管理
-4. **監査の困難**: どのワークフローがどのキーを使用したか追跡困難
+### OIDC移行後の利点
+- **短期クレデンシャル**: 一時的なトークンで自動失効
+- **細かい権限制御**: リポジトリ・ブランチ単位での権限設定
+- **監査の簡素化**: CloudTrailでの追跡が容易
+- **キー管理不要**: GitHub側で自動管理
 
-### OIDC認証の利点
+## 移行手順
 
-1. **短期クレデンシャル**: 一時的なトークンによる認証
-2. **自動ローテーション**: トークンの自動期限切れ
-3. **細かい権限制御**: リポジトリ・ブランチ単位での権限設定
-4. **監査可能性**: CloudTrailでの詳細なアクセスログ
+### Step 1: AWS側の設定
 
-## 実装内容
+#### 1.1 自動設定スクリプトの実行
 
-### 1. AWS SAMテンプレートの変更
-
-#### IAM OIDCプロバイダーの作成
-```yaml
-GitHubOIDCProvider:
-  Type: AWS::IAM::OIDCIdentityProvider
-  Properties:
-    Url: https://token.actions.githubusercontent.com
-    ClientIdList:
-      - sts.amazonaws.com
-    ThumbprintList:
-      - 6938fd4d98bab03faadb97b34396831e3780aea1  # GitHub Actions
-      - 1c58a3a8518e8759bf075b76b750d4f2df264fcd  # 予備
-```
-
-#### GitHub Actions用IAMロールの作成
-```yaml
-GitHubActionsRole:
-  Type: AWS::IAM::Role
-  Properties:
-    RoleName: !Sub "GitHubActions-ExcelUnlocker-${Environment}"
-    AssumeRolePolicyDocument:
-      Version: '2012-10-17'
-      Statement:
-        - Effect: Allow
-          Principal:
-            Federated: !Ref GitHubOIDCProvider
-          Action: sts:AssumeRoleWithWebIdentity
-          Condition:
-            StringEquals:
-              "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
-            StringLike:
-              "token.actions.githubusercontent.com:sub": "repo:hirokun-hub/python-excel-unlocker:*"
-```
-
-### 2. GitHub Actionsワークフローの変更
-
-#### 権限の追加
-```yaml
-# GitHub OIDC化：必要な権限を追加
-permissions:
-  id-token: write   # OIDC認証に必要
-  contents: read    # リポジトリ内容の読み取り
-```
-
-#### AWS認証の変更
-```yaml
-# 変更前（長期キー）
-- name: Configure AWS credentials
-  uses: aws-actions/configure-aws-credentials@v4
-  with:
-    aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-    aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-    aws-region: ${{ env.AWS_REGION }}
-
-# 変更後（OIDC）
-- name: Configure AWS credentials (OIDC)
-  uses: aws-actions/configure-aws-credentials@v4
-  with:
-    role-to-assume: ${{ secrets.AWS_GITHUB_ACTIONS_ROLE_ARN }}
-    role-session-name: GitHubActions-Backend-Deploy-${{ github.run_id }}
-    aws-region: ${{ env.AWS_REGION }}
-```
-
-### 3. GitHub Secretsの更新
-
-#### 削除するSecrets
-- `AWS_ACCESS_KEY_ID`
-- `AWS_SECRET_ACCESS_KEY`
-
-#### 追加するSecrets
-- `AWS_GITHUB_ACTIONS_ROLE_ARN`: GitHub Actions用IAMロールのARN
-
-## セキュリティ強化効果
-
-### 1. キー漏洩リスクの根本的解決
-
-#### 従来の問題
 ```bash
-# GitHub Secretsに長期キーが保存
-AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE
-AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
-# → 漏洩すると永続的にAWSアクセス可能
+# リポジトリルートで実行
+./scripts/setup-github-oidc.sh
 ```
 
-#### OIDC後の改善
+このスクリプトは以下を自動実行します：
+- GitHub OIDCプロバイダーの作成
+- IAMポリシーの作成（最小権限）
+- IAMロールの作成（信頼関係設定）
+- ポリシーのロールへのアタッチ
+
+#### 1.2 手動設定（スクリプトが使用できない場合）
+
+**OIDCプロバイダーの作成:**
 ```bash
-# 短期トークンによる認証
-# トークンは1時間で自動期限切れ
-# リポジトリ・ブランチが限定される
+# GitHub OIDCプロバイダーの証明書フィンガープリント取得
+THUMBPRINT=$(echo | openssl s_client -servername token.actions.githubusercontent.com -connect token.actions.githubusercontent.com:443 2>/dev/null | openssl x509 -fingerprint -noout -sha1 | sed 's/://g' | cut -d= -f2)
+
+# OIDCプロバイダー作成
+aws iam create-open-id-connect-provider \
+    --url https://token.actions.githubusercontent.com \
+    --client-id-list sts.amazonaws.com \
+    --thumbprint-list $THUMBPRINT
 ```
 
-### 2. 細かい権限制御
-
-#### リポジトリ限定
-```yaml
-Condition:
-  StringLike:
-    "token.actions.githubusercontent.com:sub": "repo:hirokun-hub/python-excel-unlocker:*"
-```
-
-#### ブランチ限定（オプション）
-```yaml
-Condition:
-  StringLike:
-    "token.actions.githubusercontent.com:sub": "repo:hirokun-hub/python-excel-unlocker:ref:refs/heads/main"
-```
-
-### 3. 監査可能性の向上
-
-#### CloudTrailログ例
+**IAMロールの作成:**
 ```json
 {
-  "eventTime": "2025-01-17T10:30:00Z",
-  "eventName": "AssumeRoleWithWebIdentity",
-  "sourceIPAddress": "140.82.112.0",
-  "userAgent": "aws-actions/configure-aws-credentials",
-  "requestParameters": {
-    "roleArn": "arn:aws:iam::123456789012:role/GitHubActions-ExcelUnlocker-development",
-    "roleSessionName": "GitHubActions-Backend-Deploy-12345",
-    "webIdentityToken": "[REDACTED]"
-  },
-  "responseElements": {
-    "assumedRoleUser": {
-      "assumedRoleId": "AROAEXAMPLE:GitHubActions-Backend-Deploy-12345",
-      "arn": "arn:aws:sts::123456789012:assumed-role/GitHubActions-ExcelUnlocker-development/GitHubActions-Backend-Deploy-12345"
-    }
-  }
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Principal": {
+                "Federated": "arn:aws:iam::ACCOUNT-ID:oidc-provider/token.actions.githubusercontent.com"
+            },
+            "Action": "sts:AssumeRoleWithWebIdentity",
+            "Condition": {
+                "StringEquals": {
+                    "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+                },
+                "StringLike": {
+                    "token.actions.githubusercontent.com:sub": "repo:hironomac2025/excel-password-remover:*"
+                }
+            }
+        }
+    ]
 }
 ```
 
-## デプロイメント手順
+### Step 2: GitHub Secretsの設定
 
-### 1. AWS SAMテンプレートのデプロイ
+#### 2.1 新しいSecretの追加
 
-```bash
-# OIDCプロバイダーとロールを作成
-sam build
-sam deploy --config-env development
+1. GitHubリポジトリの **Settings** > **Secrets and variables** > **Actions** に移動
+2. **New repository secret** をクリック
+3. 以下のSecretを追加：
 
-# 出力からロールARNを取得
-aws cloudformation describe-stacks \
-  --stack-name excel-unlocker-api-dev \
-  --query 'Stacks[0].Outputs[?OutputKey==`GitHubActionsRoleArn`].OutputValue' \
-  --output text
+| Name | Value | 説明 |
+|------|-------|------|
+| `AWS_GITHUB_ACTIONS_ROLE_ARN` | `arn:aws:iam::ACCOUNT-ID:role/GitHubActionsRole` | OIDC用IAMロールのARN |
+
+#### 2.2 古いSecretsの削除
+
+⚠️ **重要**: 以下のSecretsを削除してください：
+- `AWS_ACCESS_KEY_ID`
+- `AWS_SECRET_ACCESS_KEY`
+
+### Step 3: ワークフローの確認
+
+#### 3.1 OIDC設定の確認
+
+既存のワークフローファイルで以下の設定が含まれていることを確認：
+
+```yaml
+# 必要な権限
+permissions:
+  id-token: write   # OIDC認証に必要
+  contents: read    # リポジトリ内容の読み取り
+
+jobs:
+  deploy:
+    steps:
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_GITHUB_ACTIONS_ROLE_ARN }}
+          role-session-name: GitHubActions-Deploy-${{ github.run_id }}
+          aws-region: ap-northeast-1
 ```
 
-### 2. GitHub Secretsの設定
+#### 3.2 対象ワークフローファイル
 
-```bash
-# GitHub CLIを使用してSecretsを設定
-gh secret set AWS_GITHUB_ACTIONS_ROLE_ARN --body "arn:aws:iam::123456789012:role/GitHubActions-ExcelUnlocker-development"
+以下のファイルがOIDC対応済みです：
+- `.github/workflows/deploy-backend.yml`
+- `.github/workflows/deploy-full-stack.yml`
 
-# 古いSecretsを削除
-gh secret delete AWS_ACCESS_KEY_ID
-gh secret delete AWS_SECRET_ACCESS_KEY
-```
+## 動作確認
 
-### 3. ワークフローの動作確認
+### テスト手順
 
-```bash
-# テストデプロイを実行
-gh workflow run deploy-backend.yml --ref main
+1. **開発環境でのテスト**:
+   ```bash
+   # GitHub Actionsでワークフローを手動実行
+   # Repository > Actions > Deploy Backend to AWS > Run workflow
+   # Environment: development を選択して実行
+   ```
 
-# ログを確認
-gh run list --workflow=deploy-backend.yml
-gh run view [RUN_ID] --log
-```
+2. **ログの確認**:
+   ```
+   ✅ 成功例:
+   Configure AWS credentials (OIDC)
+   Assuming role with OIDC
+   Role assumed successfully
+   
+   ❌ 失敗例:
+   Error: Could not assume role with OIDC
+   ```
+
+3. **CloudTrailでの確認**:
+   - AWS CloudTrail > Event history
+   - User name: `GitHubActions-Deploy-*` で検索
+   - AssumeRoleWithWebIdentity イベントの確認
 
 ## トラブルシューティング
 
-### よくある問題
+### よくあるエラーと対処法
 
-#### 1. AssumeRole失敗
-```
-Error: Could not assume role with OIDC: Access denied
-```
+#### 1. "Could not assume role with OIDC"
 
-**原因と解決方法**:
-- OIDCプロバイダーが正しく設定されていない
-- IAMロールの信頼関係が正しくない
-- リポジトリ名が一致していない
+**原因**: IAMロールの信頼関係設定が不正
 
-```yaml
-# 信頼関係の確認
-Condition:
-  StringLike:
-    "token.actions.githubusercontent.com:sub": "repo:YOUR_USERNAME/YOUR_REPO:*"
-```
-
-#### 2. 権限不足エラー
-```
-Error: User is not authorized to perform: cloudformation:CreateStack
-```
-
-**解決方法**:
-- IAMロールに必要な権限を追加
-- PowerUserAccessポリシーの確認
-
-#### 3. OIDCプロバイダーが見つからない
-```
-Error: Invalid identity token
-```
-
-**解決方法**:
-- OIDCプロバイダーのThumbprintを確認
-- GitHubのThumbprintが変更されていないか確認
-
-### デバッグ方法
-
-#### 1. OIDC トークンの確認
-```yaml
-- name: Debug OIDC token
-  run: |
-    echo "GitHub Token Claims:"
-    echo "Repository: ${{ github.repository }}"
-    echo "Ref: ${{ github.ref }}"
-    echo "SHA: ${{ github.sha }}"
-    echo "Actor: ${{ github.actor }}"
-```
-
-#### 2. AssumeRole の詳細ログ
-```yaml
-- name: Configure AWS credentials (OIDC)
-  uses: aws-actions/configure-aws-credentials@v4
-  with:
-    role-to-assume: ${{ secrets.AWS_GITHUB_ACTIONS_ROLE_ARN }}
-    role-session-name: GitHubActions-Debug-${{ github.run_id }}
-    aws-region: ${{ env.AWS_REGION }}
-    mask-aws-account-id: false  # デバッグ用
-```
-
-## 環境別設定
-
-### 開発環境
+**対処法**:
 ```bash
-# 開発環境用ロールARN
-AWS_GITHUB_ACTIONS_ROLE_ARN=arn:aws:iam::123456789012:role/GitHubActions-ExcelUnlocker-development
+# 信頼ポリシーの確認
+aws iam get-role --role-name GitHubActionsRole --query 'Role.AssumeRolePolicyDocument'
+
+# リポジトリ名の確認（大文字小文字、ハイフン等）
+echo "repo:hironomac2025/excel-password-remover:*"
 ```
 
-### ステージング環境
+#### 2. "Access denied" エラー
+
+**原因**: IAMポリシーの権限不足
+
+**対処法**:
 ```bash
-# ステージング環境用ロールARN
-AWS_GITHUB_ACTIONS_ROLE_ARN=arn:aws:iam::123456789012:role/GitHubActions-ExcelUnlocker-staging
+# ポリシーの確認
+aws iam list-attached-role-policies --role-name GitHubActionsRole
+
+# 必要に応じてポリシーの更新
+./scripts/setup-github-oidc.sh  # 再実行で更新
 ```
 
-### 本番環境
+#### 3. "Invalid identity token"
+
+**原因**: GitHub側のOIDCトークン設定問題
+
+**対処法**:
+- ワークフローファイルの `permissions` セクション確認
+- `id-token: write` が設定されているか確認
+
+### デバッグ用コマンド
+
 ```bash
-# 本番環境用ロールARN（より厳格な権限）
-AWS_GITHUB_ACTIONS_ROLE_ARN=arn:aws:iam::123456789012:role/GitHubActions-ExcelUnlocker-production
+# OIDCプロバイダーの確認
+aws iam list-open-id-connect-providers
+
+# ロールの詳細確認
+aws iam get-role --role-name GitHubActionsRole
+
+# ポリシーの確認
+aws iam get-policy --policy-arn arn:aws:iam::ACCOUNT-ID:policy/GitHubActionsPolicy
 ```
-
-## 監視とログ
-
-### CloudTrail監視
-```bash
-# OIDC認証の監視
-aws logs filter-log-events \
-  --log-group-name CloudTrail/ExcelUnlocker \
-  --filter-pattern "AssumeRoleWithWebIdentity"
-```
-
-### CloudWatch メトリクス
-- AssumeRole成功率
-- セッション継続時間
-- 権限エラー発生率
-
-## 今後の改善計画
-
-### 短期的改善
-1. **ブランチ別権限**: mainブランチのみ本番デプロイ可能
-2. **時間制限**: 営業時間内のみデプロイ可能
-3. **IP制限**: 特定IPからのみアクセス可能
-
-### 長期的改善
-1. **マルチアカウント対応**: 環境別AWSアカウント
-2. **動的権限**: デプロイ内容に応じた最小権限
-3. **自動監査**: 異常なアクセスパターンの検出
 
 ## セキュリティベストプラクティス
 
 ### 1. 最小権限の原則
-```yaml
-# 必要最小限の権限のみ付与
-Policies:
-  - PolicyName: SAMDeployOnly
-    PolicyDocument:
-      Version: '2012-10-17'
-      Statement:
-        - Effect: Allow
-          Action:
-            - cloudformation:CreateStack
-            - cloudformation:UpdateStack
-            - cloudformation:DescribeStacks
-          Resource: !Sub "arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/excel-unlocker-*"
-```
+
+IAMポリシーは必要最小限の権限のみを付与：
+- CloudFormation操作権限
+- Lambda関数管理権限
+- S3バケット操作権限（特定バケットのみ）
+- API Gateway操作権限
 
 ### 2. 条件付きアクセス
-```yaml
-# 特定の条件下でのみアクセス許可
-Condition:
-  StringEquals:
-    "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
-  StringLike:
-    "token.actions.githubusercontent.com:sub": "repo:hirokun-hub/python-excel-unlocker:*"
-  DateGreaterThan:
-    "aws:CurrentTime": "2025-01-01T00:00:00Z"
-```
 
-### 3. 定期的な権限レビュー
-```bash
-# 使用されていない権限の確認
-aws iam get-role --role-name GitHubActions-ExcelUnlocker-development
-aws iam list-attached-role-policies --role-name GitHubActions-ExcelUnlocker-development
-```
+信頼ポリシーで以下を制限：
+- 特定リポジトリからのアクセスのみ許可
+- GitHub OIDCプロバイダーからのアクセスのみ許可
 
-## まとめ
+### 3. 監査とモニタリング
 
-GitHub OIDC化により、以下のセキュリティ強化が実現されました：
+- CloudTrailでのAPI呼び出し監視
+- IAM Access Analyzerでの権限分析
+- 定期的な権限レビュー
 
-1. **長期キー廃止**: AWSキー漏洩リスクの根本的解決
-2. **短期クレデンシャル**: 自動期限切れによるセキュリティ向上
-3. **細かい権限制御**: リポジトリ・ブランチ単位での制御
-4. **監査可能性**: 詳細なアクセスログによる追跡
+## 移行完了チェックリスト
 
-この移行により、GitHub ActionsでのAWS認証が大幅に安全になり、本番環境での運用リスクが軽減されます。
+- [ ] AWS OIDCプロバイダーの作成完了
+- [ ] IAMロールとポリシーの作成完了
+- [ ] GitHub Secretsの設定完了
+- [ ] 古いAWSキーの削除完了
+- [ ] ワークフローの動作確認完了
+- [ ] CloudTrailでのOIDC認証確認完了
+- [ ] 開発環境でのテスト完了
+- [ ] ステージング環境でのテスト完了
+
+## 参考資料
+
+- [GitHub Actions: Configuring OpenID Connect in Amazon Web Services](https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services)
+- [AWS IAM: Creating OpenID Connect identity providers](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_create_oidc.html)
+- [aws-actions/configure-aws-credentials](https://github.com/aws-actions/configure-aws-credentials)
+
+---
+
+**注意**: 本番環境への適用前に、必ず開発環境・ステージング環境での十分なテストを実施してください。

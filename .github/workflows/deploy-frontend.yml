@@ -27,6 +27,14 @@ on:
           - staging
           - production
 
+  workflow_call:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        type: string
+        default: 'development'
+
 env:
   VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
   VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}

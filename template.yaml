@@ -26,13 +26,13 @@ Parameters:
     Default: "hironomac2025@gmail.com"
     Description: "Comma-separated list of allowed user email addresses"
   
-  AllowedOrigins:
+  AllowedOrigin:
     Type: String
-    Default: "https://localhost:3000,https://localhost:3001"
-    Description: "Comma-separated list of allowed CORS origins"
+    Default: "https://localhost:3000"
+    Description: "Single allowed CORS origin for security hardening"
     AllowedValues:
-      - "https://localhost:3000,https://localhost:3001"  # development
-      - "https://localhost:3000,https://localhost:3001,https://excel-unlocker-staging.vercel.app"  # staging
+      - "https://localhost:3000"  # development
+      - "https://excel-unlocker-staging.vercel.app"  # staging
       - "https://excel-unlocker.vercel.app"  # production
 
 # Global parameters can be defined here
@@ -52,7 +52,7 @@ Globals:
     Cors:
       AllowMethods: "'GET,POST,OPTIONS'"
       AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-      AllowOrigin: !Sub "'${AllowedOrigins}'"
+      AllowOrigin: !Sub "'${AllowedOrigin}'"
 
 # AWS Resources definition
 Resources:
@@ -100,7 +100,8 @@ Resources:
               - GET
               - PUT
               - HEAD
-            AllowedOrigins: !Split [",", !Ref AllowedOrigins]
+            AllowedOrigins: 
+              - !Ref AllowedOrigin
             MaxAge: 3600
             ExposedHeaders:
               - "ETag"
@@ -206,7 +207,6 @@ Resources:
       Handler: get_upload_url.lambda_handler
       Timeout: 30
       MemorySize: 256  # パフォーマンス最適化：メモリ増量でCPU性能向上
-      ReservedConcurrencyLimit: 10  # 並列実行制限でコールドスタート削減
       # セキュリティ強化：明示的IAMロール割り当て
       Role: !GetAtt GetUploadUrlFunctionRole.Arn
       Environment:
@@ -217,8 +217,8 @@ Resources:
           ENVIRONMENT: !Ref Environment
           # JWT認証用のGoogle Client ID
           GOOGLE_CLIENT_ID: "{{resolve:ssm:/excel-unlocker/google-client-id:1}}"
-          # CORS設定の厳格化：環境別許可オリジン
-          ALLOWED_ORIGINS: !Ref AllowedOrigins
+          # CORS設定の厳格化：環境別許可オリジン（単一値）
+          ALLOWED_ORIGIN: !Ref AllowedOrigin
           # パフォーマンス最適化：環境変数
           AWS_LAMBDA_LOG_LEVEL: !If [IsProduction, "WARN", "INFO"]
       Events:
@@ -237,7 +237,6 @@ Resources:
       Handler: unlock.lambda_handler
       Timeout: 900  # 15分（Excel処理に時間がかかる場合があるため）
       MemorySize: 1024  # パフォーマンス最適化：並列処理とExcel処理のためメモリ増量
-      ReservedConcurrencyLimit: 5  # 並列実行制限（リソース集約型処理のため）
       # セキュリティ強化：明示的IAMロール割り当て
       Role: !GetAtt UnlockFunctionRole.Arn
       Environment:
@@ -248,8 +247,8 @@ Resources:
           ENVIRONMENT: !Ref Environment
           # JWT認証用のGoogle Client ID
           GOOGLE_CLIENT_ID: "{{resolve:ssm:/excel-unlocker/google-client-id:1}}"
-          # CORS設定の厳格化：環境別許可オリジン
-          ALLOWED_ORIGINS: !Ref AllowedOrigins
+          # CORS設定の厳格化：環境別許可オリジン（単一値）
+          ALLOWED_ORIGIN: !Ref AllowedOrigin
           # パフォーマンス最適化：環境変数
           AWS_LAMBDA_LOG_LEVEL: !If [IsProduction, "WARN", "INFO"]
           PYTHONUNBUFFERED: 1  # Python出力バッファリング無効化
