@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import { google, drive_v3 } from "googleapis";
-import { authOptions } from "@/auth";
+import { getServerAccessToken, refreshGoogleToken, getServerRefreshToken } from "@/lib/serverAuth";
 import pLimit from "p-limit";
 
 const FOLDER_MIME_TYPE = "application/vnd.google-apps.folder";
@@ -87,8 +86,20 @@ export async function GET(req: NextRequest) {
   const pageToken = searchParams.get("pageToken") || undefined;
 
   try {
-    const session = await getServerSession(authOptions);
-    const accessToken = session?.accessToken;
+    // サーバーサイドでのみアクセス可能なトークンを取得
+    let accessToken = await getServerAccessToken(req);
+    
+    if (!accessToken) {
+      // リフレッシュトークンを使用してアクセストークンを更新
+      const refreshToken = await getServerRefreshToken(req);
+      if (refreshToken) {
+        const refreshed = await refreshGoogleToken(refreshToken);
+        if (refreshed) {
+          accessToken = refreshed.access_token;
+        }
+      }
+    }
+
     if (!accessToken) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

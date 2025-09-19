@@ -2,12 +2,12 @@ import GoogleProvider from "next-auth/providers/google"
 import type { NextAuthOptions, Session } from "next-auth"
 import type { JWT } from "next-auth/jwt"
 
+// OAuth スコープの最小化 - drive.fileのみに限定
 const scopes = [
   "openid",
-  "email",
+  "email", 
   "profile",
-  "https://www.googleapis.com/auth/drive.file",
-  "https://www.googleapis.com/auth/drive.metadata.readonly",
+  "https://www.googleapis.com/auth/drive.file", // ファイル作成・編集のみ
 ].join(" ")
 
 export const authOptions: NextAuthOptions = {
@@ -29,7 +29,10 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, account }): Promise<JWT> {
       if (account?.access_token) {
-        (token as any).accessToken = account.access_token
+        // サーバーサイドでのみアクセストークンを保持
+        // フロントエンドには露出しない
+        ;(token as any).serverAccessToken = account.access_token
+        ;(token as any).refreshToken = account.refresh_token
         ;(token as any).scope = account.scope
         // JWT認証用のID Tokenを保存
         ;(token as any).idToken = account.id_token
@@ -37,9 +40,8 @@ export const authOptions: NextAuthOptions = {
       return token
     },
     async session({ session, token }): Promise<Session> {
-      ;(session as any).accessToken = (token as any).accessToken
-      ;(session as any).scope = (token as any).scope
-      // JWT認証用のID Tokenをセッションに含める
+      // フロントエンドにはアクセストークンを露出しない
+      // JWT認証用のID Tokenのみをセッションに含める
       ;(session as any).idToken = (token as any).idToken
       return session
     },

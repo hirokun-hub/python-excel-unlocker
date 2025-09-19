@@ -1,6 +1,5 @@
 "use client"
 import { useSession } from "next-auth/react"
-import { uploadToDriveUsingAccessToken, DriveUploadError } from "@/utils/googleDrive"
 import DriveFolderPicker from "@/components/DriveFolderPicker"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
@@ -34,7 +33,7 @@ export function FileResults({ results }: { results: ProcessResult[] }) {
   }
 
   const handleSave = async (file: ProcessResult) => {
-    if (!session?.accessToken) {
+    if (!session) {
       toast.error("Googleに再ログインしてください。");
       return;
     }
@@ -42,22 +41,38 @@ export function FileResults({ results }: { results: ProcessResult[] }) {
 
     setSavingToDrive(prev => [...prev, file.fileName]);
     const toastId = toast.loading(`${file.fileName} をGoogle Driveに保存しています...`);
+    
     try {
+      // ファイルをダウンロード
       const blob = await fetch(file.downloadUrl).then(r => r.blob());
-      await uploadToDriveUsingAccessToken(blob, file.fileName, session.accessToken, { parentId: folder?.id });
-      toast.success("Google Driveに保存しました", { id: toastId, description: file.fileName });
+      
+      // サーバー経由でGoogle Driveにアップロード
+      const formData = new FormData();
+      formData.append("file", blob);
+      formData.append("filename", file.fileName);
+      if (folder?.id) {
+        formData.append("parentId", folder.id);
+      }
+
+      const response = await fetch("/api/drive/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "アップロードに失敗しました");
+      }
+
+      const result = await response.json();
+      toast.success("Google Driveに保存しました", { 
+        id: toastId, 
+        description: file.fileName 
+      });
     } catch (err) {
       console.error(err);
-      let errorMessage = 'Google Driveへの保存中に不明なエラーが発生しました。';
-      if (err instanceof DriveUploadError) {
-        if (err.status === 401) {
-          errorMessage = "Googleに再ログインしてください。";
-        } else if (err.status === 403) {
-          errorMessage = "Google Drive APIが未有効か、スコープが不足しています（drive.file）。";
-        } else {
-          errorMessage = err.message;
-        }
-      } else if (err instanceof Error) {
+      let errorMessage = 'Google Driveへの保存中にエラーが発生しました。';
+      if (err instanceof Error) {
         errorMessage = err.message;
       }
       toast.error(errorMessage, { id: toastId });
@@ -67,7 +82,7 @@ export function FileResults({ results }: { results: ProcessResult[] }) {
   }
 
   const saveAll = async () => {
-    if (!session?.accessToken) {
+    if (!session) {
       toast.error("Googleに再ログインしてください。");
       return;
     }
@@ -87,24 +102,34 @@ export function FileResults({ results }: { results: ProcessResult[] }) {
     const toastId = toast.loading(`全 ${filesToSave.length} ファイルを保存中...`);
 
     try {
+      // 並列でサーバー経由アップロード
       const promises = filesToSave.map(async (r) => {
         const blob = await fetch(r.downloadUrl!).then(res => res.blob());
-        await uploadToDriveUsingAccessToken(blob, r.fileName, session.accessToken!, { parentId: folder.id });
+        
+        const formData = new FormData();
+        formData.append("file", blob);
+        formData.append("filename", r.fileName);
+        formData.append("parentId", folder.id);
+
+        const response = await fetch("/api/drive/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || `${r.fileName}のアップロードに失敗しました`);
+        }
+
+        return response.json();
       });
+
       await Promise.all(promises);
       toast.success('全ファイルを保存しました', { id: toastId });
     } catch (err) {
       console.error(err);
       let errorMessage = '一括保存中にエラーが発生しました。';
-      if (err instanceof DriveUploadError) {
-        if (err.status === 401) {
-          errorMessage = "Googleに再ログインしてください。";
-        } else if (err.status === 403) {
-          errorMessage = "Google Drive APIが未有効か、スコープが不足しています（drive.file）。";
-        } else {
-          errorMessage = err.message;
-        }
-      } else if (err instanceof Error) {
+      if (err instanceof Error) {
         errorMessage = err.message;
       }
       toast.error(errorMessage, { id: toastId });
