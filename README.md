@@ -44,6 +44,34 @@
 - **監査レポート**: 定期的なユーザー監査とレポート生成
 - **包括的ログ**: 全操作の詳細ログ記録と履歴管理
 
+## 設定管理システム 🆕
+
+### 統合設定管理
+- **設定ファイル管理**: JSON形式での統一設定管理
+- **環境別設定**: development/staging/production環境の分離
+- **機密情報保護**: 暗号化機能と.gitignore除外設定
+- **設定検証**: JSON Schemaによる設定値の検証
+- **環境変数生成**: 各種フォーマットでの環境変数出力
+- **インポート・エクスポート**: 設定の移行と共有機能
+- **バックアップ**: 設定変更履歴の保持
+
+### クイックスタート
+```bash
+# 設定ファイルの初期化
+./scripts/setup-config-manager.sh init
+
+# 設定の検証
+./scripts/setup-config-manager.sh validate
+
+# 開発環境の環境変数生成
+./scripts/setup-config-manager.sh generate-env development
+
+# 統合セットアップの実行
+./scripts/setup-with-config-management.sh development
+```
+
+詳細は [設定管理システムガイド](docs/config-management-guide.md) を参照してください。
+
 ## 主要機能
 
 ### Excel解除機能

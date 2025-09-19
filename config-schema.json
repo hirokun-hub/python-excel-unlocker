@@ -1,0 +1,149 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Secure Excel Unlock Configuration Schema",
+  "description": "設定ファイルのスキーマ定義",
+  "type": "object",
+  "required": ["version", "environments"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "設定ファイルのバージョン"
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "description": {"type": "string"},
+        "created": {"type": "string", "format": "date"},
+        "lastModified": {"type": "string", "format": "date"}
+      }
+    },
+    "environments": {
+      "type": "object",
+      "required": ["development", "staging", "production"],
+      "properties": {
+        "development": {"$ref": "#/definitions/environment"},
+        "staging": {"$ref": "#/definitions/environment"},
+        "production": {"$ref": "#/definitions/environment"}
+      }
+    },
+    "features": {
+      "type": "object",
+      "properties": {
+        "googleDriveIntegration": {"type": "boolean"},
+        "multiFileProcessing": {"type": "boolean"},
+        "realTimeProgress": {"type": "boolean"},
+        "mockMode": {"type": "boolean"}
+      }
+    },
+    "limits": {
+      "type": "object",
+      "properties": {
+        "maxFileSize": {"type": "integer", "minimum": 1},
+        "maxFilesPerBatch": {"type": "integer", "minimum": 1},
+        "uploadTimeout": {"type": "integer", "minimum": 1},
+        "downloadTimeout": {"type": "integer", "minimum": 1}
+      }
+    },
+    "logging": {
+      "type": "object",
+      "properties": {
+        "level": {
+          "type": "string",
+          "enum": ["DEBUG", "INFO", "WARN", "ERROR"]
+        },
+        "enableCloudWatch": {"type": "boolean"},
+        "retentionDays": {"type": "integer", "minimum": 1}
+      }
+    }
+  },
+  "definitions": {
+    "environment": {
+      "type": "object",
+      "required": ["aws", "google", "vercel", "security"],
+      "properties": {
+        "description": {"type": "string"},
+        "aws": {
+          "type": "object",
+          "required": ["region", "s3", "lambda"],
+          "properties": {
+            "region": {
+              "type": "string",
+              "pattern": "^[a-z0-9-]+$"
+            },
+            "profile": {"type": "string"},
+            "s3": {
+              "type": "object",
+              "required": ["bucketName", "corsOrigin"],
+              "properties": {
+                "bucketName": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9.-]+$"
+                },
+                "corsOrigin": {
+                  "type": "string",
+                  "format": "uri"
+                }
+              }
+            },
+            "lambda": {
+              "type": "object",
+              "required": ["stackName"],
+              "properties": {
+                "stackName": {
+                  "type": "string",
+                  "pattern": "^[a-zA-Z0-9-]+$"
+                },
+                "timeout": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 900
+                },
+                "memorySize": {
+                  "type": "integer",
+                  "enum": [128, 256, 512, 1024, 2048, 3008]
+                }
+              }
+            }
+          }
+        },
+        "google": {
+          "type": "object",
+          "required": ["clientId", "clientSecret", "redirectUri"],
+          "properties": {
+            "clientId": {"type": "string"},
+            "clientSecret": {"type": "string"},
+            "redirectUri": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
+        },
+        "vercel": {
+          "type": "object",
+          "required": ["projectName"],
+          "properties": {
+            "projectName": {"type": "string"},
+            "domain": {"type": "string"}
+          }
+        },
+        "security": {
+          "type": "object",
+          "required": ["allowedUsers"],
+          "properties": {
+            "allowedUsers": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "email"
+              },
+              "minItems": 1
+            },
+            "jwtSecret": {"type": "string"},
+            "sessionSecret": {"type": "string"}
+          }
+        }
+      }
+    }
+  }
+}

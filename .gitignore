@@ -11,6 +11,13 @@ _audit/
 # ローカル秘密ディレクトリ（必要なら名称調整）
 /secrets/
 
+# 設定管理システム（機密情報含む）
+setup-config.json
+setup-config.*.json
+!setup-config.example.json
+config-backup/
+.config-encryption-key
+
 
 # =========================
 # Node.js / Next.js（サブディレクトリ含む）

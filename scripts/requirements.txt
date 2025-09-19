@@ -1,1 +1,4 @@
-msoffcrypto-tool==5.1.1 
+msoffcrypto-tool==5.1.1
+jsonschema>=4.21.1
+cryptography>=41.0.0
+PyYAML>=6.0.1
