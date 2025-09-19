@@ -16,6 +16,119 @@ describe('Excel解除API統合テスト', () => {
     apiClient = createApiClient();
   });
 
+  describe('認証・アクセス制御テスト', () => {
+    test('本番環境で許可ユーザーリスト未設定時は全拒否される', async () => {
+      // 環境変数を一時的に変更してテスト
+      const originalAllowedUsers = process.env.ALLOWED_USERS;
+      const originalEnvironment = process.env.ENVIRONMENT;
+      
+      try {
+        // 本番環境で許可ユーザーリストを空に設定
+        delete process.env.ALLOWED_USERS;
+        process.env.ENVIRONMENT = 'production';
+        
+        const fileKey = 'test-uploads/test-file.xlsx';
+        const passwords = ['test123'];
+        
+        // API呼び出しを実行（認証エラーが期待される）
+        const response = await unlockExcel(fileKey, passwords, {
+          expectError: true,
+          expectedStatus: 401
+        });
+        
+        // エラーレスポンスの検証
+        validateErrorResponse(response, 'authentication_failed');
+        expect(response.message).toContain('no users authorized');
+        expect(response.message).toContain('configuration required');
+        
+        console.log('✅ 本番環境での全拒否テスト成功:', response.message);
+      } finally {
+        // 環境変数を復元
+        if (originalAllowedUsers) {
+          process.env.ALLOWED_USERS = originalAllowedUsers;
+        }
+        if (originalEnvironment) {
+          process.env.ENVIRONMENT = originalEnvironment;
+        } else {
+          delete process.env.ENVIRONMENT;
+        }
+      }
+    });
+
+    test('開発環境では許可ユーザーリスト未設定でもアクセス可能', async () => {
+      const originalAllowedUsers = process.env.ALLOWED_USERS;
+      const originalEnvironment = process.env.ENVIRONMENT;
+      
+      try {
+        // 開発環境で許可ユーザーリストを空に設定
+        delete process.env.ALLOWED_USERS;
+        process.env.ENVIRONMENT = 'development';
+        
+        const fileKey = 'test-uploads/test-file.xlsx';
+        const passwords = ['test123'];
+        
+        // API呼び出しを実行（成功が期待される）
+        const response = await unlockExcel(fileKey, passwords, {
+          expectError: false
+        });
+        
+        // 認証は通るが、ファイルが存在しない場合のエラーは別途処理
+        if (response.success === false && response.error === 'file_not_found') {
+          // ファイルが見つからないエラーは正常（認証は通った証拠）
+          console.log('✅ 開発環境での認証通過確認（ファイル未存在）:', response.message);
+        } else {
+          // 実際にファイルが存在して処理が成功した場合
+          validateSuccessResponse(response, ['downloadUrl', 'fileName']);
+          console.log('✅ 開発環境での認証通過確認（処理成功）:', response.fileName);
+        }
+      } finally {
+        // 環境変数を復元
+        if (originalAllowedUsers) {
+          process.env.ALLOWED_USERS = originalAllowedUsers;
+        }
+        if (originalEnvironment) {
+          process.env.ENVIRONMENT = originalEnvironment;
+        } else {
+          delete process.env.ENVIRONMENT;
+        }
+      }
+    });
+
+    test('環境変数取り違え対策：STAGE変数による環境判定', async () => {
+      const originalAllowedUsers = process.env.ALLOWED_USERS;
+      const originalStage = process.env.STAGE;
+      
+      try {
+        // STAGE変数で本番環境を指定、許可ユーザーリストを空に設定
+        delete process.env.ALLOWED_USERS;
+        process.env.STAGE = 'production';
+        
+        const fileKey = 'test-uploads/test-file.xlsx';
+        const passwords = ['test123'];
+        
+        const response = await unlockExcel(fileKey, passwords, {
+          expectError: true,
+          expectedStatus: 401
+        });
+        
+        validateErrorResponse(response, 'authentication_failed');
+        expect(response.message).toContain('no users authorized');
+        
+        console.log('✅ STAGE変数による本番環境判定テスト成功:', response.message);
+      } finally {
+        // 環境変数を復元
+        if (originalAllowedUsers) {
+          process.env.ALLOWED_USERS = originalAllowedUsers;
+        }
+        if (originalStage) {
+          process.env.STAGE = originalStage;
+        } else {
+          delete process.env.STAGE;
+        }
+      }
+    });
+  });
+
   describe('正常系テスト', () => {
     test('正しいパスワードでExcel解除が成功する', async () => {
       // 事前にS3にアップロードされたテストファイルのキーを使用

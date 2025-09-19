@@ -240,6 +240,11 @@ add_user() {
     
     log "INFO" "ユーザー追加完了: $email (環境: $env)"
     
+    # 本番環境での重要な警告
+    if [[ "$env" == "production" ]]; then
+        log "INFO" "🔒 本番環境のセキュリティ: 許可ユーザーリストが設定されているため、未登録ユーザーのアクセスは拒否されます"
+    fi
+    
     # 変更履歴の記録
     if [[ "$log_change" == "true" ]]; then
         log_user_change "ADD" "$email" "$env" "$reason"
@@ -286,6 +291,12 @@ remove_user() {
     update_users "$env" "$new_users"
     
     log "INFO" "ユーザー削除完了: $email (環境: $env)"
+    
+    # 本番環境で全ユーザー削除の警告
+    if [[ "$env" == "production" && -z "$new_users" ]]; then
+        log "WARN" "🚨 警告: 本番環境で全ユーザーが削除されました - 全アクセスが拒否されます"
+        log "WARN" "新しいユーザーを追加するまで、アプリケーションは利用できません"
+    fi
     
     # 変更履歴の記録
     if [[ "$log_change" == "true" ]]; then
@@ -425,8 +436,13 @@ validate_configuration() {
     current_users=$(get_current_users "$env")
     
     if [[ -z "$current_users" ]]; then
-        log "WARN" "ユーザーが設定されていません (環境: $env)"
-        ((errors++))
+        if [[ "$env" == "production" ]]; then
+            log "ERROR" "🚨 重要: 本番環境でユーザーが設定されていません - 全アクセスが拒否されます"
+            log "ERROR" "本番環境では許可ユーザーリストの設定が必須です"
+            ((errors++))
+        else
+            log "WARN" "ユーザーが設定されていません (環境: $env) - 開発環境では全アクセスが許可されます"
+        fi
     else
         # メールアドレス形式の検証
         IFS=',' read -ra EMAIL_ARRAY <<< "$current_users"

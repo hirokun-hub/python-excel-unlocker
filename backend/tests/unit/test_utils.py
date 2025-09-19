@@ -195,10 +195,81 @@ class TestAuthUtils:
     
     def test_validate_user_access_development_mode(self):
         """開発モード（許可ユーザーリストなし）のテスト"""
-        with patch.dict(os.environ, {}, clear=True):
+        with patch.dict(os.environ, {'ENVIRONMENT': 'development'}, clear=True):
             result = validate_user_access('any@example.com')
             assert result['authorized'] is True
             assert 'Development mode' in result['message']
+    
+    def test_validate_user_access_production_mode_no_users(self):
+        """本番環境で許可ユーザーリストが未設定の場合のテスト（全拒否）"""
+        with patch.dict(os.environ, {'ENVIRONMENT': 'production'}, clear=True):
+            result = validate_user_access('any@example.com')
+            assert result['authorized'] is False
+            assert 'no users authorized' in result['message']
+            assert 'configuration required' in result['message']
+    
+    def test_is_development_environment_by_environment(self):
+        """ENVIRONMENT変数による開発環境判定のテスト"""
+        from auth_utils import is_development_environment
+        
+        # 開発環境の場合
+        with patch.dict(os.environ, {'ENVIRONMENT': 'development'}):
+            assert is_development_environment() is True
+        
+        with patch.dict(os.environ, {'ENVIRONMENT': 'dev'}):
+            assert is_development_environment() is True
+        
+        with patch.dict(os.environ, {'ENVIRONMENT': 'local'}):
+            assert is_development_environment() is True
+        
+        # 本番環境の場合
+        with patch.dict(os.environ, {'ENVIRONMENT': 'production'}):
+            assert is_development_environment() is False
+        
+        with patch.dict(os.environ, {'ENVIRONMENT': 'staging'}):
+            assert is_development_environment() is False
+    
+    def test_is_development_environment_by_stage(self):
+        """STAGE変数による開発環境判定のテスト"""
+        from auth_utils import is_development_environment
+        
+        # 開発環境の場合
+        with patch.dict(os.environ, {'STAGE': 'development'}):
+            assert is_development_environment() is True
+        
+        with patch.dict(os.environ, {'STAGE': 'dev'}):
+            assert is_development_environment() is True
+        
+        # 本番環境の場合
+        with patch.dict(os.environ, {'STAGE': 'production'}):
+            assert is_development_environment() is False
+    
+    def test_is_development_environment_by_sam_local(self):
+        """SAM Local実行時の開発環境判定のテスト"""
+        from auth_utils import is_development_environment
+        
+        with patch.dict(os.environ, {'AWS_SAM_LOCAL': 'true'}):
+            assert is_development_environment() is True
+        
+        with patch.dict(os.environ, {'AWS_SAM_LOCAL': 'false'}):
+            assert is_development_environment() is False
+    
+    def test_is_development_environment_by_development_mode(self):
+        """DEVELOPMENT_MODE変数による開発環境判定のテスト"""
+        from auth_utils import is_development_environment
+        
+        with patch.dict(os.environ, {'DEVELOPMENT_MODE': 'true'}):
+            assert is_development_environment() is True
+        
+        with patch.dict(os.environ, {'DEVELOPMENT_MODE': 'false'}):
+            assert is_development_environment() is False
+    
+    def test_is_development_environment_default(self):
+        """環境変数未設定時のデフォルト判定のテスト"""
+        from auth_utils import is_development_environment
+        
+        with patch.dict(os.environ, {}, clear=True):
+            assert is_development_environment() is False  # デフォルトは本番環境扱い
     
     def test_validate_user_access_authorized(self):
         """認証済みユーザーのテスト"""
