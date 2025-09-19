@@ -263,7 +263,7 @@
 
 ### 残りのタスク
 
-- [ ] 31. フロントエンドCSP設定
+- [x] 31. フロントエンドCSP設定
   - next.config.jsでのContent-Security-Policy設定
   - script-src 'self' 'nonce-...'の実装
   - XSS攻撃耐性の向上
