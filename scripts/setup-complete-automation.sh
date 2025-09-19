@@ -131,8 +131,13 @@ main() {
     show_banner
     show_manual_requirements
     
-    local total_steps=6
+    local total_steps=7
     local current_step=0
+    
+    # Step 0: 環境変数自動検出
+    ((current_step++))
+    show_progress $current_step $total_steps "環境変数自動検出"
+    execute_step "STEP 0" "./scripts/auto-detect-env-vars.sh" "AWS設定と環境変数の自動検出・設定"
     
     # Step 1: 前提条件とシークレット設定
     ((current_step++))

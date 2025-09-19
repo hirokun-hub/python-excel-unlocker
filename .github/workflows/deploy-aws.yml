@@ -1,0 +1,159 @@
+name: Deploy Backend to AWS
+
+on:
+  # 手動実行
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'デプロイ環境'
+        required: true
+        default: 'development'
+        type: choice
+        options:
+        - development
+        - staging
+        - production
+
+  # 自動実行（オプション）
+  push:
+    branches:
+      - develop  # 開発環境
+      - main     # ステージング環境
+    paths:
+      - 'backend/**'
+      - 'template.yaml'
+      - 'samconfig.toml'
+      - '.github/workflows/deploy-aws.yml'
+
+jobs:
+  deploy-aws:
+    name: Deploy to AWS
+    runs-on: ubuntu-latest
+    
+    # 環境別設定
+    environment: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'staging') || 'development' }}
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Setup AWS SAM CLI
+      uses: aws-actions/setup-sam@v2
+      with:
+        use-installer: true
+
+    - name: Configure AWS credentials (OIDC)
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+        role-session-name: GitHubActions-${{ github.run_id }}
+        aws-region: ap-northeast-1
+
+    - name: Install backend dependencies
+      run: |
+        cd backend/src
+        pip install -r requirements.txt
+
+    - name: Run backend tests
+      run: |
+        cd backend
+        python -m pytest tests/ -v
+
+    - name: SAM Build
+      run: sam build
+
+    - name: SAM Deploy (Development)
+      if: contains(fromJson('["development"]'), github.event.inputs.environment) || github.ref == 'refs/heads/develop'
+      run: |
+        sam deploy \
+          --config-env default \
+          --no-confirm-changeset \
+          --parameter-overrides \
+            Environment=development \
+            AllowedUsers="${{ secrets.ALLOWED_USERS_DEV }}"
+
+    - name: SAM Deploy (Staging)
+      if: contains(fromJson('["staging"]'), github.event.inputs.environment) || github.ref == 'refs/heads/main'
+      run: |
+        sam deploy \
+          --config-env staging \
+          --no-confirm-changeset \
+          --parameter-overrides \
+            Environment=staging \
+            AllowedUsers="${{ secrets.ALLOWED_USERS_STAGING }}"
+
+    - name: SAM Deploy (Production)
+      if: contains(fromJson('["production"]'), github.event.inputs.environment)
+      run: |
+        sam deploy \
+          --config-env production \
+          --no-confirm-changeset \
+          --parameter-overrides \
+            Environment=production \
+            AllowedUsers="${{ secrets.ALLOWED_USERS_PROD }}"
+
+    - name: Get API Gateway URL
+      id: get-api-url
+      run: |
+        STACK_NAME="excel-unlocker-api-${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'staging') || 'development' }}"
+        API_URL=$(aws cloudformation describe-stacks \
+          --stack-name "$STACK_NAME" \
+          --query "Stacks[0].Outputs[?OutputKey=='ApiGatewayUrl'].OutputValue" \
+          --output text)
+        echo "api-url=$API_URL" >> $GITHUB_OUTPUT
+        echo "API Gateway URL: $API_URL"
+
+    - name: Update Vercel Environment Variables
+      if: steps.get-api-url.outputs.api-url != ''
+      run: |
+        # Vercel CLI経由で環境変数更新
+        npm install -g vercel
+        cd frontend
+        
+        # 環境に応じてVercel環境変数を更新
+        ENV_TARGET="${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'production') || 'preview' }}"
+        
+        echo "${{ secrets.VERCEL_TOKEN }}" | vercel login --stdin
+        vercel link --yes --token "${{ secrets.VERCEL_TOKEN }}"
+        
+        # API URLを設定
+        echo "${{ steps.get-api-url.outputs.api-url }}" | vercel env add NEXT_PUBLIC_API_URL "$ENV_TARGET" --token "${{ secrets.VERCEL_TOKEN }}" || true
+        echo "false" | vercel env add NEXT_PUBLIC_USE_MOCK_API "$ENV_TARGET" --token "${{ secrets.VERCEL_TOKEN }}" || true
+
+    - name: Integration Test
+      if: steps.get-api-url.outputs.api-url != ''
+      run: |
+        # 簡単な疎通確認
+        API_URL="${{ steps.get-api-url.outputs.api-url }}"
+        
+        # ヘルスチェック（存在する場合）
+        curl -f "$API_URL/health" || echo "Health endpoint not found (normal)"
+        
+        # 認証エラー確認（期待される動作）
+        RESPONSE=$(curl -s -w "%{http_code}" -X POST "$API_URL/presigned-urls" \
+          -H "Content-Type: application/json" \
+          -H "Authorization: Bearer invalid-token" \
+          -d '{"fileName": "test.xlsx", "fileSize": 1024, "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}')
+        
+        if [[ "$RESPONSE" == *"401"* ]] || [[ "$RESPONSE" == *"403"* ]]; then
+          echo "✅ 認証エラー確認（期待通り）"
+        else
+          echo "⚠️ 認証テストの結果が予期しないものです: $RESPONSE"
+        fi
+
+    - name: Deployment Summary
+      run: |
+        echo "## 🚀 AWS デプロイ完了" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "- **環境**: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'staging') || 'development' }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **API Gateway URL**: ${{ steps.get-api-url.outputs.api-url }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **デプロイ時刻**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 次のステップ" >> $GITHUB_STEP_SUMMARY
+        echo "1. Vercelフロントエンドの再デプロイ" >> $GITHUB_STEP_SUMMARY
+        echo "2. 統合テストの実行" >> $GITHUB_STEP_SUMMARY
