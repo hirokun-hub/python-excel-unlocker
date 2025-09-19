@@ -63,8 +63,8 @@ def _get_msoffcrypto():
 
 def unlock_excel_file(file_path: str, passwords: List[str]) -> Dict[str, Any]:
     """
-    msoffcrypto-toolを使ってExcelファイルのパスワード解除を試みる（並列処理最適化）
-    セキュリティ強化：機密情報のログ除外と一時ファイル削除
+    msoffcrypto-toolを使ってExcelファイルのパスワード解除を試みる
+    パスワードなしファイルの処理も含む改善版
     
     Args:
         file_path: Excelファイルのローカルパス
@@ -87,11 +87,54 @@ def unlock_excel_file(file_path: str, passwords: List[str]) -> Dict[str, Any]:
 
     try:
         with open(file_path, "rb") as f_in:
-            # パフォーマンス最適化：ファイル内容を一度だけ読み込み
+            # ファイル内容を読み込み
             file_content = f_in.read()
             
+            # メモリ上でOfficeFileオブジェクトを作成
+            import io
+            file_stream = io.BytesIO(file_content)
+            
+            try:
+                office_file = msoffcrypto.OfficeFile(file_stream)
+            except msoffcrypto.exceptions.FileFormatError as e:
+                logger.error(f"Unsupported file format: {e}")
+                return {
+                    'success': False,
+                    'message': 'サポートされていないファイル形式です'
+                }
+            
+            # ファイルが暗号化されているかチェック
+            is_encrypted = office_file.is_encrypted()
+            logger.info(f"File encryption status: {is_encrypted}")
+            
+            # ユニークな出力ファイル名を生成（並列処理対応）
+            import uuid
+            unlocked_path = f"/tmp/unlocked_{uuid.uuid4()}_{os.path.basename(file_path)}"
+            sanitized_output = sanitize_filename_for_log(unlocked_path)
+            
+            # パスワードなしファイルの処理
+            if not is_encrypted:
+                logger.info("File is not encrypted, copying as-is")
+                # 暗号化されていない場合は、そのままコピー
+                with open(unlocked_path, "wb") as f_out:
+                    f_out.write(file_content)
+                
+                return {
+                    'success': True,
+                    'unlocked_file_path': unlocked_path,
+                    'password_used': 'no_password_required',
+                    'message': 'ファイルは暗号化されていませんでした'
+                }
+            
+            # 暗号化されている場合のパスワード試行
+            if not passwords:
+                return {
+                    'success': False,
+                    'message': 'ファイルが暗号化されていますが、パスワードが提供されていません'
+                }
+            
             for i, password in enumerate(passwords):
-                if not password:
+                if password is None:
                     continue
                 
                 try:
@@ -99,45 +142,53 @@ def unlock_excel_file(file_path: str, passwords: List[str]) -> Dict[str, Any]:
                     sanitized_password = sanitize_password_for_log(password)
                     logger.info(f"Trying password {i+1}/{len(passwords)}: {sanitized_password}")
                     
-                    # メモリ上でOfficeFileオブジェクトを作成（I/O最適化）
-                    import io
+                    # 新しいストリームを作成（前の試行の影響を避けるため）
                     file_stream = io.BytesIO(file_content)
                     office_file = msoffcrypto.OfficeFile(file_stream)
+                    
+                    # パスワードを設定
                     office_file.load_key(password=password)
                     
-                    # ユニークな出力ファイル名を生成（並列処理対応）
-                    import uuid
-                    unlocked_path = f"/tmp/unlocked_{uuid.uuid4()}_{os.path.basename(file_path)}"
-                    # セキュリティ強化：出力パスをサニタイズしてログ出力
-                    sanitized_output = sanitize_filename_for_log(unlocked_path)
                     logger.info(f"Password correct. Decrypting to {sanitized_output}")
                     
+                    # 復号化実行
                     with open(unlocked_path, "wb") as f_out:
                         office_file.decrypt(f_out)
+                    
+                    # 復号化されたファイルのサイズをチェック
+                    if os.path.getsize(unlocked_path) == 0:
+                        logger.warning("Decrypted file is empty, password may be incorrect")
+                        os.remove(unlocked_path)
+                        continue
                     
                     return {
                         'success': True, 
                         'unlocked_file_path': unlocked_path,
-                        'password_used': '[REDACTED]'  # セキュリティ強化：パスワードを返却値から除外
+                        'password_used': '[REDACTED]',  # セキュリティ強化
+                        'message': 'パスワード解除に成功しました'
                     }
+                    
                 except msoffcrypto.exceptions.InvalidKeyError:
                     logger.debug(f"Invalid password {i+1}, trying next one.")
                     continue
+                except msoffcrypto.exceptions.DecryptionError as e:
+                    logger.warning(f"Decryption error with password {i+1}: {e}")
+                    continue
                 except Exception as e:
-                    logger.warning(f"Error with password attempt {i+1}: {e}")
+                    logger.warning(f"Unexpected error with password attempt {i+1}: {e}")
                     continue
                     
     except Exception as e:
-        logger.exception(f"An error occurred during decryption: {e}")
+        logger.exception(f"An error occurred during file processing: {e}")
         return {
             'success': False, 
-            'message': f"An unexpected error occurred: {str(e)}"
+            'message': f"ファイル処理中にエラーが発生しました: {str(e)}"
         }
 
     logger.error("All passwords failed.")
     return {
         'success': False, 
-        'message': 'All provided passwords failed to unlock the file.'
+        'message': '提供されたすべてのパスワードで解除できませんでした'
     }
 
 @lru_cache(maxsize=128)
@@ -154,13 +205,14 @@ def _get_file_stats(file_path: str) -> tuple:
 
 def validate_excel_file(file_path: str) -> Dict[str, Any]:
     """
-    Excelファイルの形式を検証する（パフォーマンス最適化）
+    Excelファイルの形式を検証する（強化版）
+    マジックバイト検証とファイル構造チェックを含む
     
     Args:
         file_path: 検証するファイルのパス
     
     Returns:
-        検証結果の辞書 {valid: bool, message: str, file_type: str}
+        検証結果の辞書 {valid: bool, message: str, file_type: str, is_encrypted: bool}
     """
     # キャッシュ付きでファイル統計を取得
     file_size, ext, _ = _get_file_stats(file_path)
@@ -168,8 +220,9 @@ def validate_excel_file(file_path: str) -> Dict[str, Any]:
     if file_size is None:
         return {
             'valid': False,
-            'message': 'File does not exist',
-            'file_type': None
+            'message': 'ファイルが存在しません',
+            'file_type': None,
+            'is_encrypted': False
         }
     
     # ファイル拡張子チェック（frozensetで高速化）
@@ -177,8 +230,9 @@ def validate_excel_file(file_path: str) -> Dict[str, Any]:
     if ext not in supported_extensions:
         return {
             'valid': False,
-            'message': f'Unsupported file format: {ext}',
-            'file_type': ext
+            'message': f'サポートされていないファイル形式です: {ext}',
+            'file_type': ext,
+            'is_encrypted': False
         }
     
     # ファイルサイズチェック（20MB制限）
@@ -186,12 +240,80 @@ def validate_excel_file(file_path: str) -> Dict[str, Any]:
     if file_size > max_size:
         return {
             'valid': False,
-            'message': f'File size ({file_size} bytes) exceeds maximum allowed size ({max_size} bytes)',
-            'file_type': ext
+            'message': f'ファイルサイズ ({file_size} bytes) が上限 ({max_size} bytes) を超えています',
+            'file_type': ext,
+            'is_encrypted': False
         }
     
-    return {
-        'valid': True,
-        'message': 'File validation passed',
-        'file_type': ext
-    }
+    # 最小ファイルサイズチェック
+    min_size = 100  # 100バイト未満は無効
+    if file_size < min_size:
+        return {
+            'valid': False,
+            'message': f'ファイルサイズが小さすぎます ({file_size} bytes)',
+            'file_type': ext,
+            'is_encrypted': False
+        }
+    
+    # マジックバイト検証（改善版）
+    try:
+        with open(file_path, 'rb') as f:
+            magic_bytes = f.read(8)
+            
+        is_encrypted = False
+        
+        # Officeファイルの一般的なマジックバイト
+        # PK: ZIP形式（非暗号化.xlsx）
+        # \xd0\xcf\x11\xe0: OLE2形式（.xlsまたは暗号化されたOfficeファイル）
+        valid_magic_bytes = [
+            b'PK',  # ZIP形式（.xlsx）
+            b'\xd0\xcf\x11\xe0'  # OLE2形式（.xlsまたは暗号化ファイル）
+        ]
+        
+        is_valid_format = any(magic_bytes.startswith(magic) for magic in valid_magic_bytes)
+        
+        if not is_valid_format:
+            return {
+                'valid': False,
+                'message': 'Excelファイルの形式が認識できません',
+                'file_type': ext,
+                'is_encrypted': False
+            }
+        
+        # msoffcrypto-toolを使用して暗号化状態をチェック
+        msoffcrypto = _get_msoffcrypto()
+        if msoffcrypto:
+            try:
+                import io
+                with open(file_path, 'rb') as f:
+                    file_content = f.read()
+                file_stream = io.BytesIO(file_content)
+                office_file = msoffcrypto.OfficeFile(file_stream)
+                is_encrypted = office_file.is_encrypted()
+            except msoffcrypto.exceptions.FileFormatError:
+                return {
+                    'valid': False,
+                    'message': 'ファイル形式が認識できません',
+                    'file_type': ext,
+                    'is_encrypted': False
+                }
+            except Exception as e:
+                logger.warning(f"Could not check encryption status: {e}")
+                # 暗号化チェックに失敗しても、ファイル自体は有効とみなす
+                is_encrypted = None
+        
+        return {
+            'valid': True,
+            'message': 'ファイル検証に合格しました',
+            'file_type': ext,
+            'is_encrypted': is_encrypted
+        }
+        
+    except Exception as e:
+        logger.exception(f"File validation error: {e}")
+        return {
+            'valid': False,
+            'message': f'ファイル検証中にエラーが発生しました: {str(e)}',
+            'file_type': ext,
+            'is_encrypted': False
+        }

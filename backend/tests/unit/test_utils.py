@@ -126,7 +126,7 @@ class TestExcelUtils:
             
             assert result['valid'] is False
             assert result['file_type'] == '.txt'
-            assert 'Unsupported file format' in result['message']
+            assert 'サポートされていないファイル形式' in result['message']
         finally:
             if os.path.exists(tmp_path):
                 os.remove(tmp_path)
@@ -137,7 +137,7 @@ class TestExcelUtils:
         
         assert result['valid'] is False
         assert result['file_type'] is None
-        assert 'File does not exist' in result['message']
+        assert 'ファイルが存在しません' in result['message']
     
     def test_unlock_excel_file_success(self, sample_excel_file):
         """Excel解除の成功テスト（パスワードなしファイル）"""
