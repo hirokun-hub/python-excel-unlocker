@@ -12,7 +12,7 @@ image_repositories = []
 parameter_overrides = [
     "Environment=development",
     "AllowedUsers=hironomac2025@gmail.com",
-    "AllowedOrigins=https://localhost:3000,https://localhost:3001"
+    "AllowedOrigin=https://localhost:3000"
 ]
 
 # ステージング環境設定
@@ -27,7 +27,7 @@ image_repositories = []
 parameter_overrides = [
     "Environment=staging",
     "AllowedUsers=hironomac2025@gmail.com,staging-user@example.com",
-    "AllowedOrigins=https://localhost:3000,https://localhost:3001,https://excel-unlocker-staging.vercel.app"
+    "AllowedOrigin=https://excel-unlocker-staging.vercel.app"
 ]
 
 # 本番環境設定
@@ -42,5 +42,5 @@ image_repositories = []
 parameter_overrides = [
     "Environment=production",
     "AllowedUsers=hironomac2025@gmail.com,user2@nsc.co.jp,user3@nsc.co.jp",
-    "AllowedOrigins=https://excel-unlocker.vercel.app"
+    "AllowedOrigin=https://excel-unlocker.vercel.app"
 ]

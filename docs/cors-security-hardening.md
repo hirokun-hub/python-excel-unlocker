@@ -65,8 +65,8 @@ CorsConfiguration:
 ```yaml
 Environment:
   Variables:
-    # CORS設定の厳格化：環境別許可オリジン
-    ALLOWED_ORIGINS: !Ref AllowedOrigins
+    # CORS設定の厳格化：環境別許可オリジン（単一値）
+    ALLOWED_ORIGIN: !Ref AllowedOrigin
 ```
 
 ### 3. response_utils.pyの実装
@@ -78,13 +78,14 @@ def get_allowed_origin() -> str:
     環境に応じた許可オリジンを取得する
     CORS設定の厳格化：ワイルドカード廃止、環境別固定オリジン
     """
-    allowed_origins = os.environ.get('ALLOWED_ORIGINS', 'https://localhost:3000')
+    allowed_origin = os.environ.get('ALLOWED_ORIGIN', 'https://localhost:3000')
     
-    # API Gatewayは単一のオリジンのみサポート
-    if ',' in allowed_origins:
-        return allowed_origins.split(',')[0].strip()
+    # セキュリティ強化：ワイルドカード（*）の使用を禁止
+    if allowed_origin == '*':
+        logger.warning("Wildcard origin detected, falling back to localhost for security")
+        return 'https://localhost:3000'
     
-    return allowed_origins.strip()
+    return allowed_origin.strip()
 ```
 
 #### レスポンスヘッダーの生成
@@ -123,17 +124,17 @@ headers = {
 
 ### 開発環境
 ```
-ALLOWED_ORIGINS=https://localhost:3000,https://localhost:3001
+ALLOWED_ORIGIN=https://localhost:3000
 ```
 
 ### ステージング環境
 ```
-ALLOWED_ORIGINS=https://localhost:3000,https://localhost:3001,https://excel-unlocker-staging.vercel.app
+ALLOWED_ORIGIN=https://excel-unlocker-staging.vercel.app
 ```
 
 ### 本番環境
 ```
-ALLOWED_ORIGINS=https://excel-unlocker.vercel.app
+ALLOWED_ORIGIN=https://excel-unlocker.vercel.app
 ```
 
 ## セキュリティ強化効果
@@ -183,7 +184,7 @@ fetch('https://api.excel-unlocker.com/unlock', {
 ```python
 def test_cors_strict_response(self):
     """CORS厳格化レスポンスのテスト"""
-    with patch.dict(os.environ, {'ALLOWED_ORIGINS': 'https://secure-app.com'}):
+    with patch.dict(os.environ, {'ALLOWED_ORIGIN': 'https://secure-app.com'}):
         response = create_response(200, {'message': 'test'})
         headers = response['headers']
         

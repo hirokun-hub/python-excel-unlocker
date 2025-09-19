@@ -308,11 +308,17 @@ Root Directory: frontend
 
 ### Repository Secrets
 
-#### AWS関連
+#### AWS関連（OIDC移行後）
 ```
+AWS_GITHUB_ACTIONS_ROLE_ARN=arn:aws:iam::123456789012:role/GitHubActionsRole
+AWS_REGION=ap-northeast-1
+```
+
+#### AWS関連（レガシー - 削除推奨）
+```
+⚠️ 以下は削除してください（セキュリティリスク）:
 AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE
 AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
-AWS_REGION=ap-northeast-1
 ```
 
 #### Vercel関連

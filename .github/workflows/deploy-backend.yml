@@ -31,6 +31,14 @@ on:
           - staging
           - production
 
+  workflow_call:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        type: string
+        default: 'development'
+
 env:
   AWS_REGION: ap-northeast-1
 
@@ -83,14 +91,6 @@ jobs:
     needs: test-backend
     runs-on: ubuntu-latest
     if: github.event_name != 'pull_request'
-    
-    strategy:
-      matrix:
-        include:
-          - branch: develop
-            environment: development
-          - branch: main
-            environment: staging
 
     steps:
       - name: Checkout code

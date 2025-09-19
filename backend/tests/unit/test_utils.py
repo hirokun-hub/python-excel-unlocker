@@ -393,7 +393,8 @@ class TestResponseUtils:
         
         assert response['statusCode'] == 200
         assert response['headers']['Content-Type'] == 'application/json'
-        assert response['headers']['Access-Control-Allow-Origin'] == '*'
+        # CORS厳格化：デフォルトはlocalhostになる
+        assert response['headers']['Access-Control-Allow-Origin'] == 'https://localhost:3000'
         
         import json
         body = json.loads(response['body'])
@@ -600,19 +601,11 @@ class TestSecurityFeatures:
 class TestCORSStrictMode:
     """CORS設定厳格化のテストケース"""
     
-    def test_get_allowed_origin_single(self):
+    def test_get_allowed_origin_single_value(self):
         """単一オリジン設定のテスト"""
         from response_utils import get_allowed_origin
         
-        with patch.dict(os.environ, {'ALLOWED_ORIGINS': 'https://example.com'}):
-            origin = get_allowed_origin()
-            assert origin == 'https://example.com'
-    
-    def test_get_allowed_origin_multiple_first_selected(self):
-        """複数オリジン設定で最初のものが選択されるテスト"""
-        from response_utils import get_allowed_origin
-        
-        with patch.dict(os.environ, {'ALLOWED_ORIGINS': 'https://example.com,https://test.com'}):
+        with patch.dict(os.environ, {'ALLOWED_ORIGIN': 'https://example.com'}):
             origin = get_allowed_origin()
             assert origin == 'https://example.com'
     
@@ -628,13 +621,13 @@ class TestCORSStrictMode:
         """スペースを含むオリジン設定のテスト"""
         from response_utils import get_allowed_origin
         
-        with patch.dict(os.environ, {'ALLOWED_ORIGINS': ' https://example.com , https://test.com '}):
+        with patch.dict(os.environ, {'ALLOWED_ORIGIN': ' https://example.com '}):
             origin = get_allowed_origin()
             assert origin == 'https://example.com'
     
     def test_cors_strict_response(self):
         """CORS厳格化レスポンスのテスト"""
-        with patch.dict(os.environ, {'ALLOWED_ORIGINS': 'https://secure-app.com'}):
+        with patch.dict(os.environ, {'ALLOWED_ORIGIN': 'https://secure-app.com'}):
             response = create_response(200, {'message': 'test'})
             headers = response['headers']
             
@@ -649,10 +642,28 @@ class TestCORSStrictMode:
     
     def test_cors_no_wildcard_in_production(self):
         """本番環境でワイルドカードが使用されていないことのテスト"""
-        with patch.dict(os.environ, {'ALLOWED_ORIGINS': 'https://production-app.com', 'ENVIRONMENT': 'production'}):
+        with patch.dict(os.environ, {'ALLOWED_ORIGIN': 'https://production-app.com', 'ENVIRONMENT': 'production'}):
             response = create_response(200, {'message': 'test'})
             headers = response['headers']
             
             # ワイルドカードの不使用を確認
             assert headers['Access-Control-Allow-Origin'] != '*'
             assert 'https://production-app.com' == headers['Access-Control-Allow-Origin']
+    
+    def test_wildcard_origin_fallback(self):
+        """ワイルドカードオリジンが設定された場合のフォールバックテスト"""
+        from response_utils import get_allowed_origin
+        
+        with patch.dict(os.environ, {'ALLOWED_ORIGIN': '*'}):
+            origin = get_allowed_origin()
+            # ワイルドカードは拒否され、localhostにフォールバック
+            assert origin == 'https://localhost:3000'
+    
+    def test_production_https_enforcement(self):
+        """本番環境でHTTPS強制のテスト"""
+        from response_utils import get_allowed_origin
+        import pytest
+        
+        with patch.dict(os.environ, {'ALLOWED_ORIGIN': 'http://insecure-app.com', 'ENVIRONMENT': 'production'}):
+            with pytest.raises(ValueError, match="Production environment requires HTTPS origins"):
+                get_allowed_origin()
