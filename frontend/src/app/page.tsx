@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import FileUpload from '../components/FileUpload';
 import { FileResults } from '@/components/FileResults'; // Import FileResults
+import CSPTest from '@/components/CSPTest'; // CSPテストコンポーネント
 import { File as FileIcon, X, AlertCircle } from 'lucide-react';
 
 // --- API Client Logic ---
@@ -253,6 +254,9 @@ export default function Home() {
             <AlertDialogFooter><AlertDialogAction onClick={() => setError(null)}>OK</AlertDialogAction></AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+        
+        {/* CSPテストコンポーネント（開発環境のみ） */}
+        <CSPTest />
       </main>
     </>
   );
