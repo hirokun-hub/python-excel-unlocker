@@ -17,7 +17,8 @@
 - **Vercel設定**: 10分
 - **GitHub Actions設定**: 10分
 - **動作確認**: 10分
-- **合計**: 約70分
+- **統合テスト実行**: 5分
+- **合計**: 約75分
 
 ---
 
@@ -559,6 +560,34 @@ S3_BUCKET_NAME="excel-unlocker-bucket-production"
    - Google OAuth ログインが機能することを確認
    - ファイルアップロード・解除機能が動作することを確認
 
+### 統合テスト実行
+
+1. **統合テスト環境確認**
+   ```bash
+   # 全統合テスト実行
+   ./tests/run-integration-tests.sh all cleanup
+   ```
+
+2. **個別テスト確認**
+   ```bash
+   # API統合テスト
+   ./tests/run-integration-tests.sh api
+   
+   # S3連携テスト
+   ./tests/run-integration-tests.sh s3
+   
+   # E2Eテスト
+   ./tests/run-integration-tests.sh e2e
+   
+   # フロントエンド統合テスト
+   ./tests/run-integration-tests.sh frontend
+   ```
+
+3. **テスト結果確認**
+   - すべてのテストが成功することを確認
+   - パフォーマンス基準を満たすことを確認
+   - エラーハンドリングが正常に動作することを確認
+
 ### 設定確認チェックリスト
 
 - [ ] Google OAuth 設定完了
@@ -583,6 +612,11 @@ S3_BUCKET_NAME="excel-unlocker-bucket-production"
   - [ ] ローカル開発環境
   - [ ] 本番環境デプロイ
   - [ ] 全機能動作確認
+- [ ] 統合テスト実行完了
+  - [ ] API統合テスト
+  - [ ] S3連携テスト
+  - [ ] E2Eテスト
+  - [ ] フロントエンド統合テスト
 
 ---
 

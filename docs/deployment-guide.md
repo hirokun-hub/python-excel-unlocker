@@ -119,6 +119,22 @@ sam build
 sam deploy --config-env default --no-confirm-changeset
 ```
 
+#### 統合テスト実行
+```bash
+# 全統合テスト実行
+./tests/run-integration-tests.sh all
+
+# 個別統合テスト実行
+./tests/run-integration-tests.sh api      # API統合テスト
+./tests/run-integration-tests.sh s3       # S3連携テスト
+./tests/run-integration-tests.sh e2e      # E2Eテスト
+./tests/run-integration-tests.sh backend  # バックエンドテスト
+./tests/run-integration-tests.sh frontend # フロントエンドテスト
+
+# 自動クリーンアップ付き実行
+./tests/run-integration-tests.sh all cleanup
+```
+
 ### 2. ステージング環境デプロイ
 
 #### 自動デプロイ（推奨）

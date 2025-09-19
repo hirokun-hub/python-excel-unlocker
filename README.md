@@ -83,6 +83,9 @@ sam local start-api --port 3001
 # フロントエンド起動
 cd frontend
 npm run dev
+
+# 統合テスト実行
+./tests/run-integration-tests.sh all
 ```
 
 ### 段階的デプロイ
@@ -119,10 +122,12 @@ npm run dev
 ### 開発・運用ガイド
 - [自動化セットアップガイド](docs/automation-setup-guide.md) 🆕 **推奨**
 - [段階的デプロイメントガイド](docs/deployment-guide.md)
+- [統合テスト実行ガイド](docs/integration-testing-guide.md) 🆕 **テスト環境**
 - [認証・API統合ガイド](docs/authentication-integration-guide.md)
 - [ローカル開発環境ガイド](docs/local-development-guide.md)
 
 ### 設定ランブック
+- [手作業参照ガイド](docs/manual-setup-reference-guide.md) 🆕 **完全手順**
 - [GitHub Actions Secrets設定](docs/runbook/github-actions_secrets-and-iam-for-aws_and-vercel.md)
 - [Google OAuth設定](docs/runbook/google-oauth-setup.md)
 - [Vercel設定](docs/runbook/vercel-project-setup_and-detach-github.md)
@@ -133,5 +138,5 @@ npm run dev
 - [実装計画](.kiro/specs/secure-excel-unlock/tasks.md)
 
 ### 実装完了状況
-- [実装完了サマリー](docs/implementation-complete-summary.md)
+- [実装完了サマリー](docs/implementation-complete-summary.md) ✅ **統合テスト環境完了**
 - [セキュリティ強化](docs/security-enhancements.md)
