@@ -555,8 +555,13 @@ NextAuthシークレット: （後で記入）
 3. **下部の情報をメモ帳にコピー**
    ```
    Project ID: prj_AbCdEfGhIj1234
-   Team ID: team_XyZ789（または個人アカウントの場合は異なる形式）
+   Team ID: team_XyZ789（チームアカウントの場合）
+   User ID: user_ABC123（個人アカウントの場合）
    ```
+   
+   💡 **重要**: Team IDまたはUser IDが **VERCEL_ORG_ID** として使用されます。
+   - **チーム/組織アカウント**: Team ID（team_で始まる）
+   - **個人アカウント**: User ID（user_で始まる）
 
 ### ✅ Vercel設定完了チェック
 
@@ -599,16 +604,16 @@ NextAuthシークレット: （後で記入）
 
 2. **「New repository secret」をクリックして以下を1つずつ追加**
 
-   | Name | Value（メモ帳から転記） |
-   |------|----------------------|
-   | `AWS_ACCESS_KEY_ID` | AWSのアクセスキーID |
-   | `AWS_SECRET_ACCESS_KEY` | AWSのシークレットアクセスキー |
-   | `VERCEL_TOKEN` | Vercelのトークン |
-   | `VERCEL_ORG_ID` | Vercelの組織ID |
-   | `VERCEL_PROJECT_ID` | VercelのプロジェクトID |
-   | `GOOGLE_CLIENT_ID` | GoogleのクライアントID |
-   | `GOOGLE_CLIENT_SECRET` | Googleのクライアントシークレット |
-   | `NEXTAUTH_SECRET` | 生成したNextAuthシークレット |
+   | Name | Value（メモ帳から転記） | 説明 |
+   |------|----------------------|------|
+   | `AWS_ACCESS_KEY_ID` | AWSのアクセスキーID | AWS認証用 |
+   | `AWS_SECRET_ACCESS_KEY` | AWSのシークレットアクセスキー | AWS認証用 |
+   | `VERCEL_TOKEN` | Vercelのトークン | Vercelデプロイ認証用 |
+   | `VERCEL_ORG_ID` | VercelのTeam ID/User ID | **必須**: プロジェクト所有者識別用 |
+   | `VERCEL_PROJECT_ID` | VercelのプロジェクトID | デプロイ対象プロジェクト識別用 |
+   | `GOOGLE_CLIENT_ID` | GoogleのクライアントID | Google OAuth認証用 |
+   | `GOOGLE_CLIENT_SECRET` | Googleのクライアントシークレット | Google OAuth認証用 |
+   | `NEXTAUTH_SECRET` | 生成したNextAuthシークレット | セッション暗号化用 |
 
 3. **各Secretの追加手順**
    - 「Name」に上記の名前を正確に入力
