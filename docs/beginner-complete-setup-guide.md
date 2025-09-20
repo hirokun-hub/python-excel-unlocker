@@ -84,7 +84,7 @@ S3バケット名: （後で記入）
 
 【Vercel設定】
 トークン: （後で記入）
-組織ID (VERCEL_ORG_ID): （後で記入） ※team_xxxまたはuser_xxx形式
+組織ID (VERCEL_ORG_ID): （後で記入） ※個人:ランダム文字列、チーム:team_xxx形式
 プロジェクトID (VERCEL_PROJECT_ID): （後で記入） ※prj_xxx形式
 
 【GitHub Secrets用】
@@ -570,9 +570,9 @@ S3バケット名: （後で記入）
    User ID: user_ABC123（個人アカウントの場合）
    ```
    
-   💡 **重要**: Team IDまたはUser IDが **VERCEL_ORG_ID** として使用されます。
-   - **チーム/組織アカウント**: Team ID（team_で始まる）
-   - **個人アカウント**: User ID（user_で始まる）
+   💡 **重要**: 以下のIDが **VERCEL_ORG_ID** として使用されます。
+   - **チーム/組織アカウント**: Team ID（`team_` で始まる文字列）
+   - **個人アカウント**: User ID（ランダムな文字列、プレフィックスなし）
 
 ### ✅ Vercel設定完了チェック
 
