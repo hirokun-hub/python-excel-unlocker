@@ -29,7 +29,8 @@
       },
       "vercel": {
         "projectName": "excel-unlock-dev",
-        "domain": "excel-unlock-dev.vercel.app"
+        "domain": "excel-unlock-dev.vercel.app",
+        "deployToken": "YOUR_EXCEL_UNLOCKER_DEPLOY_TOKEN"
       },
       "security": {
         "allowedUsers": [
@@ -61,7 +62,8 @@
       },
       "vercel": {
         "projectName": "excel-unlock-staging",
-        "domain": "excel-unlock-staging.vercel.app"
+        "domain": "excel-unlock-staging.vercel.app",
+        "deployToken": "YOUR_EXCEL_UNLOCKER_DEPLOY_TOKEN"
       },
       "security": {
         "allowedUsers": [
@@ -94,7 +96,8 @@
       },
       "vercel": {
         "projectName": "excel-unlock-prod",
-        "domain": "excel-unlock.example.com"
+        "domain": "excel-unlock.example.com",
+        "deployToken": "YOUR_EXCEL_UNLOCKER_DEPLOY_TOKEN"
       },
       "security": {
         "allowedUsers": [
