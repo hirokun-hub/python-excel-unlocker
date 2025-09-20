@@ -136,6 +136,21 @@ python3 scripts/setup-diagnostics.py [オプション]
 - SAM CLI の確認
 - Node.js & npm の確認
 - Git の確認
+- **Vercel CLI の確認・ORG_ID取得**
+
+#### Vercel組織ID取得（必須）
+
+⚠️ **重要**: VERCEL_ORG_IDはWebダッシュボードから取得できません。
+
+```bash
+# Vercel CLIのインストール・ログイン
+npm install -g vercel
+vercel login
+
+# 組織IDとプロジェクトIDの取得
+vercel teams list
+vercel projects list
+```
 
 ### 2. 対話式設定収集
 - 環境選択（development/staging/production）

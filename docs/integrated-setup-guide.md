@@ -210,6 +210,27 @@ Excel Unlocker 社内展開用統合セットアップスクリプトは、初�
 python3 scripts/setup-diagnostics.py
 
 # 診断レポート出力
+python3 scripts/setup-diagnostics.py --output diagnosis-report.json
+```
+
+### 4. Vercel組織ID取得（必須）
+
+⚠️ **重要**: VERCEL_ORG_IDはWebダッシュボードから取得できません。
+
+```bash
+# Vercel CLIのインストール
+npm install -g vercel
+
+# ログイン
+vercel login
+
+# 組織IDの取得
+vercel teams list
+
+# プロジェクトIDの取得
+vercel projects list
+
+# 診断レポート出力
 python3 scripts/setup-diagnostics.py --output setup-diagnosis.json
 ```
 

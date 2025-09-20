@@ -166,6 +166,30 @@ python3 scripts/config_import_export.py compare development production
 python3 scripts/config_import_export.py compare development production --output comparison.json
 ```
 
+### Vercel組織ID取得方法
+
+⚠️ **重要**: VERCEL_ORG_IDはWebダッシュボードから取得できません。
+
+```bash
+# Vercel CLIのインストール
+npm install -g vercel
+
+# ログイン
+vercel login
+
+# 組織IDの取得
+vercel teams list
+```
+
+**出力例**:
+```
+> Personal Account
+  id: QmVyY2VsVGVhbQ
+
+> Team: Company Name
+  id: team_abc123def456
+```
+
 ### 環境変数の出力フォーマット
 
 #### Bash形式
