@@ -559,20 +559,86 @@ S3バケット名: （後で記入）
 
 ### 3-5. 組織IDとプロジェクトIDの取得
 
-1. **プロジェクトダッシュボードに戻る**
+⚠️ **重要**: 現在、組織ID（ORG_ID）はWebダッシュボードから取得できません。**Vercel CLIを使用する必要があります**。
 
-2. **「Settings」→「General」をクリック**
+#### **Step 1: Vercel CLIのインストール**
 
-3. **下部の情報をメモ帳にコピー**
-   ```
-   Project ID: prj_AbCdEfGhIj1234
-   Team ID: team_XyZ789（チームアカウントの場合）
-   User ID: user_ABC123（個人アカウントの場合）
+1. **ターミナル/コマンドプロンプトを開く**
+   - **Windows**: スタートメニュー → 「cmd」または「PowerShell」
+   - **Mac**: アプリケーション → ユーティリティ → ターミナル
+
+2. **Vercel CLIをインストール**
+   ```bash
+   npm install -g vercel
    ```
    
-   💡 **重要**: 以下のIDが **VERCEL_ORG_ID** として使用されます。
-   - **チーム/組織アカウント**: Team ID（`team_` で始まる文字列）
-   - **個人アカウント**: User ID（ランダムな文字列、プレフィックスなし）
+   💡 **注意**: Node.jsがインストールされている必要があります。
+
+#### **Step 2: Vercel CLIでログイン**
+
+1. **Vercelにログイン**
+   ```bash
+   vercel login
+   ```
+
+2. **ブラウザが開くので、Vercelアカウントでログイン**
+
+3. **ログイン成功の確認**
+   ```bash
+   vercel whoami
+   ```
+
+#### **Step 3: 組織IDとプロジェクトIDの取得**
+
+1. **組織ID（ORG_ID）を取得**
+   ```bash
+   vercel teams list
+   ```
+   
+   **出力例**:
+   ```
+   > Personal Account
+     id: QmVyY2VsVGVhbQ (個人アカウントの場合)
+   
+   > Team: My Company
+     id: team_abc123def456 (チームアカウントの場合)
+   ```
+
+2. **プロジェクトIDを取得**
+   ```bash
+   vercel projects list
+   ```
+   
+   **出力例**:
+   ```
+   > excel-unlocker
+     id: prj_AbCdEfGhIj1234
+   ```
+
+3. **取得した情報をメモ帳にコピー**
+   ```
+   組織ID (VERCEL_ORG_ID): QmVyY2VsVGVhbQ (または team_abc123def456)
+   プロジェクトID (VERCEL_PROJECT_ID): prj_AbCdEfGhIj1234
+   ```
+
+#### **Step 4: 代替方法（プロジェクトディレクトリ内で実行）**
+
+プロジェクトをクローンしている場合：
+
+1. **プロジェクトディレクトリに移動**
+   ```bash
+   cd path/to/excel-unlocker/frontend
+   ```
+
+2. **プロジェクト情報を確認**
+   ```bash
+   vercel project ls
+   ```
+
+💡 **トラブルシューティング**:
+- **コマンドが見つからない**: Node.jsとnpmが正しくインストールされているか確認
+- **ログインできない**: ブラウザでVercelにログインしているか確認
+- **権限エラー**: 管理者権限でターミナルを実行
 
 ### ✅ Vercel設定完了チェック
 
