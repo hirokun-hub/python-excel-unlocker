@@ -68,6 +68,8 @@
 
 設定中に取得する情報を記録するため、以下のテンプレートをコピーしてメモ帳に貼り付けてください：
 
+💡 **使い方**: 各項目の「（後で記入）」部分に、設定手順で取得した値を記入してください。
+
 ```
 === Excel Unlocker 設定情報 ===
 
@@ -82,11 +84,20 @@ S3バケット名: （後で記入）
 
 【Vercel設定】
 トークン: （後で記入）
-組織ID: （後で記入）
-プロジェクトID: （後で記入）
+組織ID (VERCEL_ORG_ID): （後で記入） ※team_xxxまたはuser_xxx形式
+プロジェクトID (VERCEL_PROJECT_ID): （後で記入） ※prj_xxx形式
+
+【GitHub Secrets用】
+- AWS_ACCESS_KEY_ID: 上記のアクセスキーID
+- AWS_SECRET_ACCESS_KEY: 上記のシークレットアクセスキー
+- VERCEL_TOKEN: 上記のトークン
+- VERCEL_ORG_ID: 上記の組織ID
+- VERCEL_PROJECT_ID: 上記のプロジェクトID
+- GOOGLE_CLIENT_ID: 上記のクライアントID
+- GOOGLE_CLIENT_SECRET: 上記のクライアントシークレット
+- NEXTAUTH_SECRET: （後で生成）
 
 【その他】
-NextAuthシークレット: （後で記入）
 本番URL: （後で記入）
 ```
 
