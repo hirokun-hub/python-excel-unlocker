@@ -532,9 +532,12 @@ NextAuthシークレット: （後で記入）
 
 3. **トークン設定**
    ```
-   Token Name: github-actions-deploy
+   Token Name: excel-unlocker-deploy-token
    Scope: Full Account
+   Expiration: No expiration (または適切な期限を設定)
    ```
+   
+   💡 **セキュリティ推奨**: プロジェクト専用のトークン名を使用することで、用途が明確になり管理しやすくなります。
 
 4. **「Create Token」をクリック**
 
