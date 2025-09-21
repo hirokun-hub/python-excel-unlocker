@@ -79,10 +79,12 @@ aws configure
 - `AWS_ACCESS_KEY_ID`: AWSアクセスキーID
 - `AWS_SECRET_ACCESS_KEY`: AWSシークレットアクセスキー
 
-#### Vercel関連
-- `VERCEL_TOKEN`: Vercelアクセストークン
-- `VERCEL_ORG_ID`: Vercel組織ID
-- `VERCEL_PROJECT_ID`: VercelプロジェクトID
+#### Vercel関連（必須3点）
+- `VERCEL_TOKEN`: 個人のAccess Token（https://vercel.com/account/tokens で作成）
+- `VERCEL_ORG_ID`: チーム運用時はTeam ID（`team_...`形式）、個人運用時はYour ID
+- `VERCEL_PROJECT_ID`: プロジェクトID（`prj_...`形式）
+
+💡 **重要**: Vercel Hobbyアカウント + チーム構成を前提とし、プロジェクトはチーム配下に配置してください。
 
 #### 環境変数
 - `NEXTAUTH_SECRET`: NextAuth.jsシークレット

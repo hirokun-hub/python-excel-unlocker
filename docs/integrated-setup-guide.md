@@ -213,9 +213,26 @@ python3 scripts/setup-diagnostics.py
 python3 scripts/setup-diagnostics.py --output diagnosis-report.json
 ```
 
-### 4. Vercel組織ID取得（必須）
+### 4. Vercel必須シークレット3点の取得
 
-⚠️ **重要**: VERCEL_ORG_IDはWebダッシュボードから取得できません。
+#### **前提条件: Vercel Hobbyアカウント + チーム構成**
+
+このスクリプトは以下のVercelアカウント構成を前提としています：
+- **Vercel Hobbyアカウント**（無料プラン）
+- **My Account内でTeam作成**
+- **チーム配下にプロジェクト配置**
+
+#### **必須シークレット3点**
+
+GitHub ActionsでVercelデプロイするために以下が必要です：
+
+1. **VERCEL_TOKEN**: 個人のAccess Token
+2. **VERCEL_ORG_ID**: チーム運用時はTeam ID（`team_...`）
+3. **VERCEL_PROJECT_ID**: プロジェクトID（`prj_...`）
+
+#### **取得方法**
+
+**方法1: .vercel/project.jsonから取得（推奨）**
 
 ```bash
 # Vercel CLIのインストール
@@ -227,10 +244,34 @@ vercel login
 # プロジェクトをリンク（frontendディレクトリで実行）
 cd frontend
 vercel link
+# → チームを選択
+# → 既存プロジェクトを選択
 
-# プロジェクト情報を確認
-vercel project ls
+# 設定ファイルから値を確認
+cat .vercel/project.json
+# 出力例:
+# {
+#   "orgId": "team_abc123def456789",
+#   "projectId": "prj_xyz789abc123def"
+# }
+```
 
+**方法2: Vercelダッシュボードから取得**
+
+```bash
+# VERCEL_TOKEN: https://vercel.com/account/tokens で作成
+# VERCEL_ORG_ID: https://vercel.com/teams/[team-slug]/settings の Team ID
+# VERCEL_PROJECT_ID: https://vercel.com/[team-slug]/[project]/settings の Project ID
+```
+
+#### **よくある間違い**
+
+- **User ID vs Team ID**: プロジェクトが属する側のIDを使用
+  - チーム配下 → Team ID（`team_...`）
+  - 個人配下 → Your ID（ランダム文字列）
+- **二重デプロイ**: GitHub連携を無効化（Project Settings → Git → Disconnect）
+
+```bash
 # 診断レポート出力
 python3 scripts/setup-diagnostics.py --output setup-diagnosis.json
 ```

@@ -2,6 +2,16 @@
 
 # Vercel環境変数とプロジェクト設定の自動化スクリプト
 # Vercel CLIを使用して手作業を最小限に抑制
+#
+# 前提条件: Vercel Hobbyアカウント + チーム構成
+# - Vercel Hobbyアカウント（無料プラン）
+# - My Account内でTeam作成
+# - チーム配下にプロジェクト配置
+#
+# GitHub Actions用必須シークレット3点を自動取得:
+# - VERCEL_TOKEN: 個人のAccess Token
+# - VERCEL_ORG_ID: チーム運用時はTeam ID（team_...）
+# - VERCEL_PROJECT_ID: プロジェクトID（prj_...）
 
 set -e
 
@@ -89,13 +99,21 @@ get_project_info() {
         fi
     fi
     
-    # プロジェクト情報取得
+    # プロジェクト情報取得（.vercel/project.jsonから）
     PROJECT_ID=$(jq -r '.projectId' .vercel/project.json)
     ORG_ID=$(jq -r '.orgId' .vercel/project.json)
     
     log_success "プロジェクト情報取得完了"
-    log_info "Project ID: $PROJECT_ID"
-    log_info "Org ID: $ORG_ID"
+    log_info "Project ID (VERCEL_PROJECT_ID): $PROJECT_ID"
+    log_info "Org ID (VERCEL_ORG_ID): $ORG_ID"
+    
+    # チーム構成の確認
+    if [[ "$ORG_ID" == team_* ]]; then
+        log_success "✅ チーム構成を確認: $ORG_ID"
+    else
+        log_warning "⚠️ 個人アカウント構成: $ORG_ID"
+        log_info "推奨: チーム構成での運用を検討してください"
+    fi
     
     # 設定ファイルに保存
     cd ..

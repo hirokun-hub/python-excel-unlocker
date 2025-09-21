@@ -83,16 +83,24 @@
 S3バケット名: （後で記入）
 
 【Vercel設定】
-トークン: （後で記入）
-組織ID (VERCEL_ORG_ID): （後で記入） ※個人:ランダム文字列、チーム:team_xxx形式
-プロジェクトID (VERCEL_PROJECT_ID): （後で記入） ※prj_xxx形式
+VERCEL_TOKEN: （後で記入） ※個人のAccess Token
+VERCEL_ORG_ID: （後で記入） ※チーム運用:team_xxx、個人運用:ランダム文字列
+VERCEL_PROJECT_ID: （後で記入） ※prj_xxx形式
 
-【GitHub Secrets用】
+【Vercelアカウント構成】
+アカウントタイプ: Hobby（無料プラン）
+チーム名: （後で記入）
+プロジェクト配置: チーム配下 ← 重要！
+
+【GitHub Secrets用（必須3点 + その他）】
+■ Vercel必須3点
+- VERCEL_TOKEN: 上記のVERCEL_TOKEN
+- VERCEL_ORG_ID: 上記のVERCEL_ORG_ID（チーム運用時はteam_xxx）
+- VERCEL_PROJECT_ID: 上記のVERCEL_PROJECT_ID
+
+■ その他
 - AWS_ACCESS_KEY_ID: 上記のアクセスキーID
 - AWS_SECRET_ACCESS_KEY: 上記のシークレットアクセスキー
-- VERCEL_TOKEN: 上記のトークン
-- VERCEL_ORG_ID: 上記の組織ID
-- VERCEL_PROJECT_ID: 上記のプロジェクトID
 - GOOGLE_CLIENT_ID: 上記のクライアントID
 - GOOGLE_CLIENT_SECRET: 上記のクライアントシークレット
 - NEXTAUTH_SECRET: （後で生成）
@@ -490,21 +498,61 @@ S3バケット名: （後で記入）
 
 ---
 
-## 🚀 ステップ3: Vercel設定（10分）
+## 🚀 ステップ3: Vercel設定（15分）
 
-### 3-1. Vercel Dashboardにアクセス
+### 📋 前提条件の確認
+
+このガイドは以下の**Vercelアカウント構成**を前提としています：
+
+#### **推奨構成: Vercel Hobbyアカウント + チーム運用**
+- **Vercel Hobbyアカウント**（無料プラン）を作成
+- **My Account内でTeamを作成**
+- **作成したチーム配下にプロジェクトを配置**
+
+💡 **なぜこの構成が推奨か**:
+- **組織管理**: 複数プロジェクトの一元管理
+- **権限分離**: 個人アカウントとプロジェクトの分離
+- **将来性**: チームメンバー追加時の拡張性
+- **明確性**: 組織ID（Team ID）の識別が容易
+
+### 3-1. Vercelアカウントとチームの準備
+
+#### **Step 1: Vercelアカウント作成**
 
 1. **ブラウザで以下のURLを開く**
+   ```
+   https://vercel.com/signup
+   ```
+
+2. **GitHubアカウントでサインアップ**
+   - 「Continue with GitHub」をクリック
+   - Hobbyプラン（無料）を選択
+
+#### **Step 2: チームの作成**
+
+1. **Vercel Dashboardにアクセス**
    ```
    https://vercel.com/dashboard
    ```
 
-2. **GitHubアカウントでログイン**
-   - 「Continue with GitHub」をクリック
+2. **右上のアカウントメニューをクリック**
+
+3. **「Create Team」を選択**
+
+4. **チーム情報を入力**
+   ```
+   Team Name: excel-unlocker-team（または任意の名前）
+   Team Slug: excel-unlocker-team（URL用）
+   ```
+
+5. **「Create Team」をクリック**
+
+6. **作成されたチームに切り替え**
+   - 左上のチーム選択メニューで新しいチームを選択
 
 ### 3-2. プロジェクトの作成
 
-1. **「New Project」をクリック**
+1. **チーム配下で「New Project」をクリック**
 
 2. **「Import Git Repository」で以下を入力**
    ```
@@ -522,17 +570,11 @@ S3バケット名: （後で記入）
 4. **「Deploy」をクリック**
    - 初回デプロイが開始されます（5-10分程度）
 
-### 3-3. Git連携の解除
+### 3-3. GitHub Actions用必須シークレット3点の取得
 
-1. **デプロイ完了後、「Settings」をクリック**
+GitHub ActionsでVercelにデプロイするために、以下の**3つのシークレット**が必要です：
 
-2. **左メニュー「Git」を選択**
-
-3. **「Disconnect」をクリック**
-
-4. **確認ダイアログで「Disconnect」をクリック**
-
-### 3-4. API認証情報の取得
+#### **1. VERCEL_TOKEN（個人のAccess Token）**
 
 1. **新しいタブで以下のURLを開く**
    ```
@@ -545,61 +587,82 @@ S3バケット名: （後で記入）
    ```
    Token Name: excel-unlocker-deploy-token
    Scope: Full Account
-   Expiration: No expiration (または適切な期限を設定)
+   Expiration: No expiration（または適切な期限）
    ```
-   
-   💡 **セキュリティ推奨**: プロジェクト専用のトークン名を使用することで、用途が明確になり管理しやすくなります。
 
 4. **「Create Token」をクリック**
 
 5. **トークンをメモ帳にコピー**
    ```
-   トークン: vc_1234567890abcdef...
+   VERCEL_TOKEN: vercel_1234567890abcdef...
    ```
 
-### 3-5. 組織IDとプロジェクトIDの取得
+#### **2. VERCEL_ORG_ID（チームのTeam ID）**
 
-⚠️ **重要**: 現在、組織ID（ORG_ID）はWebダッシュボードから取得できません。**Vercel CLIを使用する必要があります**。
+**今回はチーム配下のプロジェクトなので、Team IDを使用します。**
+
+1. **チームのSettings画面にアクセス**
+   ```
+   https://vercel.com/teams/[your-team-slug]/settings
+   ```
+
+2. **「General」タブを選択**
+
+3. **「Team ID」をコピー**
+   ```
+   形式: team_abc123def456789
+   ```
+
+4. **メモ帳にコピー**
+   ```
+   VERCEL_ORG_ID: team_abc123def456789
+   ```
+
+💡 **重要**: 個人配下のプロジェクトの場合は「Your ID」を使用しますが、今回はチーム配下なので**Team ID**を使用します。
+
+#### **3. VERCEL_PROJECT_ID（プロジェクトID）**
+
+1. **プロジェクトのSettings画面にアクセス**
+   ```
+   https://vercel.com/[team-slug]/excel-unlocker/settings
+   ```
+
+2. **「General」タブを選択**
+
+3. **「Project ID」をコピー**
+   ```
+   形式: prj_abc123def456789
+   ```
+
+4. **メモ帳にコピー**
+   ```
+   VERCEL_PROJECT_ID: prj_abc123def456789
+   ```
+
+### 3-4. .vercel/project.jsonからの確認（推奨）
+
+**最も確実な方法**: ローカルで`vercel link`を実行して、生成される`.vercel/project.json`から値を確認する方法です。
 
 #### **Step 1: Vercel CLIのインストール**
 
 1. **ターミナル/コマンドプロンプトを開く**
-   - **Windows**: スタートメニュー → 「cmd」または「PowerShell」
-   - **Mac**: アプリケーション → ユーティリティ → ターミナル
-
-2. **Vercel CLIをインストール**
    ```bash
    npm install -g vercel
    ```
-   
-   💡 **注意**: Node.jsがインストールされている必要があります。
 
-#### **Step 2: Vercel CLIでログイン**
-
-1. **Vercelにログイン**
-   ```bash
-   vercel login
-   ```
-
-2. **ブラウザが開くので、Vercelアカウントでログイン**
-
-3. **ログイン成功の確認**
-   ```bash
-   vercel whoami
-   ```
-
-#### **Step 3: 組織IDとプロジェクトIDの取得**
-
-**方法1: プロジェクトリンク経由（推奨・最も確実）**
+#### **Step 2: プロジェクトリンク**
 
 1. **frontendディレクトリに移動**
    ```bash
    cd path/to/excel-unlocker/frontend
    ```
-   
-   💡 **注意**: GitHubからクローンしたプロジェクトのfrontendフォルダに移動してください。
 
-2. **プロジェクトをVercelにリンク**
+2. **Vercelにログイン**
+   ```bash
+   vercel login
+   ```
+
+3. **プロジェクトをリンク**
    ```bash
    vercel link
    ```
@@ -607,59 +670,97 @@ S3バケット名: （後で記入）
    **対話式の質問に答える**:
    ```
    ? Set up "~/path/to/frontend"? [Y/n] y
-   ? Which scope should contain your project? [Use arrows to move, type to filter]
-   > Your Personal Account (個人アカウントの場合)
-   > Your Team Name (チームアカウントの場合)
+   ? Which scope should contain your project?
+   > excel-unlocker-team (team_abc123def456789)  ← チームを選択
    
    ? Link to existing project? [y/N] y
    ? What's the name of your existing project? excel-unlocker
    ```
 
-3. **プロジェクト情報を確認**
+#### **Step 3: 設定ファイルの確認**
+
+1. **生成された設定ファイルを確認**
    ```bash
-   vercel project ls
+   cat .vercel/project.json
    ```
    
    **出力例**:
-   ```
-   Project: excel-unlocker
-   ID: prj_AbCdEfGhIj1234
-   Team: Your Team Name (team_abc123def456) または Personal Account (QmVyY2VsVGVhbQ)
-   ```
-
-4. **取得した情報をメモ帳にコピー**
-   ```
-   組織ID (VERCEL_ORG_ID): team_abc123def456 (または QmVyY2VsVGVhbQ)
-   プロジェクトID (VERCEL_PROJECT_ID): prj_AbCdEfGhIj1234
+   ```json
+   {
+     "orgId": "team_abc123def456789",
+     "projectId": "prj_xyz789abc123def"
+   }
    ```
 
-**方法2: 直接コマンド（参考）**
-
-組織IDのみを確認したい場合：
-
-1. **現在のユーザー情報を確認**
-   ```bash
-   vercel whoami
+2. **値をメモ帳にコピー**
+   ```
+   VERCEL_ORG_ID: team_abc123def456789
+   VERCEL_PROJECT_ID: prj_xyz789abc123def
    ```
 
-2. **チーム一覧を確認**
-   ```bash
-   vercel teams list
-   ```
+### 3-5. よくある間違いと対処法
 
-#### **`vercel link`の安全性について**
+#### **❌ 間違い1: User IDとTeam IDの取り違え**
 
-✅ **完全に安全です**:
-- **非破壊的**: 既存のコードやファイルを変更しません
-- **設定のみ**: ローカルの`.vercel`フォルダに設定ファイルを作成するだけ
-- **リバーシブル**: いつでも`.vercel`フォルダを削除して元に戻せます
-- **推奨方法**: Vercel公式の推奨する正しい方法です
+**問題**: 個人配下のプロジェクトにTeam IDを設定、またはその逆
+**症状**: 403 Forbidden または 404 Not Found エラー
+**解決**: **プロジェクトが属する側のID**を使用する
 
-💡 **トラブルシューティング**:
-- **コマンドが見つからない**: Node.jsとnpmが正しくインストールされているか確認
-- **ログインできない**: ブラウザでVercelにログインしているか確認
-- **プロジェクトが見つからない**: Vercelダッシュボードでプロジェクトが作成済みか確認
-- **権限エラー**: 管理者権限でターミナルを実行
+- **チーム配下のプロジェクト** → Team ID（`team_...`）
+- **個人配下のプロジェクト** → Your ID（ランダム文字列）
+
+#### **❌ 間違い2: 二重デプロイ**
+
+**問題**: Vercel GitHub連携とGitHub Actionsが両方動作
+**症状**: 同時に2つのデプロイが実行される
+**解決**: GitHub連携を無効化
+
+1. **プロジェクトSettings → Git**
+2. **「Disconnect」をクリック**
+
+または`vercel.json`に以下を追加：
+```json
+{
+  "github": {
+    "enabled": false
+  }
+}
+```
+
+### 3-6. GitHub Actions最小ワークフロー例
+
+以下は、取得した3つのシークレットを使用する最小ワークフローです：
+
+```yaml
+name: Vercel Deploy
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+env:
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm i -g vercel@latest
+      
+      # PRやブランチは preview、main は production で引く
+      - run: vercel pull --yes --environment=${{ github.ref == 'refs/heads/main' && 'production' || 'preview' }} --token=${{ secrets.VERCEL_TOKEN }}
+      
+      - run: vercel build ${{ github.ref == 'refs/heads/main' && '--prod' || '' }} --token=${{ secrets.VERCEL_TOKEN }}
+      
+      - run: vercel deploy --prebuilt ${{ github.ref == 'refs/heads/main' && '--prod' || '' }} --token=${{ secrets.VERCEL_TOKEN }}
+```
+
+**ポイント**:
+- `vercel pull → vercel build → vercel deploy --prebuilt`の順序
+- 必要なのは上記3つのシークレットのみ
+- mainブランチは本番、それ以外はプレビュー環境
 
 ### ✅ Vercel設定完了チェック
 
