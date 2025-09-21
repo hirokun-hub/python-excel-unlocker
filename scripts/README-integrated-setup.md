@@ -147,9 +147,12 @@ python3 scripts/setup-diagnostics.py [オプション]
 npm install -g vercel
 vercel login
 
-# 組織IDとプロジェクトIDの取得
-vercel teams list
-vercel projects list
+# プロジェクトをリンク（frontendディレクトリで実行）
+cd frontend
+vercel link
+
+# プロジェクト情報を確認
+vercel project ls
 ```
 
 ### 2. 対話式設定収集

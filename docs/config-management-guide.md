@@ -177,18 +177,29 @@ npm install -g vercel
 # ログイン
 vercel login
 
-# 組織IDの取得
-vercel teams list
+# プロジェクトをリンク（frontendディレクトリで実行）
+cd frontend
+vercel link
+
+# プロジェクト情報を確認
+vercel project ls
 ```
 
-**出力例**:
+**`vercel link`実行後の出力例**:
 ```
-> Personal Account
-  id: QmVyY2VsVGVhbQ
+Project: excel-unlocker
+ID: prj_AbCdEfGhIj1234
+Team: Company Name (team_abc123def456)
+```
 
-> Team: Company Name
-  id: team_abc123def456
+**作成されるファイル**:
 ```
+frontend/.vercel/
+├── project.json    # プロジェクト設定（安全）
+└── README.txt      # 説明ファイル
+```
+
+💡 **重要**: `.vercel`フォルダは設定のみで、コードには影響しません。
 
 ### 環境変数の出力フォーマット
 
