@@ -245,6 +245,20 @@ vercel --prod --token YOUR_VERCEL_TOKEN
 **原因**: Vercel GitHub連携が有効
 **解決**: Git連携を無効化（上記参照）
 
+## 🧭 チームに複数プロジェクトがある場合の注意
+
+同一チーム配下に複数のVercelプロジェクトが併存する前提です。誤デプロイ防止のため、以下を必ず確認してください。
+
+- Actions実行前に `frontend/.vercel/project.json` の `orgId` と `projectId` が対象プロジェクトのものか確認
+- GitHub Secrets の `VERCEL_PROJECT_ID` が対象プロジェクトの `prj_...` であることを確認
+- `vercel.json` に以下を設定し、VercelのGit連携を無効化（Actionsに一本化）
+
+```json
+{
+  "github": { "enabled": false }
+}
+```
+
 ## 📝 チェックリスト
 
 設定完了前に以下を確認してください：

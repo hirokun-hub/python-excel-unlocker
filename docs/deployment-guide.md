@@ -71,6 +71,18 @@ aws sts get-caller-identity
 aws configure
 ```
 
+### CORS/AllowedOrigin の設定（重要）
+
+`template.yaml` の `AllowedOrigin` は環境ごとに厳格化されています。環境に合わせて値を必ず指定してください。
+
+| 環境 | 例 | 指定方法 |
+|---|---|---|
+| development | http://localhost:3000 | `sam deploy --parameter-overrides AllowedOrigin=http://localhost:3000` |
+| staging | https://excel-unlocker-staging.vercel.app | `sam deploy --config-env staging`（`samconfig.toml`に設定推奨） |
+| production | https://excel-unlocker.vercel.app | `sam deploy --config-env production`（`samconfig.toml`に設定推奨） |
+
+メモ: 既定値が `https://localhost:3000` のため、ローカル開発時は `http://` を明示しないとCORSエラーになります。
+
 ### GitHub Secrets設定
 
 以下のシークレットをGitHubリポジトリに設定してください：

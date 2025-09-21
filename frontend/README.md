@@ -28,10 +28,10 @@
      ```
      GOOGLE_CLIENT_ID=xxxxxxxx.apps.googleusercontent.com
      GOOGLE_CLIENT_SECRET=yyyyyyyy
-     NEXTAUTH_URL=http://localhost:3001
-     AUTH_SECRET=（例：node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"）
-     USE_MOCK_API=true
-     # NEXT_PUBLIC_API_URL=（実APIを使うときのみ例：http://127.0.0.1:3002）
+    NEXTAUTH_URL=http://localhost:3000
+    NEXTAUTH_SECRET=（例：node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"）
+    NEXT_PUBLIC_USE_MOCK_API=true
+    # NEXT_PUBLIC_API_URL=（実APIを使うときのみ例：http://127.0.0.1:3001）
      ```
    * `.env.local` は `.gitignore` 済み（リポジトリに含めないでください）。
 
@@ -39,15 +39,15 @@
 
 ## 開発サーバーの起動
 
-* 既定ポートは **3001** です（`package.json` の `dev` スクリプト）。
+* 既定ポートは **3000** です（`package.json` の `dev` スクリプト）。
 
   ```bash
-  pnpm dev           # http://localhost:3001
+  pnpm dev           # http://localhost:3000
   ```
-* もし **3000** で起動したい場合：
+* もし **3001** で起動したい場合：
 
   ```bash
-  pnpm run dev:3000  # http://localhost:3000
+  pnpm run dev:3001  # http://localhost:3001
   ```
 * **Google 側のリダイレクトURI**は起動ポートに合わせて追加してください
 

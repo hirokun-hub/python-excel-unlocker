@@ -38,14 +38,13 @@ AWS_DEFAULT_REGION=ap-northeast-1
 
 フロントエンド用（`frontend/.env.local`）:
 ```bash
-# 本番API使用時
-NEXT_PUBLIC_USE_MOCK_API=false
-NEXT_PUBLIC_API_URL=https://your-api-gateway-url
+# モックAPIでUI確認（初回推奨）
+NEXT_PUBLIC_USE_MOCK_API=true
 
-# ローカルバックエンド使用時
+# 実APIを使う場合はモックをOFFにしてベースURLを指定
+# （ローカルSAM: 3001 / 本番API: API GatewayのURL）
 NEXT_PUBLIC_USE_MOCK_API=false
 NEXT_PUBLIC_API_URL=http://localhost:3001
-NEXT_PUBLIC_LOCAL_BACKEND_TEST=true
 ```
 
 ## ローカルテスト実行
@@ -102,14 +101,13 @@ sam local start-api --port 3001
 #### ターミナル2: フロントエンド起動
 ```bash
 cd frontend
-# ローカルバックエンド使用設定に変更
-export NEXT_PUBLIC_USE_MOCK_API=false
-export NEXT_PUBLIC_API_URL=http://localhost:3001
+# 既定はポート3000で起動
 npm run dev
+# 3001で起動したい場合は npm run dev:3001
 ```
 
 #### ブラウザでテスト
-1. http://localhost:3000 にアクセス
+1. http://localhost:3000 にアクセス（または 3001）
 2. Google OAuth でログイン（hironomac2025@gmail.com でログイン）
 3. ExcelUnlockerコンポーネントでファイルアップロード機能をテスト
 4. ブラウザの開発者ツールでネットワークタブを確認し、以下を確認：
