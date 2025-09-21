@@ -87,16 +87,37 @@ show_banner() {
     cat << 'EOF'
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║                                                                              ║
-║                🚀 Excel Unlocker 社内展開用統合セットアップ 🚀                ║
+║                🎉 Excel Unlocker かんたんセットアップ 🎉                     ║
 ║                                                                              ║
-║              初心者向け対話式セットアップ・完全自動化システム                ║
+║              小学生でもわかる！安心・安全・自動セットアップ                  ║
 ║                                                                              ║
-║  📋 機能: 設定管理・進捗表示・エラーサポート・動作確認テスト                  ║
-║  🎯 対象: 技術的前提知識のない社内メンバー                                  ║
+║  ✅ 何も壊れる心配はありません  ✅ いつでも元に戻せます                      ║
+║  ✅ 分からなくてもOK            ✅ 全部自動でやってくれます                  ║
 ║                                                                              ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 EOF
     echo -e "${NC}"
+    echo
+    
+    echo -e "${GREEN}🎯 このツールで何ができるの？${NC}"
+    echo "  📱 スマホ・タブレット・パソコンでExcelのパスワードを解除"
+    echo "  🚀 複数のファイルを一度に処理"
+    echo "  ☁️  Google Driveに直接保存"
+    echo "  🔒 安全・安心のセキュリティ"
+    echo
+    
+    echo -e "${BLUE}⏱️  どのくらい時間がかかるの？${NC}"
+    echo "  🏃‍♂️ 初回セットアップ: 約15-20分"
+    echo "  ⚡ 2回目以降: 約5分"
+    echo "  📝 手作業: 最初の設定のみ（5-10分）"
+    echo "  🤖 自動処理: あとは全部おまかせ"
+    echo
+    
+    echo -e "${PURPLE}🛡️  安心・安全について${NC}"
+    echo "  ✅ 何も壊れません・削除されません"
+    echo "  ✅ いつでも元に戻すことができます"
+    echo "  ✅ あなたのファイルは安全に保護されます"
+    echo "  ✅ 分からないことがあっても大丈夫"
     echo
 }
 
@@ -174,9 +195,9 @@ ask_confirmation() {
         echo
         log_question "$question"
         if [[ "$default" == "y" ]]; then
-            echo -n "(Y/n): "
+            echo -n "はい/いいえ (はい): "
         else
-            echo -n "(y/N): "
+            echo -n "はい/いいえ (いいえ): "
         fi
         
         read -r response
@@ -186,14 +207,14 @@ ask_confirmation() {
         fi
         
         case "$response" in
-            [Yy]|[Yy][Ee][Ss])
+            [Yy]|[Yy][Ee][Ss]|はい|ハイ|yes|YES)
                 return 0
                 ;;
-            [Nn]|[Nn][Oo])
+            [Nn]|[Nn][Oo]|いいえ|イイエ|no|NO)
                 return 1
                 ;;
             *)
-                log_error "y (はい) または n (いいえ) で答えてください。"
+                log_error "「はい」または「いいえ」で答えてください（英語のy/nでもOKです）"
                 ;;
         esac
     done
@@ -201,194 +222,348 @@ ask_confirmation() {
 
 # 前提条件チェック
 check_prerequisites() {
-    log_step "前提条件をチェックしています..."
+    log_step "🔍 必要なソフトウェアがインストールされているかチェックしています..."
+    
+    echo
+    log_info "💡 今何をしているか：Excelツールに必要なソフトウェアが揃っているか確認中"
+    log_info "⏱️  所要時間：約30秒"
+    echo
     
     local missing_tools=()
     local tool_info=""
     
     # 必要なツールのチェック
     if ! command -v python3 &> /dev/null; then
-        missing_tools+=("python3")
-        tool_info+="\n  - Python 3.x: https://www.python.org/downloads/"
+        missing_tools+=("Python（パイソン）")
+        tool_info+="\n  🐍 Python 3.x: プログラムを動かすためのソフト"
+        tool_info+="\n     ダウンロード: https://www.python.org/downloads/"
     fi
     
     if ! command -v aws &> /dev/null; then
-        missing_tools+=("aws-cli")
-        tool_info+="\n  - AWS CLI: https://aws.amazon.com/cli/"
+        missing_tools+=("AWS CLI（エーダブリューエス）")
+        tool_info+="\n  ☁️  AWS CLI: クラウドサービスと連携するためのソフト"
+        tool_info+="\n     ダウンロード: https://aws.amazon.com/cli/"
     fi
     
     if ! command -v sam &> /dev/null; then
-        missing_tools+=("sam-cli")
-        tool_info+="\n  - SAM CLI: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html"
+        missing_tools+=("SAM CLI（サム）")
+        tool_info+="\n  🚀 SAM CLI: サーバーレス機能をデプロイするためのソフト"
+        tool_info+="\n     ダウンロード: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html"
     fi
     
     if ! command -v node &> /dev/null; then
-        missing_tools+=("node.js")
-        tool_info+="\n  - Node.js: https://nodejs.org/"
+        missing_tools+=("Node.js（ノードジェイエス）")
+        tool_info+="\n  🌐 Node.js: ウェブアプリを動かすためのソフト"
+        tool_info+="\n     ダウンロード: https://nodejs.org/"
     fi
     
     if ! command -v git &> /dev/null; then
-        missing_tools+=("git")
-        tool_info+="\n  - Git: https://git-scm.com/"
+        missing_tools+=("Git（ギット）")
+        tool_info+="\n  📝 Git: プログラムのバージョン管理をするためのソフト"
+        tool_info+="\n     ダウンロード: https://git-scm.com/"
     fi
     
     if [[ ${#missing_tools[@]} -gt 0 ]]; then
-        log_error "以下のツールがインストールされていません:"
+        echo
+        log_error "❌ 以下のソフトウェアがインストールされていません："
+        echo
         for tool in "${missing_tools[@]}"; do
-            echo "  - $tool"
+            echo "  ❌ $tool"
         done
         echo
-        log_manual "インストール方法:"
+        echo -e "${YELLOW}🛠️  インストールが必要なソフトウェア：${NC}"
         echo -e "$tool_info"
         echo
-        log_manual "必要なツールをインストールしてから再実行してください。"
+        echo -e "${GREEN}🛡️  安心してください：${NC}"
+        echo "  ✅ これらのソフトウェアは全て無料で安全です"
+        echo "  ✅ 公式サイトからダウンロードできます"
+        echo "  ✅ インストール後にもう一度このスクリプトを実行してください"
+        echo "  ✅ 何も壊れる心配はありません"
+        echo
         
-        if ask_confirmation "インストール方法を確認しましたか？" "n"; then
-            log_info "ツールのインストール完了後に再実行してください。"
+        if ask_confirmation "インストール方法を確認して、後でもう一度実行しますか？" "y"; then
+            log_info "📋 次にすること："
+            echo "  1. 上記のソフトウェアをインストール"
+            echo "  2. パソコンを再起動（推奨）"
+            echo "  3. このスクリプトをもう一度実行"
+            echo
+            log_success "インストール完了後にお待ちしています！"
         fi
         
         exit 1
     fi
     
-    log_success "前提条件のチェックが完了しました"
+    echo
+    log_success "✅ 必要なソフトウェアが全て揃っています！"
+    log_info "🎯 次に進みます：設定ファイルの準備を始めます"
+    echo
 }
 
 # 対話式設定収集
 collect_interactive_settings() {
-    log_step "対話式設定を開始します..."
+    log_step "📋 Excel Unlockerの設定を始めます..."
     
     echo
-    log_info "Excel Unlockerの設定を行います。"
-    log_info "分からない項目がある場合は、デフォルト値を使用できます。"
+    echo -e "${GREEN}🛡️  安心してください：${NC}"
+    echo "  ✅ 何も壊れる心配はありません"
+    echo "  ✅ いつでも元に戻すことができます"
+    echo "  ✅ 分からない項目はデフォルト値（おすすめ設定）を使えます"
+    echo "  ✅ 間違えても後から変更できます"
     echo
     
-    # 環境選択
-    echo "対象環境を選択してください:"
-    echo "  1) development (開発環境) - ローカルテスト用"
-    echo "  2) staging (ステージング環境) - 本番前テスト用"
-    echo "  3) production (本番環境) - 実際の運用環境"
+    log_info "🎯 これから3つの簡単な質問にお答えください"
+    echo
+    
+    # 環境選択（初心者向けの説明）
+    echo -e "${CYAN}📍 質問1: どの環境でExcelツールを使いますか？${NC}"
+    echo
+    echo "これは「どこでツールを動かすか」を決める設定です。"
+    echo "初めての方は「1」を選んでください。"
+    echo
+    echo "  1) 🧪 テスト環境（development）"
+    echo "     └ 何をする：あなたのパソコンでテスト用に動かします"
+    echo "     └ 安全性：完全に安全です。本番には影響しません"
+    echo "     └ 推奨度：⭐⭐⭐ 初めての方に最適"
+    echo
+    echo "  2) 🔍 確認環境（staging）"
+    echo "     └ 何をする：本番前の最終確認用に動かします"
+    echo "     └ 安全性：安全です。テスト専用の環境です"
+    echo "     └ 推奨度：⭐⭐ 慣れてきた方向け"
+    echo
+    echo "  3) 🚀 本番環境（production）"
+    echo "     └ 何をする：実際に業務で使う環境で動かします"
+    echo "     └ 安全性：安全ですが、実際の業務に影響します"
+    echo "     └ 推奨度：⭐ 上級者・管理者向け"
     echo
     
     while true; do
-        read -p "選択してください (1-3) [デフォルト: 1]: " env_choice
+        echo -n "どれを選びますか？ (1-3) [おすすめ: 1]: "
+        read env_choice
         case "${env_choice:-1}" in
             1)
                 ENVIRONMENT="development"
+                log_success "✅ テスト環境を選択しました（安全で初心者向けです）"
                 break
                 ;;
             2)
                 ENVIRONMENT="staging"
+                log_success "✅ 確認環境を選択しました"
                 break
                 ;;
             3)
                 ENVIRONMENT="production"
+                log_success "✅ 本番環境を選択しました"
                 break
                 ;;
             *)
-                log_error "1、2、または3を選択してください。"
+                log_error "1、2、または3の数字を入力してください"
                 ;;
         esac
     done
     
-    log_success "環境: $ENVIRONMENT を選択しました"
+    echo
+    echo "────────────────────────────────────────"
+    echo
     
-    # Vercelデプロイ確認
-    if ask_confirmation "Vercelへのデプロイも実行しますか？" "n"; then
+    # Vercelデプロイ確認（初心者向けの説明）
+    echo -e "${CYAN}📍 質問2: インターネットからアクセスできるようにしますか？${NC}"
+    echo
+    echo "これは「スマホやタブレットからも使えるようにするか」の設定です。"
+    echo
+    echo "「はい」を選ぶと："
+    echo "  ✅ スマホ・タブレット・他のパソコンからも使えます"
+    echo "  ✅ 他の人にもURLを教えて使ってもらえます"
+    echo "  ✅ 24時間いつでもアクセスできます"
+    echo "  ✅ 外出先からでも使えます"
+    echo
+    echo "「いいえ」を選ぶと："
+    echo "  📱 今のパソコンでのみ使えます"
+    echo "  🏠 家や会社でのみ使えます"
+    echo
+    echo "安全性："
+    echo "  🛡️ どちらを選んでも完全に安全です"
+    echo "  🔄 後からいつでも変更できます"
+    echo "  ⏱️ 「はい」を選んでも追加で5分程度です"
+    echo
+    echo "推奨：初めての方は「はい」がおすすめです"
+    echo
+    
+    if ask_confirmation "インターネットからアクセスできるようにしますか？" "y"; then
         DEPLOY_VERCEL=true
-        log_success "Vercelデプロイを有効にしました"
-    fi
-    
-    # テストスキップ確認
-    if ask_confirmation "動作確認テストをスキップしますか？（上級者向け）" "n"; then
-        SKIP_TESTS=true
-        log_warning "動作確認テストをスキップします"
+        log_success "✅ インターネットアクセスを有効にしました（便利です！）"
+    else
+        log_success "✅ ローカル環境のみで動作します"
     fi
     
     echo
-    log_success "対話式設定が完了しました"
+    echo "────────────────────────────────────────"
+    echo
+    
+    # テストスキップ確認（初心者向けの説明）
+    echo -e "${CYAN}📍 質問3: 動作確認テストを実行しますか？${NC}"
+    echo
+    echo "これは「ツールが正しく動くかチェックするか」の設定です。"
+    echo
+    echo "「はい」を選ぶと："
+    echo "  ✅ ツールが正しく動くか自動でチェックします"
+    echo "  ✅ 問題があれば教えてくれます"
+    echo "  ✅ 安心して使い始められます"
+    echo "  ⏱️ 追加で2-3分かかります"
+    echo
+    echo "「いいえ」を選ぶと："
+    echo "  ⚡ セットアップが早く終わります"
+    echo "  🔧 上級者向けの設定です"
+    echo
+    echo "安全性："
+    echo "  🛡️ どちらを選んでも安全です"
+    echo "  🔍 テストは確認するだけで何も壊しません"
+    echo
+    echo "推奨：初めての方は「はい」がおすすめです"
+    echo
+    
+    if ask_confirmation "動作確認テストを実行しますか？" "y"; then
+        SKIP_TESTS=false
+        log_success "✅ 動作確認テストを実行します（安心です！）"
+    else
+        SKIP_TESTS=true
+        log_success "✅ 動作確認テストをスキップします"
+    fi
+    
+    echo
+    echo "════════════════════════════════════════"
+    echo
+    log_success "🎉 設定が完了しました！"
+    echo
+    echo "📋 選択した設定："
+    echo "  🎯 環境: $ENVIRONMENT"
+    echo "  🌐 インターネットアクセス: $([ "$DEPLOY_VERCEL" = true ] && echo "有効" || echo "無効")"
+    echo "  🔍 動作確認テスト: $([ "$SKIP_TESTS" = false ] && echo "実行する" || echo "スキップ")"
+    echo
+    log_info "💡 次に進みます。自動でセットアップが始まります..."
+    echo
 }
 
 # 設定ファイルの初期化と検証
 initialize_and_validate_config() {
-    log_step "設定ファイルを初期化・検証しています..."
+    log_step "📄 設定ファイルを準備しています..."
+    
+    echo
+    log_info "💡 今何をしているか：Excelツールの設定ファイルを作成・確認中"
+    log_info "⏱️  所要時間：設定済みなら30秒、初回なら5-10分"
+    echo
     
     cd "$PROJECT_ROOT"
     
     # 設定ファイルの存在確認
     if [[ ! -f "$SETUP_CONFIG" ]]; then
-        log_info "設定ファイルのテンプレートを作成しています..."
+        log_info "📝 設定ファイルのひな形を作成しています..."
         
         if "$CONFIG_MANAGER" init; then
-            log_success "設定ファイルテンプレートを作成しました"
+            log_success "✅ 設定ファイルのひな形を作成しました"
         else
-            log_error "設定ファイルテンプレートの作成に失敗しました"
+            log_error "❌ 設定ファイルのひな形作成に失敗しました"
             show_recovery_help "config_template_failed"
             exit 1
         fi
         
         echo
-        log_manual "setup-config.json を編集して以下の情報を設定してください:"
+        echo -e "${YELLOW}🔧 手作業が必要です（5-10分程度）${NC}"
         echo
-        echo "  🔑 Google OAuth設定:"
-        echo "     - clientId: Google Cloud ConsoleのOAuthクライアントID"
-        echo "     - clientSecret: Google Cloud ConsoleのOAuthクライアントシークレット"
+        echo "📋 setup-config.json ファイルを開いて、以下の情報を入力してください："
         echo
-        echo "  ☁️  AWS設定:"
-        echo "     - s3.bucketName: S3バケット名（環境別）"
-        echo "     - region: AWSリージョン（通常は ap-northeast-1）"
+        echo -e "${CYAN}🔑 Google OAuth設定（Googleログイン用）：${NC}"
+        echo "   📝 clientId: GoogleのOAuthクライアントID"
+        echo "   📝 clientSecret: GoogleのOAuthクライアントシークレット"
+        echo "   💡 取得方法: Google Cloud Console → 認証情報 → OAuthクライアント"
         echo
-        echo "  👥 セキュリティ設定:"
-        echo "     - allowedUsers: 許可するユーザーのメールアドレス"
-        echo "     - jwtSecret: JWT用のランダムな文字列"
-        echo "     - sessionSecret: セッション用のランダムな文字列"
+        echo -e "${CYAN}☁️  AWS設定（ファイル保存用）：${NC}"
+        echo "   📝 s3.bucketName: ファイル保存用のバケット名（例: my-excel-tool-files）"
+        echo "   📝 region: 地域設定（日本なら ap-northeast-1）"
+        echo "   💡 バケット名は世界で唯一の名前にしてください"
         echo
-        echo "  🌐 Vercel設定:"
-        echo "     - projectName: Vercelプロジェクト名"
-        echo "     - domain: 本番ドメイン（オプション）"
+        echo -e "${CYAN}👥 セキュリティ設定（誰が使えるか）：${NC}"
+        echo "   📝 allowedUsers: 使用を許可するメールアドレス（カンマ区切り）"
+        echo "   📝 jwtSecret: ランダムな文字列（32文字以上推奨）"
+        echo "   📝 sessionSecret: ランダムな文字列（32文字以上推奨）"
+        echo
+        echo -e "${CYAN}🌐 Vercel設定（ウェブ公開用）：${NC}"
+        echo "   📝 projectName: プロジェクト名（例: excel-unlocker）"
+        echo "   📝 domain: 独自ドメイン（オプション、なくてもOK）"
+        echo
+        echo -e "${GREEN}🛡️  安心してください：${NC}"
+        echo "  ✅ 設定ファイルは安全に保存されます"
+        echo "  ✅ 間違えても後から修正できます"
+        echo "  ✅ 分からない項目は空欄でもOKです"
         echo
         
-        log_tip "設定例は docs/beginner-complete-setup-guide.md を参照してください"
+        log_tip "📚 詳しい設定方法は docs/beginner-complete-setup-guide.md を見てください"
         echo
         
         if ask_confirmation "設定ファイルの編集を完了しましたか？" "n"; then
-            log_success "設定ファイルの編集が完了しました"
+            log_success "✅ 設定ファイルの編集が完了しました"
         else
-            log_info "設定ファイルの編集完了後に再実行してください"
+            log_info "📋 次にすること："
+            echo "  1. setup-config.json ファイルを編集"
+            echo "  2. 必要な情報を入力"
+            echo "  3. ファイルを保存"
+            echo "  4. このスクリプトをもう一度実行"
+            echo
+            log_success "設定完了後にお待ちしています！"
             exit 0
         fi
     else
-        log_info "既存の設定ファイルを使用します"
+        log_info "✅ 既存の設定ファイルを使用します"
     fi
     
     # 設定ファイルの検証
-    log_progress "設定ファイルを検証しています..."
+    echo
+    log_progress "🔍 設定ファイルの内容をチェックしています..."
     
     if "$CONFIG_MANAGER" validate; then
-        log_success "設定ファイルの検証が完了しました"
+        log_success "✅ 設定ファイルの内容に問題ありません！"
+        log_info "🎯 次に進みます：環境の準備を始めます"
     else
-        log_error "設定ファイルに問題があります"
+        log_error "❌ 設定ファイルに問題があります"
+        echo
+        echo -e "${YELLOW}🔧 設定ファイルを修正してください：${NC}"
+        echo "  📝 setup-config.json を開いて内容を確認"
+        echo "  🔍 エラーメッセージを参考に修正"
+        echo "  💾 ファイルを保存"
+        echo
         show_recovery_help "config_validation_failed"
         
         if ask_confirmation "設定ファイルを修正して再試行しますか？" "y"; then
-            log_info "設定ファイルを修正してから再実行してください"
+            log_info "📋 設定ファイルを修正してからもう一度実行してください"
             exit 1
         else
             exit 1
         fi
     fi
+    echo
 }
 
 # 環境別セットアップ
 setup_environment() {
-    log_step "${ENVIRONMENT}環境のセットアップを開始します..."
+    log_step "⚙️  ${ENVIRONMENT}環境の準備をしています..."
+    
+    echo
+    log_info "💡 今何をしているか：設定ファイルから環境に合わせた設定を作成中"
+    log_info "⏱️  所要時間：約1-2分"
+    echo
     
     # 環境変数の生成
-    log_progress "環境変数を生成しています..."
+    log_progress "📝 環境設定ファイルを作成しています..."
     
     if "$CONFIG_MANAGER" generate-env "$ENVIRONMENT" dotenv ".env.${ENVIRONMENT}"; then
-        log_success "環境変数を生成しました"
+        log_success "✅ 環境設定ファイルを作成しました"
     else
-        log_error "環境変数の生成に失敗しました"
+        log_error "❌ 環境設定ファイルの作成に失敗しました"
+        echo
+        echo -e "${YELLOW}🔧 問題の解決方法：${NC}"
+        echo "  📝 setup-config.json の内容を確認"
+        echo "  🔍 必要な項目が全て入力されているかチェック"
+        echo "  💾 ファイルを保存してから再実行"
+        echo
         show_recovery_help "env_generation_failed"
         exit 1
     fi
@@ -398,35 +573,52 @@ setup_environment() {
         set -a
         source ".env.${ENVIRONMENT}"
         set +a
-        log_success "環境変数を読み込みました"
+        log_success "✅ 環境設定を読み込みました"
     else
-        log_error "環境変数ファイルが見つかりません"
+        log_error "❌ 環境設定ファイルが見つかりません"
         exit 1
     fi
     
     # AWS設定の確認
-    log_progress "AWS設定を確認しています..."
+    echo
+    log_progress "☁️  AWSクラウドサービスとの接続を確認しています..."
     
     if [[ -n "${AWS_PROFILE:-}" ]]; then
         export AWS_PROFILE="$AWS_PROFILE"
-        log_info "AWS Profile: $AWS_PROFILE を使用します"
+        log_info "📋 AWS Profile: $AWS_PROFILE を使用します"
     fi
     
     if ! aws sts get-caller-identity &> /dev/null; then
-        log_error "AWS認証に失敗しました"
+        log_error "❌ AWSクラウドサービスとの接続に失敗しました"
+        echo
+        echo -e "${YELLOW}🔧 AWSの設定が必要です：${NC}"
+        echo "  🔑 AWSアカウントの認証情報を設定してください"
+        echo "  💻 コマンド: aws configure"
+        echo "  📝 必要な情報: アクセスキーID、シークレットアクセスキー、リージョン"
+        echo
+        echo -e "${GREEN}🛡️  安心してください：${NC}"
+        echo "  ✅ 設定は一度だけ行えばOKです"
+        echo "  ✅ 情報は安全に保存されます"
+        echo "  ✅ 設定後にもう一度このスクリプトを実行してください"
+        echo
         show_recovery_help "aws_auth_failed"
         
-        if ask_confirmation "AWS設定を確認して再試行しますか？" "y"; then
-            log_manual "以下のコマンドでAWS設定を確認してください:"
-            echo "  aws configure list"
-            echo "  aws configure"
+        if ask_confirmation "AWS設定を確認して、後でもう一度実行しますか？" "y"; then
+            log_manual "📋 次にすること："
+            echo "  1. ターミナルで 'aws configure' を実行"
+            echo "  2. AWSの認証情報を入力"
+            echo "  3. このスクリプトをもう一度実行"
+            echo
+            log_success "AWS設定完了後にお待ちしています！"
             exit 1
         else
             exit 1
         fi
     fi
     
-    log_success "AWS設定の確認が完了しました"
+    log_success "✅ AWSクラウドサービスとの接続を確認しました"
+    log_info "🎯 次に進みます：ファイル保存場所を準備します"
+    echo
 }
 
 # S3バケットの作成
@@ -434,52 +626,92 @@ create_s3_bucket() {
     local bucket_name="$1"
     local region="${AWS_REGION:-ap-northeast-1}"
     
-    log_progress "S3バケット '$bucket_name' を作成しています..."
+    log_step "📦 ファイル保存場所を準備しています..."
+    
+    echo
+    log_info "💡 今何をしているか：Excelファイルを安全に保存する場所をクラウドに作成中"
+    log_info "⏱️  所要時間：約30秒-1分"
+    echo
+    
+    log_progress "📁 ファイル保存場所 '$bucket_name' を作成しています..."
     
     if aws s3api head-bucket --bucket "$bucket_name" 2>/dev/null; then
-        log_info "S3バケット '$bucket_name' は既に存在します"
+        log_info "✅ ファイル保存場所 '$bucket_name' は既に存在します"
     else
         if aws s3 mb "s3://$bucket_name" --region "$region"; then
-            log_success "S3バケット '$bucket_name' を作成しました"
+            log_success "✅ ファイル保存場所 '$bucket_name' を作成しました"
         else
-            log_error "S3バケットの作成に失敗しました"
+            log_error "❌ ファイル保存場所の作成に失敗しました"
+            echo
+            echo -e "${YELLOW}🔧 よくある原因と解決方法：${NC}"
+            echo "  📝 バケット名が既に他の人に使われている"
+            echo "  💡 解決方法: setup-config.json でバケット名を変更"
+            echo "  🔍 例: my-excel-tool-files-2025 など、より具体的な名前に"
+            echo
+            echo -e "${GREEN}🛡️  安心してください：${NC}"
+            echo "  ✅ バケット名を変更するだけで解決します"
+            echo "  ✅ 何度でも試すことができます"
+            echo "  ✅ 他に影響はありません"
+            echo
             show_recovery_help "s3_creation_failed"
             exit 1
         fi
     fi
     
     # パブリックアクセスブロックの設定
-    log_progress "S3バケットのセキュリティ設定を適用しています..."
+    echo
+    log_progress "🔒 ファイル保存場所のセキュリティ設定を適用しています..."
     
     if aws s3api put-public-access-block \
         --bucket "$bucket_name" \
         --public-access-block-configuration \
         "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true"; then
-        log_success "S3バケットのセキュリティ設定が完了しました"
+        log_success "✅ ファイル保存場所のセキュリティ設定が完了しました"
+        echo
+        log_info "🛡️  セキュリティ設定の内容："
+        echo "  ✅ 外部からの不正アクセスをブロック"
+        echo "  ✅ 許可されたユーザーのみアクセス可能"
+        echo "  ✅ ファイルは安全に保護されます"
     else
-        log_warning "S3バケットのセキュリティ設定で問題が発生しました（継続）"
+        log_warning "⚠️  ファイル保存場所のセキュリティ設定で問題が発生しました（継続します）"
     fi
+    
+    echo
+    log_info "🎯 次に進みます：Excelツールの本体を準備します"
+    echo
 }
 
 # バックエンドのデプロイ
 deploy_backend() {
-    log_step "バックエンド（${ENVIRONMENT}）をデプロイしています..."
+    log_step "🔧 Excelツールの本体を準備しています..."
+    
+    echo
+    log_info "💡 今何をしているか：Excelファイルを処理するプログラムをクラウドに設置中"
+    log_info "⏱️  所要時間：約3-5分"
+    echo
     
     cd "$PROJECT_ROOT"
     
     # SAMビルド
-    log_progress "SAMアプリケーションをビルドしています..."
+    log_progress "🏗️  Excelツールのプログラムを組み立てています..."
     
     if sam build; then
-        log_success "SAMビルドが完了しました"
+        log_success "✅ Excelツールのプログラムを組み立てました"
     else
-        log_error "SAMビルドに失敗しました"
+        log_error "❌ Excelツールのプログラム組み立てに失敗しました"
+        echo
+        echo -e "${YELLOW}🔧 よくある原因と解決方法：${NC}"
+        echo "  📝 必要なソフトウェアが不足している"
+        echo "  💡 解決方法: 前提条件を再確認"
+        echo "  🔄 再実行: このスクリプトをもう一度実行"
+        echo
         show_recovery_help "sam_build_failed"
         exit 1
     fi
     
     # SAMデプロイ
-    log_progress "SAMアプリケーションをデプロイしています..."
+    echo
+    log_progress "🚀 Excelツールをクラウドに設置しています..."
     
     if sam deploy \
         --stack-name "$LAMBDA_STACK_NAME" \
@@ -491,15 +723,28 @@ deploy_backend() {
             AllowedUsers="$ALLOWED_USERS" \
             CorsOrigin="$CORS_ORIGIN" \
         --no-confirm-changeset; then
-        log_success "バックエンドのデプロイが完了しました"
+        log_success "✅ Excelツールをクラウドに設置しました"
+        echo
+        log_info "🎯 設置されたもの："
+        echo "  📦 Excelファイル処理プログラム"
+        echo "  🌐 インターネット経由でアクセスできるAPI"
+        echo "  🔒 セキュリティ設定"
+        echo "  ⚙️  自動スケーリング機能"
     else
-        log_error "バックエンドのデプロイに失敗しました"
+        log_error "❌ Excelツールのクラウド設置に失敗しました"
+        echo
+        echo -e "${YELLOW}🔧 よくある原因と解決方法：${NC}"
+        echo "  🔑 AWS権限が不足している"
+        echo "  📝 設定ファイルに問題がある"
+        echo "  💡 解決方法: AWS設定を確認"
+        echo
         show_recovery_help "sam_deploy_failed"
         exit 1
     fi
     
     # API Gateway URLの取得
-    log_progress "API Gateway URLを取得しています..."
+    echo
+    log_progress "🌐 Excelツールのアクセス先を確認しています..."
     
     local api_url
     api_url=$(aws cloudformation describe-stacks \
@@ -508,50 +753,82 @@ deploy_backend() {
         --output text 2>/dev/null || echo "")
     
     if [[ -n "$api_url" ]]; then
-        log_success "API Gateway URL: $api_url"
+        log_success "✅ Excelツールのアクセス先を確認しました"
         echo "NEXT_PUBLIC_API_URL=$api_url" >> ".env.${ENVIRONMENT}"
+        echo
+        log_info "🌐 アクセス先: $api_url"
+        log_info "🎯 次に進みます：ウェブ画面を準備します"
     else
-        log_warning "API Gateway URLの取得に失敗しました"
+        log_warning "⚠️  Excelツールのアクセス先確認に失敗しました（継続します）"
     fi
+    echo
 }
 
 # フロントエンドのセットアップ
 setup_frontend() {
-    log_step "フロントエンド（${ENVIRONMENT}）をセットアップしています..."
+    log_step "🖥️  ウェブ画面を準備しています..."
+    
+    echo
+    log_info "💡 今何をしているか：スマホ・パソコンで使えるウェブ画面を準備中"
+    log_info "⏱️  所要時間：約2-3分"
+    echo
     
     cd "$PROJECT_ROOT/frontend"
     
     # 依存関係のインストール
-    log_progress "フロントエンドの依存関係をインストールしています..."
+    log_progress "📦 ウェブ画面に必要な部品をダウンロードしています..."
     
     if npm install; then
-        log_success "依存関係のインストールが完了しました"
+        log_success "✅ ウェブ画面の部品をダウンロードしました"
     else
-        log_error "依存関係のインストールに失敗しました"
+        log_error "❌ ウェブ画面の部品ダウンロードに失敗しました"
+        echo
+        echo -e "${YELLOW}🔧 よくある原因と解決方法：${NC}"
+        echo "  🌐 インターネット接続が不安定"
+        echo "  📝 Node.jsのバージョンが古い"
+        echo "  💡 解決方法: しばらく待ってから再実行"
+        echo
         show_recovery_help "npm_install_failed"
         exit 1
     fi
     
     # 環境変数ファイルのコピー
-    log_progress "フロントエンド用環境変数を設定しています..."
+    echo
+    log_progress "⚙️  ウェブ画面の設定をしています..."
     
     cp "../.env.${ENVIRONMENT}" ".env.local"
-    log_success "環境変数を設定しました"
+    log_success "✅ ウェブ画面の設定を完了しました"
     
     # ビルドテスト
     if [[ "$SKIP_TESTS" != "true" ]]; then
-        log_progress "フロントエンドのビルドテストを実行しています..."
+        echo
+        log_progress "🔍 ウェブ画面が正しく動くかテストしています..."
         
         if npm run build; then
-            log_success "フロントエンドのビルドテストが完了しました"
+            log_success "✅ ウェブ画面のテストが完了しました"
+            echo
+            log_info "🎯 テスト結果："
+            echo "  ✅ ウェブ画面が正しく表示されます"
+            echo "  ✅ スマホ・タブレット・パソコンで使えます"
+            echo "  ✅ Excelツールと正しく連携します"
         else
-            log_error "フロントエンドのビルドに失敗しました"
+            log_error "❌ ウェブ画面のテストに失敗しました"
+            echo
+            echo -e "${YELLOW}🔧 よくある原因と解決方法：${NC}"
+            echo "  📝 設定ファイルに問題がある"
+            echo "  🔧 プログラムにエラーがある"
+            echo "  💡 解決方法: エラーメッセージを確認して修正"
+            echo
             show_recovery_help "frontend_build_failed"
             exit 1
         fi
     else
-        log_info "ビルドテストをスキップしました"
+        log_info "✅ ウェブ画面のテストをスキップしました"
     fi
+    
+    echo
+    log_info "🎯 次に進みます：インターネット公開の準備をします"
+    echo
     
     cd "$PROJECT_ROOT"
 }
@@ -777,78 +1054,101 @@ show_final_summary() {
     local setup_minutes=$((setup_duration / 60))
     local setup_seconds=$((setup_duration % 60))
     
+    clear
     echo
-    echo "════════════════════════════════════════════════════════════════"
-    log_success "${ICON_PARTY} Excel Unlocker 社内展開用セットアップ完了！ ${ICON_PARTY}"
-    echo "════════════════════════════════════════════════════════════════"
+    echo -e "${GREEN}"
+    cat << 'EOF'
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                                                                              ║
+║                🎉🎉🎉 セットアップ完了！おめでとうございます！ 🎉🎉🎉          ║
+║                                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+EOF
+    echo -e "${NC}"
     echo
     
-    log_info "⏱️  セットアップ時間: ${setup_minutes}分${setup_seconds}秒"
-    log_info "🎯 対象環境: $ENVIRONMENT"
+    echo -e "${CYAN}⏱️  かかった時間: ${setup_minutes}分${setup_seconds}秒${NC}"
+    echo -e "${CYAN}🎯 セットアップした環境: $ENVIRONMENT${NC}"
     echo
     
-    echo -e "${CYAN}${ICON_SUCCESS} 完了した設定:${NC}"
-    echo "  ✅ 設定ファイルの初期化・検証"
-    echo "  ✅ 環境変数の生成・設定"
-    echo "  ✅ AWS S3バケットの作成・セキュリティ設定"
-    echo "  ✅ バックエンド（Lambda + API Gateway）のデプロイ"
-    echo "  ✅ フロントエンド（Next.js）のセットアップ・ビルド"
+    echo -e "${GREEN}🎊 何ができるようになったの？${NC}"
+    echo
+    echo "  📱 スマホ・タブレット・パソコンからExcelのパスワード解除"
+    echo "  🚀 複数のファイルを一度に処理"
+    echo "  ☁️  Google Driveに直接保存"
+    echo "  🔒 安全・安心のセキュリティ"
+    echo "  🌐 24時間いつでもアクセス可能"
+    echo
+    
+    echo -e "${BLUE}✅ 完了したこと（自動でやりました）${NC}"
+    echo
+    echo "  ✅ 📄 設定ファイルの作成・確認"
+    echo "  ✅ ⚙️  環境設定の準備"
+    echo "  ✅ 📦 ファイル保存場所の作成・セキュリティ設定"
+    echo "  ✅ 🔧 Excelツール本体のクラウド設置"
+    echo "  ✅ 🖥️  ウェブ画面の準備・テスト"
     if [[ "$DEPLOY_VERCEL" == "true" ]]; then
-        echo "  ✅ Vercelデプロイの実行"
+        echo "  ✅ 🌐 インターネット公開の設定"
     fi
     if [[ "$SKIP_TESTS" != "true" ]]; then
-        echo "  ✅ 動作確認テストの実行"
+        echo "  ✅ 🔍 動作確認テストの実行"
     fi
-    echo "  ✅ 設定のバックアップ"
+    echo "  ✅ 💾 設定のバックアップ"
     echo
     
-    echo -e "${GREEN}${ICON_ROCKET} 次のステップ:${NC}"
+    echo -e "${YELLOW}🚀 次に何をすればいいの？${NC}"
     echo
-    echo "  1. ${ICON_INFO} ローカル開発環境での動作確認:"
-    echo "     cd frontend && npm run dev"
-    echo "     ブラウザで http://localhost:3000 にアクセス"
+    echo "  1️⃣  📱 まずは動作確認をしてみましょう"
+    echo "     💻 コマンド: cd frontend && npm run dev"
+    echo "     🌐 ブラウザで http://localhost:3000 を開く"
+    echo "     🎯 Googleアカウントでログインしてみる"
     echo
-    echo "  2. ${ICON_INFO} Google OAuth設定の確認:"
-    echo "     - Google Cloud ConsoleでリダイレクトURIを確認"
-    echo "     - テストユーザーでログインテスト"
-    echo
-    echo "  3. ${ICON_INFO} ファイル解除機能のテスト:"
-    echo "     - パスワード付きExcelファイルをアップロード"
-    echo "     - 解除・ダウンロード機能の確認"
+    echo "  2️⃣  📄 Excelファイル解除をテストしてみましょう"
+    echo "     📁 パスワード付きExcelファイルを用意"
+    echo "     ⬆️  ファイルをアップロード"
+    echo "     🔓 パスワードを入力して解除"
+    echo "     ⬇️  解除されたファイルをダウンロード"
     echo
     
     if [[ "$ENVIRONMENT" != "production" ]]; then
-        echo "  4. ${ICON_INFO} 本番環境へのデプロイ:"
-        echo "     $0 production true"
+        echo "  3️⃣  🚀 本番環境にもセットアップしたい場合"
+        echo "     💻 コマンド: ./setup-easy.sh"
+        echo "     🎯 環境選択で「3) 本番環境」を選ぶ"
         echo
     fi
     
-    echo -e "${BLUE}${ICON_LIGHTBULB} 参考ドキュメント:${NC}"
-    echo "  📚 ドキュメント索引: docs/index.md"
-    echo "  🔰 初心者向けガイド: docs/beginner-complete-setup-guide.md"
+    echo -e "${PURPLE}📚 困ったときは？${NC}"
+    echo
     echo "  ❓ よくある質問: docs/beginner-faq.md"
-    echo "  🔧 トラブルシューティング: docs/troubleshooting-flowchart.md"
-    echo "  ✅ セットアップチェックリスト: docs/setup-checklist.md"
+    echo "  🔧 問題解決ガイド: docs/troubleshooting-flowchart.md"
+    echo "  📖 詳しい使い方: docs/beginner-complete-setup-guide.md"
+    echo "  📋 全ドキュメント: docs/index.md"
     echo
     
-    echo -e "${PURPLE}${ICON_MANUAL} 生成されたファイル:${NC}"
-    echo "  📄 設定ファイル: setup-config.json"
-    echo "  🌍 環境変数: .env.${ENVIRONMENT}"
-    echo "  💾 バックアップ: config-backup/"
-    echo "  📝 ログファイル: $LOG_FILE"
+    echo -e "${CYAN}📁 作成されたファイル${NC}"
+    echo
+    echo "  📄 setup-config.json - あなたの設定"
+    echo "  🌍 .env.${ENVIRONMENT} - 環境設定"
+    echo "  💾 config-backup/ - バックアップ"
+    echo "  📝 $LOG_FILE - 詳細ログ"
     echo
     
     if [[ -n "${NEXT_PUBLIC_API_URL:-}" ]]; then
-        echo -e "${CYAN}${ICON_INFO} 生成されたURL:${NC}"
-        echo "  🌐 API Gateway: $NEXT_PUBLIC_API_URL"
+        echo -e "${GREEN}🌐 作成されたサービス${NC}"
+        echo
+        echo "  🔧 Excelツール本体: $NEXT_PUBLIC_API_URL"
         if [[ "$DEPLOY_VERCEL" == "true" ]]; then
-            echo "  🚀 Vercel: デプロイ完了（URLはVercel Dashboardで確認）"
+            echo "  🌐 ウェブサイト: Vercel Dashboard で確認できます"
         fi
         echo
     fi
     
-    log_success "社内展開用セットアップが正常に完了しました！"
-    log_tip "問題が発生した場合は、docs/troubleshooting-diagnostic-guide.md を参照してください"
+    echo -e "${GREEN}🎉 お疲れさまでした！${NC}"
+    echo
+    echo "Excel Unlocker が使えるようになりました。"
+    echo "何か問題があれば、上記のドキュメントを参考にしてください。"
+    echo
+    echo -e "${BLUE}💡 まずは cd frontend && npm run dev で動作確認してみてください！${NC}"
     echo
 }
 

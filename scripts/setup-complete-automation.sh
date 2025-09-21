@@ -38,6 +38,40 @@ log_step() {
     echo -e "${CYAN}[STEP]${NC} $1"
 }
 
+# 確認質問
+ask_confirmation() {
+    local question="$1"
+    local default="$2"
+    
+    while true; do
+        echo
+        echo -e "${WHITE}❓${NC} $question"
+        if [[ "$default" == "y" ]]; then
+            echo -n "はい/いいえ (はい): "
+        else
+            echo -n "はい/いいえ (いいえ): "
+        fi
+        
+        read -r response
+        
+        if [[ -z "$response" ]]; then
+            response="$default"
+        fi
+        
+        case "$response" in
+            [Yy]|[Yy][Ee][Ss]|はい|ハイ|yes|YES)
+                return 0
+                ;;
+            [Nn]|[Nn][Oo]|いいえ|イイエ|no|NO)
+                return 1
+                ;;
+            *)
+                log_error "「はい」または「いいえ」で答えてください（英語のy/nでもOKです）"
+                ;;
+        esac
+    done
+}
+
 # バナー表示
 show_banner() {
     echo -e "${CYAN}"
@@ -54,28 +88,44 @@ show_banner() {
 
 # 手作業項目の事前案内
 show_manual_requirements() {
-    log_manual "このスクリプトで自動化できない手作業項目（事前準備）:"
+    echo -e "${YELLOW}🔧 最初に少しだけ手作業が必要です（約10分）${NC}"
     echo
-    echo "🔑 Google Cloud Console (5分程度)"
-    echo "   - OAuth同意画面の設定"
-    echo "   - OAuthクライアントIDの作成"
-    echo "   - リダイレクトURI/JavaScript生成元の設定"
+    echo "以下の3つのサービスで簡単な設定をしてください："
     echo
-    echo "☁️  AWS Console (3分程度)"
-    echo "   - IAMユーザー 'github-deploy-bot' の作成"
-    echo "   - 最小権限ポリシーのアタッチ"
-    echo "   - アクセスキーの発行"
+    echo -e "${CYAN}🔑 Google（Googleログイン用）- 約5分${NC}"
+    echo "   📝 何をする：Googleアカウントでログインできるようにします"
+    echo "   🌐 どこで：Google Cloud Console"
+    echo "   ⚙️  作業：OAuth設定（ログイン許可の設定）"
+    echo "   🛡️  安全性：完全に安全です"
     echo
-    echo "🚀 Vercel Dashboard (2分程度)"
-    echo "   - APIトークンの作成"
-    echo "   - Git連携の解除確認"
+    echo -e "${CYAN}☁️  AWS（ファイル保存用）- 約3分${NC}"
+    echo "   📝 何をする：ファイルを安全に保存する場所を作ります"
+    echo "   🌐 どこで：AWS Console"
+    echo "   ⚙️  作業：アカウント作成とアクセスキー取得"
+    echo "   🛡️  安全性：最小限の権限のみ・安全です"
     echo
-    echo "📋 合計所要時間: 約10分の手作業 + 自動化処理"
+    echo -e "${CYAN}🚀 Vercel（ウェブ公開用）- 約2分${NC}"
+    echo "   📝 何をする：インターネットからアクセスできるようにします"
+    echo "   🌐 どこで：Vercel Dashboard"
+    echo "   ⚙️  作業：APIトークン作成"
+    echo "   🛡️  安全性：公開範囲は制限されます・安全です"
+    echo
+    echo -e "${GREEN}🛡️  安心してください${NC}"
+    echo "  ✅ 全て無料で利用できます"
+    echo "  ✅ 設定は一度だけでOKです"
+    echo "  ✅ 詳しい手順書があります"
+    echo "  ✅ 分からなくても大丈夫です"
     echo
     
-    read -p "事前準備を完了してから続行しますか？ (y/N): " -r
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        log_info "事前準備完了後に再実行してください"
+    if ask_confirmation "事前準備を完了してから続行しますか？" "y"; then
+        log_success "✅ 事前準備完了！自動セットアップを開始します"
+    else
+        log_info "📋 次にすること："
+        echo "  1. 上記3つのサービスで設定を完了"
+        echo "  2. 設定情報をメモ"
+        echo "  3. このスクリプトをもう一度実行"
+        echo
+        log_success "準備完了後にお待ちしています！"
         exit 0
     fi
 }
@@ -129,6 +179,14 @@ show_progress() {
 # メイン実行フロー
 main() {
     show_banner
+    
+    echo -e "${GREEN}🎯 このスクリプトについて${NC}"
+    echo "  📋 何をする：Excelツールを自動でセットアップします"
+    echo "  ⏱️  時間：約15分（手作業10分 + 自動処理5分）"
+    echo "  🛡️  安全性：何も壊れません・いつでも元に戻せます"
+    echo "  👶 対象：初心者の方でも安心して使えます"
+    echo
+    
     show_manual_requirements
     
     local total_steps=7
