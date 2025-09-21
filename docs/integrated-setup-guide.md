@@ -224,11 +224,12 @@ npm install -g vercel
 # ログイン
 vercel login
 
-# 組織IDの取得
-vercel teams list
+# プロジェクトをリンク（frontendディレクトリで実行）
+cd frontend
+vercel link
 
-# プロジェクトIDの取得
-vercel projects list
+# プロジェクト情報を確認
+vercel project ls
 
 # 診断レポート出力
 python3 scripts/setup-diagnostics.py --output setup-diagnosis.json

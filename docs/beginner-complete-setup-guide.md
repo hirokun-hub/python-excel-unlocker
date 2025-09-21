@@ -590,54 +590,75 @@ S3バケット名: （後で記入）
 
 #### **Step 3: 組織IDとプロジェクトIDの取得**
 
-1. **組織ID（ORG_ID）を取得**
-   ```bash
-   vercel teams list
-   ```
-   
-   **出力例**:
-   ```
-   > Personal Account
-     id: QmVyY2VsVGVhbQ (個人アカウントの場合)
-   
-   > Team: My Company
-     id: team_abc123def456 (チームアカウントの場合)
-   ```
+**方法1: プロジェクトリンク経由（推奨・最も確実）**
 
-2. **プロジェクトIDを取得**
-   ```bash
-   vercel projects list
-   ```
-   
-   **出力例**:
-   ```
-   > excel-unlocker
-     id: prj_AbCdEfGhIj1234
-   ```
-
-3. **取得した情報をメモ帳にコピー**
-   ```
-   組織ID (VERCEL_ORG_ID): QmVyY2VsVGVhbQ (または team_abc123def456)
-   プロジェクトID (VERCEL_PROJECT_ID): prj_AbCdEfGhIj1234
-   ```
-
-#### **Step 4: 代替方法（プロジェクトディレクトリ内で実行）**
-
-プロジェクトをクローンしている場合：
-
-1. **プロジェクトディレクトリに移動**
+1. **frontendディレクトリに移動**
    ```bash
    cd path/to/excel-unlocker/frontend
    ```
+   
+   💡 **注意**: GitHubからクローンしたプロジェクトのfrontendフォルダに移動してください。
 
-2. **プロジェクト情報を確認**
+2. **プロジェクトをVercelにリンク**
+   ```bash
+   vercel link
+   ```
+   
+   **対話式の質問に答える**:
+   ```
+   ? Set up "~/path/to/frontend"? [Y/n] y
+   ? Which scope should contain your project? [Use arrows to move, type to filter]
+   > Your Personal Account (個人アカウントの場合)
+   > Your Team Name (チームアカウントの場合)
+   
+   ? Link to existing project? [y/N] y
+   ? What's the name of your existing project? excel-unlocker
+   ```
+
+3. **プロジェクト情報を確認**
    ```bash
    vercel project ls
    ```
+   
+   **出力例**:
+   ```
+   Project: excel-unlocker
+   ID: prj_AbCdEfGhIj1234
+   Team: Your Team Name (team_abc123def456) または Personal Account (QmVyY2VsVGVhbQ)
+   ```
+
+4. **取得した情報をメモ帳にコピー**
+   ```
+   組織ID (VERCEL_ORG_ID): team_abc123def456 (または QmVyY2VsVGVhbQ)
+   プロジェクトID (VERCEL_PROJECT_ID): prj_AbCdEfGhIj1234
+   ```
+
+**方法2: 直接コマンド（参考）**
+
+組織IDのみを確認したい場合：
+
+1. **現在のユーザー情報を確認**
+   ```bash
+   vercel whoami
+   ```
+
+2. **チーム一覧を確認**
+   ```bash
+   vercel teams list
+   ```
+
+#### **`vercel link`の安全性について**
+
+✅ **完全に安全です**:
+- **非破壊的**: 既存のコードやファイルを変更しません
+- **設定のみ**: ローカルの`.vercel`フォルダに設定ファイルを作成するだけ
+- **リバーシブル**: いつでも`.vercel`フォルダを削除して元に戻せます
+- **推奨方法**: Vercel公式の推奨する正しい方法です
 
 💡 **トラブルシューティング**:
 - **コマンドが見つからない**: Node.jsとnpmが正しくインストールされているか確認
 - **ログインできない**: ブラウザでVercelにログインしているか確認
+- **プロジェクトが見つからない**: Vercelダッシュボードでプロジェクトが作成済みか確認
 - **権限エラー**: 管理者権限でターミナルを実行
 
 ### ✅ Vercel設定完了チェック
