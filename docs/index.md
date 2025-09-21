@@ -9,8 +9,7 @@
 | **すぐに始めたい** | [ローカル開発ガイド](local-development-guide.md) | 開発環境の構築と動作確認 |
 | **設定を管理したい** | [⚙️ 設定管理システムガイド](config-management-guide.md) | **統合設定管理・機密情報保護** |
 | **デプロイしたい** | [デプロイメントガイド](deployment-guide.md) | 段階的デプロイメント手順 |
-| **自動化したい** | [自動化セットアップガイド](automation-setup-guide.md) | ワンコマンドでの環境構築 |
-| **手作業で設定したい** | [手作業参照ガイド](manual-setup-reference-guide.md) | 詳細な手動設定手順 |
+| **自動化したい** | [統合セットアップガイド](integrated-setup-guide.md) | 対話式・自動化セットアップ |
 
 ## 📋 カテゴリ別ドキュメント
 
@@ -18,24 +17,20 @@
 
 | ドキュメント | 内容 | 対象者 |
 |-------------|------|--------|
-| [🔰 初心者向け完全セットアップガイド](beginner-complete-setup-guide.md) | 技術知識不要の詳細セットアップ手順 | **初心者・社内展開** |
 | [🚀 統合セットアップガイド](integrated-setup-guide.md) | 対話式・自動化セットアップシステム | **初心者・社内展開** |
 | [✅ セットアップチェックリスト](setup-checklist.md) | 設定完了確認用チェックリスト | **初心者・管理者** |
 | [❓ よくある質問（FAQ）](beginner-faq.md) | 初心者向けFAQ集 | **初心者・全員** |
 | [🔧 トラブルシューティング診断フローチャート](troubleshooting-flowchart.md) | 問題解決用診断フロー | **初心者・管理者** |
 | [⚙️ 設定管理システムガイド](config-management-guide.md) | **統合設定管理・機密情報保護** | **開発者・運用者** |
 | [ローカル開発ガイド](local-development-guide.md) | 開発環境の構築・テスト実行 | 開発者 |
-| [自動化セットアップガイド](automation-setup-guide.md) | 完全自動化による環境構築 | 開発者・運用者 |
-| [手作業参照ガイド](manual-setup-reference-guide.md) | 手動設定の詳細手順 | 開発者・運用者 |
-| [設定テンプレート](configuration-templates.md) | 各種設定ファイルのテンプレート | 開発者 |
-| [手作業設定索引](manual-setup-index.md) | 手作業設定の一覧 | 開発者 |
+|  |  |  |
 
 ### 🚀 デプロイメント・運用
 
 | ドキュメント | 内容 | 対象者 |
 |-------------|------|--------|
 | [デプロイメントガイド](deployment-guide.md) | 段階的デプロイメント手順 | 運用者 |
-| [実装完了サマリー](implementation-complete-summary.md) | プロジェクト完了状況の概要 | 全員 |
+|  |  |  |
 | [統合テストガイド](integration-testing-guide.md) | 統合テスト実行手順 | 開発者・QA |
 | [トラブルシューティング診断ガイド](troubleshooting-diagnostic-guide.md) | 問題解決手順 | 運用者 |
 
@@ -43,7 +38,6 @@
 
 | ドキュメント | 内容 | 対象者 |
 |-------------|------|--------|
-| [JWT認証移行](jwt-authentication-migration.md) | JWT認証システムの実装 | 開発者 |
 | [認証統合ガイド](authentication-integration-guide.md) | 認証システムの統合手順 | 開発者 |
 | [フロントエンドトークンセキュリティ](frontend-token-security-implementation.md) | フロントエンドのトークン保護 | 開発者 |
 | [GitHub OIDC移行](github-oidc-migration.md) | GitHub OIDCによるセキュア認証 | 運用者 |
@@ -57,7 +51,6 @@
 |-------------|------|--------|
 | [ファイルセキュリティ実装](file-security-implementation.md) | ファイル安全性チェック | 開発者 |
 | [S3制約アップロード実装](s3-constrained-upload-implementation.md) | S3アップロード制約 | 開発者 |
-| [レート制限・WAF実装サマリー](rate-limiting-waf-implementation-summary.md) | DDoS・総当たり攻撃対策 | 運用者 |
 | [レート制限・WAFガイド](rate-limiting-waf-guide.md) | レート制限の詳細設定 | 運用者 |
 
 ### 👥 ユーザー管理・運用
@@ -65,7 +58,7 @@
 | ドキュメント | 内容 | 対象者 |
 |-------------|------|--------|
 | [ユーザー管理運用ガイド](user-management-operations-guide.md) | ユーザー管理の運用手順 | 管理者 |
-| [ユーザー管理クイックリファレンス](user-management-quick-reference.md) | ユーザー管理の簡易手順 | 管理者 |
+|  |  |  |
 
 ### 🤖 自動化・効率化
 
@@ -73,7 +66,6 @@
 |-------------|------|--------|
 | [⚙️ 設定管理システムガイド](config-management-guide.md) | **統合設定管理・環境別設定・機密情報保護** | **開発者・運用者** |
 | [タスク自動化ガイド](task-automation-guide.md) | タスク完了時の自動コミット・プッシュ | 開発者 |
-| [クイックリファレンススクリーンショット](quick-reference-screenshots.md) | 設定画面のスクリーンショット集 | 全員 |
 
 ## 🔧 ランブック（運用手順書）
 
@@ -82,25 +74,22 @@
 | ランブック | 内容 | 対象者 |
 |-----------|------|--------|
 | [Google OAuth設定](runbook/google-oauth-setup.md) | Google OAuth設定の詳細手順 | 開発者・運用者 |
+| [Vercelデプロイ(詳細ガイド)](vercel-setup-detailed-guide.md) | Hobby+Team構成/GitHub Actions前提のデプロイ | 開発者・運用者 |
 | [Vercelプロジェクト設定](runbook/vercel-project-setup_and-detach-github.md) | Vercel設定とGit連携解除 | 開発者・運用者 |
 | [GitHub Actions・AWS・Vercel設定](runbook/github-actions_secrets-and-iam-for-aws_and-vercel.md) | CI/CD設定の詳細手順 | 運用者 |
 
 ## 📁 アーカイブ
 
-過去のドキュメントや参考資料は [`archive/`](archive/) ディレクトリに保管されています：
-
-- **開発資料**: 設計書・企画書・技術調査資料
-- **統合資料**: 過去の統合テスト・プロジェクト資料
-- **セキュリティ資料**: セキュリティ分析・対策資料
+過去資料や冗長になったドキュメントは [`archive/`](archive/) に移動しています。
+最新の手順や設定は本index配下の各ガイドを参照してください。
 
 ## 🎯 作業フロー別ガイド
 
 ### 🔰 初心者・社内展開
 1. [🚀 統合セットアップガイド](integrated-setup-guide.md) - 対話式・自動化セットアップ（**推奨**）
-2. [🔰 初心者向け完全セットアップガイド](beginner-complete-setup-guide.md) - 技術知識不要の環境構築
-3. [✅ セットアップチェックリスト](setup-checklist.md) - 設定完了確認
-4. [❓ よくある質問（FAQ）](beginner-faq.md) - 問題解決
-5. [🔧 トラブルシューティング診断フローチャート](troubleshooting-flowchart.md) - 問題診断
+2. [✅ セットアップチェックリスト](setup-checklist.md) - 設定完了確認
+3. [❓ よくある質問（FAQ）](beginner-faq.md) - 問題解決
+4. [🔧 トラブルシューティング診断フローチャート](troubleshooting-flowchart.md) - 問題診断
 
 ### 新規開発者のオンボーディング
 1. [ローカル開発ガイド](local-development-guide.md) - 環境構築
@@ -110,14 +99,12 @@
 
 ### 本番環境デプロイ
 1. [⚙️ 設定管理システムガイド](config-management-guide.md) - **統合設定管理**
-2. [自動化セットアップガイド](automation-setup-guide.md) - 自動化環境構築
-3. [デプロイメントガイド](deployment-guide.md) - 段階的デプロイ
-4. [ユーザー管理運用ガイド](user-management-operations-guide.md) - ユーザー管理
+2. [デプロイメントガイド](deployment-guide.md) - 段階的デプロイ
+3. [ユーザー管理運用ガイド](user-management-operations-guide.md) - ユーザー管理
 
 ### セキュリティ強化
 1. [セキュリティ強化](security-enhancements.md) - 包括的対策
-2. [JWT認証移行](jwt-authentication-migration.md) - 認証強化
-3. [ファイルセキュリティ実装](file-security-implementation.md) - ファイル保護
+2. [ファイルセキュリティ実装](file-security-implementation.md) - ファイル保護
 
 ### トラブルシューティング
 1. [トラブルシューティング診断ガイド](troubleshooting-diagnostic-guide.md) - 問題診断
@@ -126,7 +113,7 @@
 
 ## 📊 ドキュメント管理情報
 
-- **最終更新**: 2025年1月19日
+- **最終更新**: 2025年9月21日
 - **総ドキュメント数**: 30個（メインドキュメント）+ ランブック3個 + アーカイブ
 - **管理者**: 開発チーム
 - **更新頻度**: 機能追加・変更時に随時更新

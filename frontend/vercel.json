@@ -21,6 +21,9 @@
       "maxDuration": 30
     }
   },
+  "github": {
+    "enabled": false
+  },
 
   "rewrites": [
     {
