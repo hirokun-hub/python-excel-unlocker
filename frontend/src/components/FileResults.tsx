@@ -64,7 +64,7 @@ export function FileResults({ results }: { results: ProcessResult[] }) {
         throw new Error(errorData.error || "アップロードに失敗しました");
       }
 
-      const result = await response.json();
+      await response.json();
       toast.success("Google Driveに保存しました", { 
         id: toastId, 
         description: file.fileName 
