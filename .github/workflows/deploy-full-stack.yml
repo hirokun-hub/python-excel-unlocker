@@ -32,7 +32,7 @@ jobs:
   deploy-vercel:
     name: Deploy Frontend (Vercel)
     needs: deploy-aws
-    uses: ./.github/workflows/deploy-vercel.yml
+    uses: ./.github/workflows/deploy-vercel-reusable.yml
     with:
       environment: ${{ github.event.inputs.environment }}
       api_url: ${{ needs.deploy-aws.outputs.api-url }}
