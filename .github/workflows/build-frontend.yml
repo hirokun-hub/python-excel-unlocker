@@ -112,6 +112,7 @@ PY
           else
             vercel build --cwd frontend --token=${{ secrets.VERCEL_TOKEN }}
           fi
+          vercel build --cwd frontend --token=${{ secrets.VERCEL_TOKEN }} ${{ steps.build-meta.outputs.build_arg }}
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
