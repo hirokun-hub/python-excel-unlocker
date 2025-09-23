@@ -43,8 +43,14 @@ export async function getRecaptchaToken(action: string = 'submit'): Promise<stri
     if (!window.grecaptcha) {
       await loadRecaptchaScript(config.recaptchaSiteKey);
     }
-    
-    return await window.grecaptcha.execute(config.recaptchaSiteKey, { action });
+
+    const grecaptcha = window.grecaptcha;
+    if (!grecaptcha) {
+      console.warn('reCAPTCHA global is unavailable after script load');
+      return null;
+    }
+
+    return await grecaptcha.execute(config.recaptchaSiteKey, { action });
   } catch (error) {
     console.warn('reCAPTCHA token generation failed:', error);
     return null;
@@ -66,7 +72,7 @@ export async function getTurnstileToken(): Promise<string | null> {
     if (!window.turnstile) {
       await loadTurnstileScript();
     }
-    
+
     return new Promise((resolve, reject) => {
       const containerId = 'turnstile-container-' + Date.now();
       const container = document.createElement('div');
@@ -74,7 +80,14 @@ export async function getTurnstileToken(): Promise<string | null> {
       container.style.display = 'none';
       document.body.appendChild(container);
       
-      window.turnstile.render(container, {
+      const turnstile = window.turnstile;
+      if (!turnstile) {
+        document.body.removeChild(container);
+        reject(new Error('Turnstile global is unavailable after script load'));
+        return;
+      }
+
+      turnstile.render(container, {
         sitekey: config.turnstileSiteKey!,
         callback: (token: string) => {
           document.body.removeChild(container);
