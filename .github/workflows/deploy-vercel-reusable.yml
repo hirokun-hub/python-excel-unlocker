@@ -35,6 +35,43 @@ jobs:
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
 
+      - name: Pull Vercel environment information
+        run: |
+          case "${{ inputs.environment }}" in
+            production)
+              VERCEL_ENV="production"
+              ;;
+            staging)
+              VERCEL_ENV="preview"
+              ;;
+            *)
+              VERCEL_ENV="development"
+              ;;
+          esac
+          vercel pull --cwd frontend --yes --environment=$VERCEL_ENV --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Normalize Vercel project root
+        run: |
+          python - <<'PY'
+import json
+import pathlib
+
+project_file = pathlib.Path("frontend/.vercel/project.json")
+if not project_file.exists():
+    raise SystemExit("project.json not found after vercel pull")
+
+data = json.loads(project_file.read_text())
+settings = data.get("projectSettings") or {}
+
+if settings.get("rootDirectory") not in (None, "", "."):
+    settings["rootDirectory"] = ""
+    data["projectSettings"] = settings
+    project_file.write_text(json.dumps(data, indent=2) + "\n")
+PY
+
       - name: Prepare deployment metadata
         id: deploy-meta
         run: |
