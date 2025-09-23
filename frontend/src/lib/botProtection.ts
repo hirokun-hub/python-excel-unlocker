@@ -39,12 +39,14 @@ export async function getRecaptchaToken(action: string = 'submit'): Promise<stri
   }
   
   try {
+    let grecaptcha = window.grecaptcha;
+
     // reCAPTCHA v3 スクリプトの動的読み込み
-    if (!window.grecaptcha) {
+    if (!grecaptcha) {
       await loadRecaptchaScript(config.recaptchaSiteKey);
+      grecaptcha = window.grecaptcha;
     }
 
-    const grecaptcha = window.grecaptcha;
     if (!grecaptcha) {
       console.warn('reCAPTCHA global is unavailable after script load');
       return null;
@@ -67,26 +69,27 @@ export async function getTurnstileToken(): Promise<string | null> {
     return null;
   }
   
+  const containerId = 'turnstile-container-' + Date.now();
+  const container = document.createElement('div');
+  container.id = containerId;
+  container.style.display = 'none';
+  document.body.appendChild(container);
+
   try {
+    let turnstile = window.turnstile;
+
     // Turnstile スクリプトの動的読み込み
-    if (!window.turnstile) {
+    if (!turnstile) {
       await loadTurnstileScript();
+      turnstile = window.turnstile;
     }
 
-    return new Promise((resolve, reject) => {
-      const containerId = 'turnstile-container-' + Date.now();
-      const container = document.createElement('div');
-      container.id = containerId;
-      container.style.display = 'none';
-      document.body.appendChild(container);
-      
-      const turnstile = window.turnstile;
-      if (!turnstile) {
-        document.body.removeChild(container);
-        reject(new Error('Turnstile global is unavailable after script load'));
-        return;
-      }
+    if (!turnstile) {
+      document.body.removeChild(container);
+      throw new Error('Turnstile global is unavailable after script load');
+    }
 
+    return await new Promise((resolve, reject) => {
       turnstile.render(container, {
         sitekey: config.turnstileSiteKey!,
         callback: (token: string) => {
@@ -100,6 +103,9 @@ export async function getTurnstileToken(): Promise<string | null> {
       });
     });
   } catch (error) {
+    if (document.body.contains(container)) {
+      document.body.removeChild(container);
+    }
     console.warn('Turnstile token generation failed:', error);
     return null;
   }
