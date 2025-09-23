@@ -5,7 +5,7 @@ import { useEffect, useState } from "react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Download, Loader2 } from "lucide-react"
-import type { ProcessResult } from "@/app/page"
+import type { ProcessResult } from "@/types/process-result"
 
 const LS_KEY = "driveFolderSelection"
 
