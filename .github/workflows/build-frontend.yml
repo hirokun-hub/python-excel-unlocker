@@ -1,0 +1,113 @@
+name: Build Frontend
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: 'The deployment environment (development, staging, production)'
+        required: true
+        type: string
+      api_url:
+        description: 'The API Gateway URL (optional)'
+        required: false
+        type: string
+    outputs:
+      build-success:
+        description: "Indicates whether the build was successful"
+        value: ${{ jobs.build.outputs.build-success }}
+      api-url:
+        description: "The API URL used for the build"
+        value: ${{ jobs.build.outputs.api-url }}
+
+jobs:
+  build:
+    name: Build with Vercel
+    runs-on: ubuntu-latest
+    outputs:
+      build-success: ${{ steps.set-output.outputs.build-success }}
+      api-url: ${{ steps.build-meta.outputs.api_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Prepare build metadata
+        id: build-meta
+        run: |
+          ENVIRONMENT="${{ inputs.environment }}"
+          API_URL="${{ inputs.api_url }}"
+
+          if [ -z "$API_URL" ]; then
+            case "$ENVIRONMENT" in
+              production)
+                API_URL="https://api.excel-unlocker.prod.amazonaws.com/Prod"
+                ;;
+              staging)
+                API_URL="https://api.excel-unlocker.staging.amazonaws.com/Prod"
+                ;;
+              *)
+                API_URL="https://api.excel-unlocker.dev.amazonaws.com/Prod"
+                ;;
+            esac
+          fi
+
+          if [ "$ENVIRONMENT" = "production" ]; then
+            VERCEL_ENV="production"
+            BUILD_ARG="--prod"
+          elif [ "$ENVIRONMENT" = "staging" ]; then
+            VERCEL_ENV="preview"
+            BUILD_ARG=""
+          else
+            VERCEL_ENV="development"
+            BUILD_ARG=""
+          fi
+
+          echo "api_url=$API_URL" >> $GITHUB_OUTPUT
+          echo "vercel_env=$VERCEL_ENV" >> $GITHUB_OUTPUT
+          echo "build_arg=$BUILD_ARG" >> $GITHUB_OUTPUT
+
+      - name: Pull Vercel environment information
+        working-directory: frontend
+        run: vercel pull --yes --environment=${{ steps.build-meta.outputs.vercel_env }} --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Build project artifacts with Vercel
+        working-directory: frontend
+        run: |
+          ARGS="${{ steps.build-meta.outputs.build_arg }}"
+          if [ -n "$ARGS" ]; then
+            vercel build $ARGS --token=${{ secrets.VERCEL_TOKEN }}
+          else
+            vercel build --token=${{ secrets.VERCEL_TOKEN }}
+          fi
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          NEXT_PUBLIC_API_URL: ${{ steps.build-meta.outputs.api_url }}
+          NEXT_PUBLIC_USE_MOCK_API: 'false'
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vercel-build-output
+          path: frontend/.vercel/output
+          retention-days: 1
+
+      - name: Set build output
+        id: set-output
+        run: echo "build-success=true" >> $GITHUB_OUTPUT

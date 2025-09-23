@@ -8,17 +8,24 @@ on:
     paths:
       - 'frontend/**'
       - '.github/workflows/deploy-frontend.yml'
+      - '.github/workflows/validate-frontend.yml'
+      - '.github/workflows/build-frontend.yml'
+      - '.github/workflows/deploy-vercel-reusable.yml'
+      - '.github/workflows/e2e-test-frontend.yml'
 
   pull_request:
     branches:
       - main
     paths:
       - 'frontend/**'
+      - '.github/workflows/deploy-frontend.yml'
+      - '.github/workflows/validate-frontend.yml'
+      - '.github/workflows/build-frontend.yml'
 
   workflow_dispatch:
     inputs:
       environment:
-        description: 'デプロイ環境'
+        description: 'Deployment environment'
         required: true
         default: 'development'
         type: choice
@@ -26,23 +33,44 @@ on:
           - development
           - staging
           - production
-      skip_deploy:
-        description: 'デプロイ処理をスキップしテストのみ実行'
+      skip_e2e:
+        description: 'Skip E2E tests after deployment'
         required: false
-        default: false
+        default: true
         type: boolean
-      api_url:
-        description: 'API Gateway URL（任意）'
-        required: false
-        default: ''
-        type: string
 
 jobs:
-  frontend:
-    name: Frontend validation and deployment
-    uses: ./.github/workflows/deploy-vercel.yml
+  validate:
+    name: Validate Frontend
+    uses: ./.github/workflows/validate-frontend.yml
+    secrets: inherit
+
+  build:
+    name: Build Frontend
+    needs: validate
+    uses: ./.github/workflows/build-frontend.yml
     with:
-      environment: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'staging') || (github.ref == 'refs/heads/develop' && 'development') || (github.base_ref == 'main' && 'staging') || 'development' }}
-      skip_deploy: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.event.inputs.skip_deploy == 'true') }}
-      api_url: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.api_url || '' }}
+      environment: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'staging') || (github.ref == 'refs/heads/develop' && 'development') || (github.base_ref == 'main' && 'staging') || 'development' }}
+      api_url: '' # Let the build workflow determine it
+    secrets: inherit
+
+  deploy:
+    name: Deploy to Vercel
+    needs: build
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    uses: ./.github/workflows/deploy-vercel-reusable.yml
+    with:
+      environment: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'staging') || (github.ref == 'refs/heads/develop' && 'development') || (github.base_ref == 'main' && 'staging') || 'development' }}
+    secrets: inherit
+
+  e2e-test:
+    name: E2E Test Deployed App
+    needs: [build, deploy]
+    if: |
+      (github.event_name == 'push' && github.ref != 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment != 'production' && github.event.inputs.skip_e2e == 'false')
+    uses: ./.github/workflows/e2e-test-frontend.yml
+    with:
+      deployment-url: ${{ needs.deploy.outputs.vercel-url }}
+      api-url: ${{ needs.build.outputs.api-url }}
     secrets: inherit
