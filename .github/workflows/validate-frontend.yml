@@ -1,4 +1,4 @@
-name: Validate Frontend
+name: '[Reusable] Frontend - Validate'
 
 on:
   workflow_call:

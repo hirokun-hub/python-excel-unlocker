@@ -1,4 +1,4 @@
-name: Deploy Frontend to Vercel (Reusable)
+name: '[Reusable] Frontend - Deploy to Vercel'
 
 on:
   workflow_call:

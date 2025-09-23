@@ -1,4 +1,4 @@
-name: E2E Test Frontend
+name: '[Reusable] Frontend - E2E Test'
 
 on:
   workflow_call:
