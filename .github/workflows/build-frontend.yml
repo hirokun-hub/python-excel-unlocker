@@ -80,20 +80,18 @@ jobs:
           echo "build_arg=$BUILD_ARG" >> $GITHUB_OUTPUT
 
       - name: Pull Vercel environment information
-        working-directory: frontend
-        run: vercel pull --yes --environment=${{ steps.build-meta.outputs.vercel_env }} --token=${{ secrets.VERCEL_TOKEN }}
+        run: vercel pull --cwd frontend --yes --environment=${{ steps.build-meta.outputs.vercel_env }} --token=${{ secrets.VERCEL_TOKEN }}
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
       - name: Build project artifacts with Vercel
-        working-directory: frontend
         run: |
           ARGS="${{ steps.build-meta.outputs.build_arg }}"
           if [ -n "$ARGS" ]; then
-            vercel build $ARGS --token=${{ secrets.VERCEL_TOKEN }}
+            vercel build --cwd frontend --token=${{ secrets.VERCEL_TOKEN }} $ARGS
           else
-            vercel build --token=${{ secrets.VERCEL_TOKEN }}
+            vercel build --cwd frontend --token=${{ secrets.VERCEL_TOKEN }}
           fi
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
