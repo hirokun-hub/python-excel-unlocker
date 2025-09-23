@@ -1,7 +1,12 @@
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/auth"
 import { getToken } from "next-auth/jwt"
 import { NextRequest } from "next/server"
+import type { JWT } from "next-auth/jwt"
+
+type TokenWithServerFields = JWT & {
+  serverAccessToken?: string
+  refreshToken?: string
+  expiresAt?: number
+}
 
 /**
  * サーバーサイドでのみアクセス可能なトークン取得
@@ -11,14 +16,16 @@ export async function getServerAccessToken(req?: NextRequest): Promise<string | 
   try {
     if (req) {
       // API ルートでの使用
-      const token = await getToken({ 
-        req, 
-        secret: process.env.NEXTAUTH_SECRET 
+      const token = await getToken({
+        req,
+        secret: process.env.NEXTAUTH_SECRET
       })
-      
+
+      const extendedToken = token as TokenWithServerFields | null
+
       // トークンの有効性を確認
-      const accessToken = (token as any)?.serverAccessToken
-      const expiresAt = (token as any)?.expiresAt
+      const accessToken = extendedToken?.serverAccessToken
+      const expiresAt = extendedToken?.expiresAt
       
       if (!accessToken) {
         return null
@@ -47,11 +54,12 @@ export async function getServerAccessToken(req?: NextRequest): Promise<string | 
  */
 export async function getServerRefreshToken(req: NextRequest): Promise<string | null> {
   try {
-    const token = await getToken({ 
-      req, 
-      secret: process.env.NEXTAUTH_SECRET 
+    const token = await getToken({
+      req,
+      secret: process.env.NEXTAUTH_SECRET
     })
-    return (token as any)?.refreshToken || null
+    const extendedToken = token as TokenWithServerFields | null
+    return extendedToken?.refreshToken ?? null
   } catch (error) {
     console.error("Failed to get server refresh token:", error)
     return null
