@@ -3,6 +3,7 @@
  */
 import { getSession } from "next-auth/react"
 import { getBotProtectionTokens, type BotProtectionToken } from './botProtection'
+import type { ProcessResult } from '@/types/process-result'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 
@@ -167,3 +168,37 @@ export async function uploadFileToS3(uploadUrl: string, file: File, uploadFields
 
   return response
 }
+
+export type UnlockFilePayload = {
+  s3_key: string
+  original_name: string
+}
+
+type UnlockFilesResponse = {
+  success: boolean
+  results: ProcessResult[]
+}
+
+/**
+ * 複数ファイルのExcel解除処理
+ */
+export async function unlockFiles(files: UnlockFilePayload[], passwords: string[]) {
+  if (!Array.isArray(files) || files.length === 0) {
+    throw new Error('解除するファイル情報がありません')
+  }
+
+  const data = await apiCall('/unlock', {
+    method: 'POST',
+    body: JSON.stringify({
+      files,
+      passwords,
+    }),
+  })
+
+  if (typeof data.success !== 'boolean' || !Array.isArray(data.results)) {
+    throw new Error('Excel解除レスポンスの形式が不正です')
+  }
+
+  return data as UnlockFilesResponse
+}
+
