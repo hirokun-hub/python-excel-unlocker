@@ -111,8 +111,20 @@
           "type": "object",
           "required": ["clientId", "clientSecret", "redirectUri"],
           "properties": {
-            "clientId": {"type": "string"},
-            "clientSecret": {"type": "string"},
+            "clientId": {
+              "type": "string",
+              "not": {
+                "pattern": "^YOUR_"
+              },
+              "description": "Google OAuth Client ID (プレースホルダー不可)"
+            },
+            "clientSecret": {
+              "type": "string",
+              "not": {
+                "pattern": "^YOUR_"
+              },
+              "description": "Google OAuth Client Secret (プレースホルダー不可)"
+            },
             "redirectUri": {
               "type": "string",
               "format": "uri"
@@ -135,12 +147,30 @@
               "type": "array",
               "items": {
                 "type": "string",
-                "format": "email"
+                "format": "email",
+                "not": {
+                  "pattern": "@example\\.com$"
+                }
               },
-              "minItems": 1
+              "minItems": 1,
+              "description": "許可ユーザーリスト (example.comドメイン不可)"
             },
-            "jwtSecret": {"type": "string"},
-            "sessionSecret": {"type": "string"}
+            "jwtSecret": {
+              "type": "string",
+              "minLength": 32,
+              "not": {
+                "pattern": "^YOUR_"
+              },
+              "description": "JWT署名用シークレット (32文字以上、プレースホルダー不可)"
+            },
+            "sessionSecret": {
+              "type": "string",
+              "minLength": 32,
+              "not": {
+                "pattern": "^YOUR_"
+              },
+              "description": "セッション暗号化用シークレット (32文字以上、プレースホルダー不可)"
+            }
           }
         }
       }
