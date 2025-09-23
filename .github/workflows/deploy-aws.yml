@@ -1,4 +1,4 @@
-name: Deploy Backend to AWS
+name: '[Reusable] Backend - Deploy to AWS'
 
 on:
   workflow_dispatch:
