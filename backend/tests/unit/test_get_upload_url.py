@@ -21,13 +21,24 @@ class TestGetUploadUrl:
     # setup_envフィクスチャを削除し、各テストメソッドで個別に環境変数を設定
     
     @patch('get_upload_url.S3_BUCKET_NAME', 'test-excel-unlock-bucket')
-    @patch('s3_utils.generate_presigned_url')
+    @patch('s3_utils.generate_constrained_upload_url')
     @patch('auth_utils.verify_google_jwt')
     def test_successful_url_generation(self, mock_verify_jwt, mock_generate_url):
         """正常な署名付きURL生成のテスト"""
         # モックの設定
         mock_verify_jwt.return_value = mock_jwt_verification('test@example.com')
-        mock_generate_url.return_value = 'https://test-bucket.s3.amazonaws.com/uploads/test-file.xlsx?signature=...'
+        mock_generate_url.return_value = {
+            'url': 'https://test-bucket.s3.amazonaws.com/',
+            'fields': {
+                'key': 'uploads/generated-key.xlsx',
+                'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'policy': 'dummy-policy',
+                'x-amz-signature': 'dummy-signature',
+                'x-amz-credential': 'dummy-credential',
+                'x-amz-date': '20250101T000000Z',
+                'x-amz-server-side-encryption': 'AES256'
+            }
+        }
         
         # 環境変数設定
         with TestEnvironment.temporary_env(**TestEnvironment.get_test_env_vars()):
@@ -49,9 +60,11 @@ class TestGetUploadUrl:
             body = json.loads(result['body'])
             assert body['success'] is True
             assert 'uploadUrl' in body
+            assert 'uploadFields' in body
             assert 'fileKey' in body
             assert 'expiresIn' in body
             assert body['expiresIn'] == 60
+            assert body['method'] == 'POST'
             
             # モック呼び出し検証
             mock_verify_jwt.assert_called_once()
@@ -175,16 +188,18 @@ class TestGetUploadUrl:
             assert body['success'] is False
             assert body['error'] == 'file_too_large'
     
+    @patch('get_upload_url.S3_BUCKET_NAME', None)
     @patch('auth_utils.verify_google_jwt')
     def test_url_generation_failure(self, mock_verify_jwt):
         """署名付きURL生成失敗のテスト（環境変数未設定）"""
         # モックの設定
         mock_verify_jwt.return_value = mock_jwt_verification('test@example.com')
-        
+
         # S3_BUCKET_NAME環境変数を削除してテスト（S3_BUCKET_NAMEはグローバル変数なのでNoneのまま）
         with TestEnvironment.temporary_env(
             ALLOWED_USERS='test@example.com', 
-            GOOGLE_CLIENT_ID='test-client-id.apps.googleusercontent.com'
+            GOOGLE_CLIENT_ID='test-client-id.apps.googleusercontent.com',
+            S3_BUCKET_NAME=''
         ):
             event = create_test_event(
                 email='test@example.com',

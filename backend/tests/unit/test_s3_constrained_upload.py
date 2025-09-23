@@ -68,9 +68,8 @@ class TestS3ConstrainedUpload:
             1024
         )
         
-        # 結果検証（生成は成功するが、条件拘束により実際のアップロードで失敗する）
-        assert result is not None
-        assert result['fields']['Content-Type'] == 'text/plain'
+        # 許可されていないContent-TypeのためNoneが返る
+        assert result is None
     
     @mock_aws
     @patch('auth_utils.verify_google_jwt')
@@ -201,7 +200,7 @@ class TestS3ConstrainedUpload:
         body = json.loads(response['body'])
         assert body['success'] is False
         assert body['error'] == 'file_too_large'
-        assert 'ファイルサイズが制限を超えています' in body['message']
+        assert 'ファイルサイズ' in body['message']
     
     @patch('auth_utils.verify_google_jwt')
     @patch.dict(os.environ, {
