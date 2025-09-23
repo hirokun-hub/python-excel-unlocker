@@ -1,0 +1,74 @@
+name: Deploy Frontend to Vercel (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: 'The deployment environment (development, staging, production)'
+        required: true
+        type: string
+    outputs:
+      deploy-success:
+        description: "Indicates whether the deployment was successful"
+        value: ${{ jobs.deploy.outputs.deploy-success }}
+      vercel-url:
+        description: "The URL of the Vercel deployment"
+        value: ${{ jobs.deploy.outputs.vercel-url }}
+
+jobs:
+  deploy:
+    name: Deploy to Vercel
+    runs-on: ubuntu-latest
+    outputs:
+      deploy-success: ${{ steps.set-output.outputs.deploy-success }}
+      vercel-url: ${{ steps.deploy.outputs.vercel-url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: vercel-build-output
+          path: frontend/.vercel/output
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Prepare deployment metadata
+        id: deploy-meta
+        run: |
+          ENVIRONMENT="${{ inputs.environment }}"
+          if [ "$ENVIRONMENT" = "production" ]; then
+            DEPLOY_ARG="--prod"
+          else
+            DEPLOY_ARG=""
+          fi
+          echo "deploy_arg=$DEPLOY_ARG" >> $GITHUB_OUTPUT
+
+      - name: Deploy to Vercel
+        id: deploy
+        working-directory: frontend
+        run: |
+          DEPLOY_ARGS="--prebuilt --token=${{ secrets.VERCEL_TOKEN }} --yes"
+          if [ "${{ steps.deploy-meta.outputs.deploy_arg }}" = "--prod" ]; then
+            DEPLOY_ARGS="$DEPLOY_ARGS --prod"
+          fi
+
+          DEPLOYMENT_OUTPUT=$(vercel deploy $DEPLOY_ARGS)
+          echo "$DEPLOYMENT_OUTPUT"
+
+          DEPLOYMENT_URL=$(echo "$DEPLOYMENT_OUTPUT" | tail -n1 | tr -d '[:space:]')
+          if [ -z "$DEPLOYMENT_URL" ]; then
+            DEPLOYMENT_URL="https://excel-unlocker.vercel.app"
+          fi
+
+          echo "Deployment URL: $DEPLOYMENT_URL"
+          echo "vercel-url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Set deployment output
+        id: set-output
+        run: echo "deploy-success=true" >> $GITHUB_OUTPUT

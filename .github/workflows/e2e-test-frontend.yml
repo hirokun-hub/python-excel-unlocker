@@ -1,0 +1,53 @@
+name: E2E Test Frontend
+
+on:
+  workflow_call:
+    inputs:
+      deployment-url:
+        description: 'The URL of the deployed application to test against'
+        required: true
+        type: string
+      api-url:
+        description: 'The API URL for the E2E tests'
+        required: true
+        type: string
+    outputs:
+      e2e-test-success:
+        description: "Indicates whether the E2E tests were successful"
+        value: ${{ jobs.e2e-test.outputs.e2e-test-success }}
+
+jobs:
+  e2e-test:
+    name: Run E2E Tests
+    runs-on: ubuntu-latest
+    outputs:
+      e2e-test-success: ${{ steps.set-output.outputs.e2e-test-success }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install Playwright browsers
+        working-directory: frontend
+        run: npx playwright install --with-deps
+
+      - name: Run E2E tests
+        working-directory: frontend
+        run: npx playwright test
+        env:
+          BASE_URL: ${{ inputs.deployment-url }}
+          NEXT_PUBLIC_API_URL: ${{ inputs.api-url }}
+
+      - name: Set E2E test output
+        id: set-output
+        run: echo "e2e-test-success=true" >> $GITHUB_OUTPUT
