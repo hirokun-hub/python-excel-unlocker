@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
-import axios, { AxiosResponse } from 'axios';
 import { Toaster, toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,46 +12,13 @@ import FileUpload from '../components/FileUpload';
 import { FileResults } from '@/components/FileResults'; // Import FileResults
 import CSPTest from '@/components/CSPTest'; // CSPテストコンポーネント
 import { File as FileIcon, X, AlertCircle } from 'lucide-react';
+import { getUploadUrl, unlockFiles, uploadFileToS3, type UnlockFilePayload } from '@/lib/api';
+import type { ProcessResult } from '@/types/process-result';
 
-// --- API Client Logic ---
-const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
-});
 const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_API === 'true';
 
 // --- Type Definitions ---
-type FileInfo = { filename: string; size: number; contentType: string; };
-type PresignedUrlResponseItem = { filename: string; s3_key: string; upload_url: string; };
-type UnlockFile = { s3_key: string; original_name: string; };
-type UnlockSyncResponse = { results: ProcessResult[]; };
-type UnlockAsyncResponse = { job_id: string; };
-type JobStatusResponse = { job_id: string; state: string; progress: { done: number; total: number; }; results: ProcessResult[]; };
-export type ProcessResult = { fileName: string; status: 'success' | 'error'; message?: string; downloadUrl?: string; };
 type UploadProgress = { [key: string]: { progress: number; }; };
-
-// --- API Functions ---
-const getPresignedUrls = async (files: FileInfo[]): Promise<{ items: PresignedUrlResponseItem[] }> => {
-  if (USE_MOCK) return { items: files.map(f => ({ filename: f.filename, s3_key: `mock/${f.filename}`, upload_url: 'mock://put' })) };
-  const response = await api.post('/presigned-urls', { files });
-  return response.data;
-};
-
-const unlock = async (files: UnlockFile[], passwords: string[]): Promise<AxiosResponse<UnlockSyncResponse | UnlockAsyncResponse>> => {
-  if (USE_MOCK) {
-    const results: ProcessResult[] = files.map(f => ({
-      fileName: f.original_name.replace(/\.xlsx?$/i, '_unlocked.xlsx'),
-      status: 'success',
-    }));
-    return { status: 200, data: { results } } as unknown as AxiosResponse<UnlockSyncResponse>;
-  }
-  return api.post('/unlock', { files, passwords });
-};
-
-const getProcessingStatus = async (jobId: string): Promise<JobStatusResponse> => {
-  if (USE_MOCK) return { job_id: jobId, state: 'completed', progress: { done: 1, total: 1 }, results: [] };
-  const response = await api.get(`/status?job_id=${jobId}`);
-  return response.data;
-};
 
 // --- Page Components ---
 const Header = () => {
@@ -93,11 +59,14 @@ export default function Home() {
   const handleFilesAdded = (files: File[]) => setSelectedFiles(prev => [...prev, ...files]);
 
   const handleProcessClick = async () => {
-    if (selectedFiles.length === 0) { setError("ファイルが選択されていません。"); return; }
-    if (!pass1 && !pass2) { setError("少なくとも1つのパスワードを入力してください。"); return; }
+    if (selectedFiles.length === 0) { setError('ファイルが選択されていません。'); return; }
+    if (!pass1 && !pass2) { setError('少なくとも1つのパスワードを入力してください。'); return; }
+    if (status !== 'authenticated') { setError('Googleアカウントでサインインしてから操作してください。'); return; }
+
     setError(null);
+    const passwords = [pass1, pass2].filter(Boolean);
     setProcessingStatus('uploading');
-    toast.info("アップロード処理を開始します...");
+    toast.info('アップロード処理を開始します...');
 
     try {
       if (USE_MOCK) {
@@ -108,10 +77,8 @@ export default function Home() {
           }
         });
         await Promise.all(uploadPromises);
-        toast.success("（デモ）全ファイルのアップロードが完了しました。");
+        toast.success('（デモ）全ファイルのアップロードが完了しました。');
         setProcessingStatus('processing');
-        const passwords = [pass1, pass2].filter(Boolean);
-        if (passwords.length === 0) { throw new Error("少なくとも1つのパスワードを入力してください。"); }
         setJobProgress({ done: 0, total: selectedFiles.length });
         const mockResults: ProcessResult[] = [];
         for (const f of selectedFiles) {
@@ -124,55 +91,51 @@ export default function Home() {
         }
         setResults(mockResults);
         setProcessingStatus('done');
-        toast.success("（デモ）処理が完了しました。");
+        toast.success('（デモ）処理が完了しました。');
         return;
       }
 
-      const fileInfos = selectedFiles.map(f => ({ filename: f.name, size: f.size, contentType: f.type }));
-      const { items: presignedItems } = await getPresignedUrls(fileInfos);
-
-      const uploadPromises = selectedFiles.map(file => {
-        const presignedData = presignedItems.find(p => p.filename === file.name);
-        if (!presignedData) throw new Error(`${file.name}の署名付きURLが取得できませんでした。`);
-        return axios.put(presignedData.upload_url, file, {
-          headers: { 'Content-Type': file.type },
-          onUploadProgress: (e) => setUploadProgress(prev => ({ ...prev, [file.name]: { progress: e.total ? Math.round((e.loaded * 100) / e.total) : 0 } })),
+      const uploadedFiles: UnlockFilePayload[] = [];
+      for (const file of selectedFiles) {
+        setUploadProgress(prev => ({ ...prev, [file.name]: { progress: 0 } }));
+        const uploadInfo = await getUploadUrl(
+          file.name,
+          file.size,
+          file.type || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        );
+        setUploadProgress(prev => ({ ...prev, [file.name]: { progress: 10 } }));
+        await uploadFileToS3(uploadInfo.uploadUrl, file, uploadInfo.uploadFields);
+        setUploadProgress(prev => ({ ...prev, [file.name]: { progress: 100 } }));
+        uploadedFiles.push({
+          s3_key: uploadInfo.fileKey,
+          original_name: file.name,
         });
-      });
-      await Promise.all(uploadPromises);
-      toast.success("全ファイルのアップロードが完了しました。");
+      }
+
+      toast.success('全ファイルのアップロードが完了しました。');
 
       setProcessingStatus('processing');
-      const unlockFiles = selectedFiles.map(f => ({ s3_key: presignedItems.find(p => p.filename === f.name)!.s3_key, original_name: f.name }));
-      const passwords = [pass1, pass2].filter(Boolean);
-      const unlockResponse = await unlock(unlockFiles, passwords);
+      const totalFiles = uploadedFiles.length;
+      setJobProgress({ done: 0, total: totalFiles });
 
-      if (unlockResponse.status === 200) {
-        const data = unlockResponse.data as UnlockSyncResponse;
-        setResults(data.results);
-        setProcessingStatus('done');
-        toast.success("ファイルの処理が完了しました。");
-      } else if (unlockResponse.status === 202) {
-        const data = unlockResponse.data as UnlockAsyncResponse;
-        let jobStatus: JobStatusResponse | null = null;
-        toast.info(`処理を開始しました (Job ID: ${data.job_id})。完了までお待ちください...`);
-        while (!jobStatus || ['queued', 'running'].includes(jobStatus.state)) {
-          await sleep(2000);
-          jobStatus = await getProcessingStatus(data.job_id);
-          setJobProgress(jobStatus.progress);
+      const unlockResults: ProcessResult[] = [];
+      for (const fileInfo of uploadedFiles) {
+        const response = await unlockFiles([fileInfo], passwords);
+        const fileResult = response.results?.[0];
+        if (!fileResult) {
+          throw new Error(`${fileInfo.original_name}の処理結果を取得できませんでした。`);
         }
-        setResults(jobStatus.results);
-        setProcessingStatus('done');
-        toast.success("ファイルの処理が完了しました。");
-      } else {
-        throw new Error(`予期しないレスポンスコード: ${unlockResponse.status}`);
+        unlockResults.push(fileResult);
+        setJobProgress(prev => ({ done: prev.done + 1, total: totalFiles }));
       }
+
+      setResults(unlockResults);
+      setProcessingStatus('done');
+      toast.success('ファイルの処理が完了しました。');
     } catch (err: unknown) {
       console.error(err);
       let errorMessage = '処理中に不明なエラーが発生しました。';
-      if (axios.isAxiosError(err) && err.response) {
-        errorMessage = err.response.data?.error || err.message;
-      } else if (err instanceof Error) {
+      if (err instanceof Error) {
         errorMessage = err.message;
       }
       setError(errorMessage);
