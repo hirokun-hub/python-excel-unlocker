@@ -2,10 +2,12 @@ import React, { useState } from 'react';
 import { Alert, AlertDescription } from './ui/alert';
 import { batchFileSecurityCheck, formatSecurityCheckResult } from '../lib/fileSecurity';
 
+type BatchSecurityCheckResult = ReturnType<typeof batchFileSecurityCheck>;
+
 // ファイルアップロードコンポーネントのPropsの型定義
 interface FileUploadProps {
   onFilesAdded: (files: File[]) => void; // ファイルが追加されたときに呼び出されるコールバック関数
-  onSecurityCheckFailed?: (results: any) => void; // セキュリティチェック失敗時のコールバック
+  onSecurityCheckFailed?: (results: BatchSecurityCheckResult) => void; // セキュリティチェック失敗時のコールバック
 }
 
 /**

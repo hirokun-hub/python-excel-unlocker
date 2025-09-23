@@ -44,7 +44,7 @@ export interface SecurityCheckResult {
   reason: string;
   riskLevel: 'low' | 'medium' | 'high' | 'critical';
   suggestion?: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
 }
 
 /**
@@ -233,7 +233,7 @@ export function comprehensiveFileSecurityCheck(file: File): {
   
   // 失敗したチェックの収集
   const failedChecks = Object.entries(checks)
-    .filter(([_, result]) => !result.safe)
+    .filter(([, result]) => !result.safe)
     .map(([check, result]) => ({ check, result }));
   
   // 全体的な安全性評価

@@ -2,8 +2,25 @@
  * バックエンドAPI呼び出し用のユーティリティ関数
  */
 import { getSession } from "next-auth/react"
-import { getBotProtectionTokens, type BotProtectionToken } from './botProtection'
-import type { ProcessResult } from '@/types/process-result'
+import { getBotProtectionTokens, type BotProtectionToken } from "./botProtection"
+import type { ProcessResult } from "@/types/process-result"
+
+type SessionResult = Awaited<ReturnType<typeof getSession>>
+
+type SessionWithIdToken = SessionResult extends infer T
+  ? T extends null
+    ? null
+    : T & { idToken?: string }
+  : never
+
+function extractIdToken(session: SessionResult): string | null {
+  if (!session) {
+    return null
+  }
+
+  const candidate = (session as SessionWithIdToken)?.idToken
+  return typeof candidate === "string" && candidate.length > 0 ? candidate : null
+}
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 
@@ -14,13 +31,13 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
  */
 async function apiCall(endpoint: string, options: RequestInit = {}) {
   const session = await getSession()
-  
+
   if (!session?.user?.email) {
     throw new Error('認証が必要です。ログインしてください。')
   }
 
   // JWT認証: ID Tokenを使用
-  const idToken = (session as any).idToken
+  const idToken = extractIdToken(session)
   if (!idToken) {
     throw new Error('認証トークンが見つかりません。再ログインしてください。')
   }
@@ -34,11 +51,9 @@ async function apiCall(endpoint: string, options: RequestInit = {}) {
     // Bot保護トークンの取得に失敗してもAPIコールは続行
   }
 
-  const headers = {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${idToken}`, // JWT認証ヘッダー
-    ...options.headers,
-  }
+  const headers = new Headers(options.headers)
+  headers.set('Content-Type', 'application/json')
+  headers.set('Authorization', `Bearer ${idToken}`)
 
   // リクエストボディにBot保護トークンを追加
   let body = options.body

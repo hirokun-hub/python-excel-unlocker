@@ -11,6 +11,12 @@ const driveNameCache = new Map<string, string>();
 const fileNameCache = new Map<string, { name: string; parents?: string[] }>();
 const limit = pLimit(8); // Limit concurrency to 8 to avoid rate limiting
 
+type DriveFileWithDisplayPath = drive_v3.Schema$File & { displayPath?: string };
+
+type DriveFileListResponse = drive_v3.Schema$FileList & {
+  files?: DriveFileWithDisplayPath[];
+};
+
 async function getFileMetadata(drive: drive_v3.Drive, fileId: string): Promise<{ name: string; parents?: string[] }> {
   if (fileNameCache.has(fileId)) {
     return fileNameCache.get(fileId)!;
@@ -30,7 +36,7 @@ async function getFileMetadata(drive: drive_v3.Drive, fileId: string): Promise<{
     } satisfies { name: string; parents: string[] };
     fileNameCache.set(fileId, normalized);
     return normalized;
-  } catch (error) {
+  } catch {
     // console.error(`Failed to fetch metadata for fileId: ${fileId}`, error);
     const inaccessibleResult = { name: "(アクセス権なし)", parents: [] };
     fileNameCache.set(fileId, inaccessibleResult);
@@ -50,7 +56,7 @@ async function getDisplayPath(drive: drive_v3.Drive, file: drive_v3.Schema$File)
       try {
         const { data } = await drive.drives.get({ driveId: file.driveId, fields: "name" });
         driveNameCache.set(file.driveId, data.name || "共有ドライブ");
-      } catch (error) {
+      } catch {
         // console.error(`Failed to fetch drive name for driveId: ${file.driveId}`, error);
         driveNameCache.set(file.driveId, "共有ドライブ");
       }
@@ -130,18 +136,23 @@ export async function GET(req: NextRequest) {
 
     const { data: listData } = await drive.files.list(listParams);
 
+    let responsePayload: DriveFileListResponse = { ...listData };
+
     if (listData.files) {
       const pathPromises = listData.files.map((file) =>
         limit(() => getDisplayPath(drive, file))
       );
       const displayPaths = await Promise.all(pathPromises);
 
-      (listData.files as any[]).forEach((file, index) => {
-        file.displayPath = displayPaths[index];
-      });
+      const filesWithDisplayPath: DriveFileWithDisplayPath[] = listData.files.map((file, index) => ({
+        ...file,
+        displayPath: displayPaths[index],
+      }));
+
+      responsePayload = { ...listData, files: filesWithDisplayPath };
     }
 
-    return NextResponse.json(listData);
+    return NextResponse.json(responsePayload);
 
   } catch (_e) {
     const err = _e as Error;
