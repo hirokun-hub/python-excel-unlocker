@@ -34,7 +34,8 @@ jobs:
     needs: deploy-aws
     uses: ./.github/workflows/deploy-vercel.yml
     with:
-      environment: ${{ github.event.inputs.environment == 'development' && 'preview' || 'production' }}
+      environment: ${{ github.event.inputs.environment }}
+      api_url: ${{ needs.deploy-aws.outputs.api-url }}
     secrets: inherit
 
   # Step 3: 統合テスト
