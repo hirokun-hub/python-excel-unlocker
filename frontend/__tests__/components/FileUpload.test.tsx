@@ -53,6 +53,33 @@ describe('FileUpload Component', () => {
     expect(mockOnFilesAdded).toHaveBeenCalledWith([testFile])
   })
 
+  it('rejects dangerous files and notifies security callback', () => {
+    const mockOnSecurityCheckFailed = jest.fn()
+    render(
+      <FileUpload
+        onFilesAdded={mockOnFilesAdded}
+        onSecurityCheckFailed={mockOnSecurityCheckFailed}
+      />
+    )
+
+    const dropArea = screen.getByText(/ここにファイルをドラッグ＆ドロップするか/).parentElement
+    const dangerousFile = new File(['dummy'], 'alert.xlsm', {
+      type: 'application/vnd.ms-excel.sheet.macroEnabled.12'
+    })
+
+    const dropEvent = new Event('drop', { bubbles: true })
+    Object.defineProperty(dropEvent, 'dataTransfer', {
+      value: {
+        files: [dangerousFile]
+      }
+    })
+
+    fireEvent(dropArea!, dropEvent)
+
+    expect(mockOnFilesAdded).not.toHaveBeenCalled()
+    expect(mockOnSecurityCheckFailed).toHaveBeenCalled()
+  })
+
   it('prevents default behavior on drag over', () => {
     render(<FileUpload onFilesAdded={mockOnFilesAdded} />)
     
