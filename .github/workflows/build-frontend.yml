@@ -86,23 +86,7 @@ jobs:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
       - name: Normalize Vercel project root
-        run: |
-          python - <<'PY'
-import json
-import pathlib
-
-project_file = pathlib.Path("frontend/.vercel/project.json")
-if not project_file.exists():
-    raise SystemExit("project.json not found after vercel pull")
-
-data = json.loads(project_file.read_text())
-settings = data.get("projectSettings") or {}
-
-if settings.get("rootDirectory") not in (None, "", "."):
-    settings["rootDirectory"] = ""
-    data["projectSettings"] = settings
-    project_file.write_text(json.dumps(data, indent=2) + "\n")
-PY
+        run: python3 scripts/normalize_vercel_project.py
 
       - name: Build project artifacts with Vercel
         run: |
