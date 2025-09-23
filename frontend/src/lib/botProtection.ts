@@ -39,12 +39,14 @@ export async function getRecaptchaToken(action: string = 'submit'): Promise<stri
   }
   
   try {
+    let grecaptcha = window.grecaptcha;
+
     // reCAPTCHA v3 スクリプトの動的読み込み
-    if (!window.grecaptcha) {
+    if (!grecaptcha) {
       await loadRecaptchaScript(config.recaptchaSiteKey);
+      grecaptcha = window.grecaptcha;
     }
 
-    const grecaptcha = window.grecaptcha;
     if (!grecaptcha) {
       console.warn('reCAPTCHA global is unavailable after script load');
       return null;
@@ -62,46 +64,57 @@ export async function getRecaptchaToken(action: string = 'submit'): Promise<stri
  */
 export async function getTurnstileToken(): Promise<string | null> {
   const config = getBotProtectionConfig();
-  
+
   if (!config.turnstileSiteKey) {
     return null;
   }
-  
+
+  const containerId = 'turnstile-container-' + Date.now();
+  const container = document.createElement('div');
+  container.id = containerId;
+  container.style.display = 'none';
+  document.body.appendChild(container);
+
   try {
+    let turnstile = window.turnstile;
+
     // Turnstile スクリプトの動的読み込み
-    if (!window.turnstile) {
+    if (!turnstile) {
       await loadTurnstileScript();
+      turnstile = window.turnstile;
     }
 
-    return new Promise((resolve, reject) => {
-      const containerId = 'turnstile-container-' + Date.now();
-      const container = document.createElement('div');
-      container.id = containerId;
-      container.style.display = 'none';
-      document.body.appendChild(container);
-      
-      const turnstile = window.turnstile;
-      if (!turnstile) {
-        document.body.removeChild(container);
-        reject(new Error('Turnstile global is unavailable after script load'));
-        return;
-      }
+    if (!turnstile) {
+      console.warn('Turnstile global is unavailable after script load');
+      return null;
+    }
 
-      turnstile.render(container, {
+    const readyTurnstile = turnstile;
+
+    const token = await new Promise<string>((resolve, reject) => {
+      readyTurnstile.render(container, {
         sitekey: config.turnstileSiteKey!,
-        callback: (token: string) => {
-          document.body.removeChild(container);
-          resolve(token);
+        callback: (value: string) => {
+          resolve(value);
         },
-        'error-callback': (error: any) => {
-          document.body.removeChild(container);
-          reject(error);
+        'error-callback': (error: unknown) => {
+          if (error instanceof Error) {
+            reject(error);
+          } else {
+            reject(new Error('Turnstile render error'));
+          }
         },
       });
     });
+
+    return token;
   } catch (error) {
     console.warn('Turnstile token generation failed:', error);
     return null;
+  } finally {
+    if (container.isConnected) {
+      container.remove();
+    }
   }
 }
 
@@ -221,7 +234,7 @@ declare global {
       render: (container: HTMLElement | string, options: {
         sitekey: string;
         callback: (token: string) => void;
-        'error-callback': (error: any) => void;
+        'error-callback': (error: unknown) => void;
       }) => void;
     };
   }

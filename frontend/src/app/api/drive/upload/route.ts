@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getServerAccessToken, refreshGoogleToken, getServerRefreshToken } from "@/lib/serverAuth"
-import { google } from "googleapis"
+import { google, drive_v3 } from "googleapis"
 
 export async function POST(req: NextRequest) {
   try {
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
     auth.setCredentials({ access_token: accessToken })
     const drive = google.drive({ version: "v3", auth })
 
-    const metadata: any = { name: filename }
+    const metadata: drive_v3.Schema$File = { name: filename }
     if (parentId && parentId !== "root") {
       metadata.parents = [parentId]
     }
