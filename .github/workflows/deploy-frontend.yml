@@ -8,7 +8,7 @@ on:
     paths:
       - 'frontend/**'
       - '.github/workflows/deploy-frontend.yml'
-  
+
   pull_request:
     branches:
       - main
@@ -18,7 +18,7 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Deployment environment'
+        description: 'デプロイ環境'
         required: true
         default: 'development'
         type: choice
@@ -26,173 +26,23 @@ on:
           - development
           - staging
           - production
-
-  workflow_call:
-    inputs:
-      environment:
-        description: 'Deployment environment'
-        required: true
+      skip_deploy:
+        description: 'デプロイ処理をスキップしテストのみ実行'
+        required: false
+        default: false
+        type: boolean
+      api_url:
+        description: 'API Gateway URL（任意）'
+        required: false
+        default: ''
         type: string
-        default: 'development'
-
-env:
-  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
 jobs:
-  # フロントエンドテスト実行
-  test-frontend:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js 18
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Install dependencies
-        run: |
-          cd frontend
-          npm ci
-
-      - name: Run type checking
-        run: |
-          cd frontend
-          npm run type-check
-
-      - name: Run linting
-        run: |
-          cd frontend
-          npm run lint
-
-      - name: Run unit tests
-        run: |
-          cd frontend
-          npm run test -- --coverage --watchAll=false
-
-      - name: Build application
-        run: |
-          cd frontend
-          npm run build
-
-  # Vercelデプロイ
-  deploy:
-    needs: test-frontend
-    runs-on: ubuntu-latest
-    if: github.event_name != 'pull_request'
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install Vercel CLI
-        run: npm install --global vercel@latest
-
-      - name: Determine environment and API URL
-        id: env
-        run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            ENV="${{ github.event.inputs.environment }}"
-          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            ENV="staging"
-          elif [[ "${{ github.ref }}" == "refs/heads/develop" ]]; then
-            ENV="development"
-          else
-            ENV="development"
-          fi
-          
-          echo "environment=$ENV" >> $GITHUB_OUTPUT
-          
-          # 環境別API URL設定
-          case $ENV in
-            "production")
-              echo "api_url=https://api.excel-unlocker.prod.amazonaws.com/Prod" >> $GITHUB_OUTPUT
-              echo "vercel_env=production" >> $GITHUB_OUTPUT
-              ;;
-            "staging")
-              echo "api_url=https://api.excel-unlocker.staging.amazonaws.com/Prod" >> $GITHUB_OUTPUT
-              echo "vercel_env=preview" >> $GITHUB_OUTPUT
-              ;;
-            *)
-              echo "api_url=https://api.excel-unlocker.dev.amazonaws.com/Prod" >> $GITHUB_OUTPUT
-              echo "vercel_env=development" >> $GITHUB_OUTPUT
-              ;;
-          esac
-
-      - name: Pull Vercel Environment Information
-        run: |
-          cd frontend
-          vercel pull --yes --environment=${{ steps.env.outputs.vercel_env }} --token=${{ secrets.VERCEL_TOKEN }}
-
-      - name: Build Project Artifacts
-        run: |
-          cd frontend
-          vercel build --token=${{ secrets.VERCEL_TOKEN }}
-        env:
-          NEXT_PUBLIC_API_URL: ${{ steps.env.outputs.api_url }}
-
-      - name: Deploy to Vercel (Development)
-        if: steps.env.outputs.environment == 'development'
-        run: |
-          cd frontend
-          vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} > deployment-url.txt
-          echo "DEPLOYMENT_URL=$(cat deployment-url.txt)" >> $GITHUB_ENV
-
-      - name: Deploy to Vercel (Staging)
-        if: steps.env.outputs.environment == 'staging'
-        run: |
-          cd frontend
-          vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} > deployment-url.txt
-          echo "DEPLOYMENT_URL=$(cat deployment-url.txt)" >> $GITHUB_ENV
-
-      - name: Deploy to Vercel (Production)
-        if: steps.env.outputs.environment == 'production'
-        run: |
-          cd frontend
-          vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }} > deployment-url.txt
-          echo "DEPLOYMENT_URL=$(cat deployment-url.txt)" >> $GITHUB_ENV
-
-      - name: Run E2E tests on deployed app
-        if: steps.env.outputs.environment != 'production'
-        run: |
-          cd frontend
-          npm install @playwright/test
-          npx playwright install chromium
-          NEXT_PUBLIC_API_URL="${{ steps.env.outputs.api_url }}" BASE_URL="$DEPLOYMENT_URL" npm run test:e2e
-
-      - name: Deployment summary
-        run: |
-          echo "### 🚀 フロントエンドデプロイ完了" >> $GITHUB_STEP_SUMMARY
-          echo "- **環境**: ${{ steps.env.outputs.environment }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **デプロイURL**: $DEPLOYMENT_URL" >> $GITHUB_STEP_SUMMARY
-          echo "- **API URL**: ${{ steps.env.outputs.api_url }}" >> $GITHUB_STEP_SUMMARY
-
-  # 本番デプロイ用の手動承認ジョブ
-  deploy-production:
-    needs: test-frontend
-    runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production'
-    environment: production  # GitHub環境保護ルール適用
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install Vercel CLI
-        run: npm install --global vercel@latest
-
-      - name: Deploy to production
-        run: |
-          cd frontend
-          vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
-          vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
-          vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
-
-      - name: Notify production deployment
-        run: |
-          echo "### 🎉 本番フロントエンドデプロイ完了" >> $GITHUB_STEP_SUMMARY
-          echo "本番環境への段階的デプロイが正常に完了しました。" >> $GITHUB_STEP_SUMMARY
+  frontend:
+    name: Frontend validation and deployment
+    uses: ./.github/workflows/deploy-vercel.yml
+    with:
+      environment: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'staging') || (github.ref == 'refs/heads/develop' && 'development') || (github.base_ref == 'main' && 'staging') || 'development' }}
+      skip_deploy: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.event.inputs.skip_deploy == 'true') }}
+      api_url: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.api_url || '' }}
+    secrets: inherit
