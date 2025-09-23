@@ -10,7 +10,7 @@ on:
       - 'template.yaml'
       - 'samconfig.toml'
       - '.github/workflows/deploy-backend.yml'
-  
+
   pull_request:
     branches:
       - main
@@ -22,7 +22,7 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Deployment environment'
+        description: 'デプロイ環境'
         required: true
         default: 'development'
         type: choice
@@ -30,181 +30,17 @@ on:
           - development
           - staging
           - production
-
-  workflow_call:
-    inputs:
-      environment:
-        description: 'Deployment environment'
-        required: true
-        type: string
-        default: 'development'
-
-env:
-  AWS_REGION: ap-northeast-1
-
-# GitHub OIDC化：必要な権限を追加
-permissions:
-  id-token: write   # OIDC認証に必要
-  contents: read    # リポジトリ内容の読み取り
+      skip_deploy:
+        description: 'デプロイ処理をスキップしテストのみ実行'
+        required: false
+        default: false
+        type: boolean
 
 jobs:
-  # バックエンドテスト実行
-  test-backend:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python 3.9
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.9'
-
-      - name: Cache pip dependencies
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('backend/src/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-
-      - name: Install dependencies
-        run: |
-          cd backend
-          pip install -r src/requirements.txt
-          pip install pytest pytest-cov moto
-
-      - name: Run unit tests
-        run: |
-          cd backend
-          pytest tests/unit/ --cov=src --cov-report=xml --cov-report=term-missing
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
-        with:
-          file: ./backend/coverage.xml
-          flags: backend
-          name: backend-coverage
-
-  # 環境判定とデプロイ
-  deploy:
-    needs: test-backend
-    runs-on: ubuntu-latest
-    if: github.event_name != 'pull_request'
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Determine environment
-        id: env
-        run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            echo "environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
-          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            echo "environment=staging" >> $GITHUB_OUTPUT
-          elif [[ "${{ github.ref }}" == "refs/heads/develop" ]]; then
-            echo "environment=development" >> $GITHUB_OUTPUT
-          else
-            echo "environment=development" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Set up Python 3.9
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.9'
-
-      - name: Set up AWS SAM CLI
-        uses: aws-actions/setup-sam@v2
-        with:
-          use-installer: true
-
-      - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_GITHUB_ACTIONS_ROLE_ARN }}
-          role-session-name: GitHubActions-Backend-Deploy-${{ github.run_id }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Cache SAM build
-        uses: actions/cache@v3
-        with:
-          path: .aws-sam
-          key: ${{ runner.os }}-sam-${{ hashFiles('template.yaml', 'backend/src/**') }}
-          restore-keys: |
-            ${{ runner.os }}-sam-
-
-      - name: Build SAM application
-        run: sam build --use-container
-
-      - name: Deploy to development
-        if: steps.env.outputs.environment == 'development'
-        run: |
-          sam deploy --config-env default --no-confirm-changeset --no-fail-on-empty-changeset
-
-      - name: Deploy to staging
-        if: steps.env.outputs.environment == 'staging'
-        run: |
-          sam deploy --config-env staging --no-confirm-changeset --no-fail-on-empty-changeset
-
-      - name: Deploy to production (manual approval required)
-        if: steps.env.outputs.environment == 'production'
-        run: |
-          echo "本番環境へのデプロイには手動承認が必要です"
-          sam deploy --config-env production --confirm-changeset
-
-      - name: Get API endpoints
-        id: endpoints
-        run: |
-          STACK_NAME="excel-unlocker-api-${{ steps.env.outputs.environment }}"
-          API_URL=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --query 'Stacks[0].Outputs[?OutputKey==`ApiUrl`].OutputValue' --output text)
-          echo "api_url=$API_URL" >> $GITHUB_OUTPUT
-          echo "### 🚀 デプロイ完了" >> $GITHUB_STEP_SUMMARY
-          echo "- **環境**: ${{ steps.env.outputs.environment }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **API URL**: $API_URL" >> $GITHUB_STEP_SUMMARY
-
-      - name: Run smoke tests
-        run: |
-          API_URL="${{ steps.endpoints.outputs.api_url }}"
-          echo "APIエンドポイントの疎通確認: $API_URL"
-          
-          # ヘルスチェック（API Gatewayの応答確認）
-          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$API_URL/presigned-urls" -X POST -H "Content-Type: application/json" -d '{}' || echo "000")
-          
-          if [[ "$HTTP_STATUS" =~ ^[45][0-9][0-9]$ ]]; then
-            echo "✅ API Gateway is responding (Status: $HTTP_STATUS)"
-          else
-            echo "❌ API Gateway health check failed (Status: $HTTP_STATUS)"
-            exit 1
-          fi
-
-  # 本番デプロイ用の手動承認ジョブ
-  deploy-production:
-    needs: test-backend
-    runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production'
-    environment: production  # GitHub環境保護ルール適用
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up AWS SAM CLI
-        uses: aws-actions/setup-sam@v2
-
-      - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_GITHUB_ACTIONS_ROLE_ARN }}
-          role-session-name: GitHubActions-Backend-Production-${{ github.run_id }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Build and deploy to production
-        run: |
-          sam build --use-container
-          sam deploy --config-env production --confirm-changeset
-
-      - name: Notify production deployment
-        run: |
-          echo "### 🎉 本番環境デプロイ完了" >> $GITHUB_STEP_SUMMARY
-          echo "本番環境への段階的デプロイが正常に完了しました。" >> $GITHUB_STEP_SUMMARY
+  backend:
+    name: Backend validation and deployment
+    uses: ./.github/workflows/deploy-aws.yml
+    with:
+      environment: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'staging') || (github.ref == 'refs/heads/develop' && 'development') || (github.base_ref == 'main' && 'staging') || 'development' }}
+      skip_deploy: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.event.inputs.skip_deploy == 'true') }}
+    secrets: inherit

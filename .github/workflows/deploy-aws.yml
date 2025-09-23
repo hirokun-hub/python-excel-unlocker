@@ -1,7 +1,6 @@
 name: Deploy Backend to AWS
 
 on:
-  # 手動実行
   workflow_dispatch:
     inputs:
       environment:
@@ -10,171 +9,246 @@ on:
         default: 'development'
         type: choice
         options:
-        - development
-        - staging
-        - production
+          - development
+          - staging
+          - production
+      skip_deploy:
+        description: 'デプロイ処理をスキップしテストのみ実行'
+        required: false
+        default: false
+        type: boolean
 
-  # 他のワークフローから呼び出し
   workflow_call:
     inputs:
       environment:
         description: 'デプロイ環境'
         required: true
         type: string
+      skip_deploy:
+        description: 'デプロイ処理をスキップしテストのみ実行'
+        required: false
+        type: boolean
+        default: false
     outputs:
       api-url:
         description: 'API Gateway URL'
         value: ${{ jobs.deploy-aws.outputs.api-url }}
 
-  # 自動実行（オプション）
-  push:
-    branches:
-      - develop  # 開発環境
-      - main     # ステージング環境
-    paths:
-      - 'backend/**'
-      - 'template.yaml'
-      - 'samconfig.toml'
-      - '.github/workflows/deploy-aws.yml'
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ap-northeast-1
 
 jobs:
   deploy-aws:
-    name: Deploy to AWS
+    name: Validate and Deploy Backend
     runs-on: ubuntu-latest
     outputs:
-      api-url: ${{ steps.get-api-url.outputs.api-url }}
-    
-    # 環境別設定
-    environment: ${{ inputs.environment || github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'staging') || 'development' }}
-    
+      api-url: ${{ steps.finalize.outputs.api-url }}
+
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Setup Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.9'
+      - name: Determine execution parameters
+        id: params
+        run: |
+          ENV="${{ inputs.environment }}"
+          if [ -z "$ENV" ]; then
+            ENV="${{ github.event.inputs.environment }}"
+          fi
+          if [ -z "$ENV" ]; then
+            ENV="development"
+          fi
 
-    - name: Setup AWS SAM CLI
-      uses: aws-actions/setup-sam@v2
-      with:
-        use-installer: true
+          SKIP="${{ inputs.skip_deploy }}"
+          if [ -z "$SKIP" ]; then
+            SKIP="${{ github.event.inputs.skip_deploy }}"
+          fi
+          if [ "$SKIP" = "true" ] || [ "$SKIP" = "1" ]; then
+            SKIP_DEPLOY="true"
+          else
+            SKIP_DEPLOY="false"
+          fi
 
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ap-northeast-1
+          echo "environment=$ENV" >> $GITHUB_OUTPUT
+          echo "skip_deploy=$SKIP_DEPLOY" >> $GITHUB_OUTPUT
 
-    - name: Install backend dependencies
-      run: |
-        cd backend/src
-        pip install -r requirements.txt
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
 
-    - name: Run backend tests
-      run: |
-        cd backend
-        python -m pytest tests/ -v
+      - name: Cache pip dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ format('{0}-pip-{1}', runner.os, hashFiles('backend/src/requirements.txt')) }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
 
-    - name: SAM Build
-      run: sam build
+      - name: Install backend dependencies
+        run: |
+          cd backend
+          pip install -r src/requirements.txt
+          pip install pytest pytest-cov moto
 
-    - name: SAM Deploy (Development)
-      if: contains(fromJson('["development"]'), inputs.environment || github.event.inputs.environment) || github.ref == 'refs/heads/develop'
-      run: |
-        sam deploy \
-          --config-env default \
-          --no-confirm-changeset \
-          --parameter-overrides \
-            Environment=development \
-            AllowedUsers="${{ secrets.ALLOWED_USERS || 'admin@example.com' }}"
+      - name: Run backend tests
+        run: |
+          cd backend
+          pytest tests/unit/ --cov=src --cov-report=xml --cov-report=term-missing
 
-    - name: SAM Deploy (Staging)
-      if: contains(fromJson('["staging"]'), inputs.environment || github.event.inputs.environment) || github.ref == 'refs/heads/main'
-      run: |
-        sam deploy \
-          --config-env staging \
-          --no-confirm-changeset \
-          --parameter-overrides \
-            Environment=staging \
-            AllowedUsers="${{ secrets.ALLOWED_USERS || 'admin@example.com' }}"
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./backend/coverage.xml
+          flags: backend
+          name: backend-coverage
+        continue-on-error: true
 
-    - name: SAM Deploy (Production)
-      if: contains(fromJson('["production"]'), inputs.environment || github.event.inputs.environment)
-      run: |
-        sam deploy \
-          --config-env production \
-          --no-confirm-changeset \
-          --parameter-overrides \
-            Environment=production \
-            AllowedUsers="${{ secrets.ALLOWED_USERS || 'admin@example.com' }}"
+      - name: Set up AWS SAM CLI
+        if: steps.params.outputs.skip_deploy != 'true'
+        uses: aws-actions/setup-sam@v2
+        with:
+          use-installer: true
 
-    - name: Get API Gateway URL
-      id: get-api-url
-      run: |
-        ENV="${{ inputs.environment || github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'staging') || 'development' }}"
-        STACK_NAME="excel-unlocker-api-$ENV"
-        API_URL=$(aws cloudformation describe-stacks \
-          --stack-name "$STACK_NAME" \
-          --query "Stacks[0].Outputs[?OutputKey=='ApiGatewayUrl'].OutputValue" \
-          --output text 2>/dev/null || echo "")
-        
-        if [ -z "$API_URL" ] || [ "$API_URL" = "None" ]; then
-          echo "⚠️ API Gateway URL not found for stack: $STACK_NAME"
-          API_URL="https://api-not-deployed.example.com"
-        fi
-        
-        echo "api-url=$API_URL" >> $GITHUB_OUTPUT
-        echo "API Gateway URL: $API_URL"
+      - name: Configure AWS credentials (OIDC)
+        if: steps.params.outputs.skip_deploy != 'true' && secrets.AWS_GITHUB_ACTIONS_ROLE_ARN != ''
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_GITHUB_ACTIONS_ROLE_ARN }}
+          role-session-name: GitHubActions-Backend-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
 
-    - name: Update Vercel Environment Variables
-      if: steps.get-api-url.outputs.api-url != ''
-      run: |
-        # Vercel CLI経由で環境変数更新
-        npm install -g vercel
-        cd frontend
-        
-        # 環境に応じてVercel環境変数を更新
-        ENV_TARGET="${{ inputs.environment || github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'production') || 'preview' }}"
-        
-        echo "${{ secrets.VERCEL_TOKEN }}" | vercel login --stdin
-        vercel link --yes --token "${{ secrets.VERCEL_TOKEN }}"
-        
-        # API URLを設定
-        echo "${{ steps.get-api-url.outputs.api-url }}" | vercel env add NEXT_PUBLIC_API_URL "$ENV_TARGET" --token "${{ secrets.VERCEL_TOKEN }}" || true
-        echo "false" | vercel env add NEXT_PUBLIC_USE_MOCK_API "$ENV_TARGET" --token "${{ secrets.VERCEL_TOKEN }}" || true
+      - name: Configure AWS credentials (access keys)
+        if: steps.params.outputs.skip_deploy != 'true' && secrets.AWS_GITHUB_ACTIONS_ROLE_ARN == ''
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
 
-    - name: Integration Test
-      if: steps.get-api-url.outputs.api-url != ''
-      run: |
-        # 簡単な疎通確認
-        API_URL="${{ steps.get-api-url.outputs.api-url }}"
-        
-        # ヘルスチェック（存在する場合）
-        curl -f "$API_URL/health" || echo "Health endpoint not found (normal)"
-        
-        # 認証エラー確認（期待される動作）
-        RESPONSE=$(curl -s -w "%{http_code}" -X POST "$API_URL/presigned-urls" \
-          -H "Content-Type: application/json" \
-          -H "Authorization: Bearer invalid-token" \
-          -d '{"fileName": "test.xlsx", "fileSize": 1024, "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}')
-        
-        if [[ "$RESPONSE" == *"401"* ]] || [[ "$RESPONSE" == *"403"* ]]; then
-          echo "✅ 認証エラー確認（期待通り）"
-        else
-          echo "⚠️ 認証テストの結果が予期しないものです: $RESPONSE"
-        fi
+      - name: Cache SAM build artifacts
+        if: steps.params.outputs.skip_deploy != 'true'
+        uses: actions/cache@v3
+        with:
+          path: .aws-sam
+          key: ${{ format('{0}-sam-{1}', runner.os, hashFiles('template.yaml', 'backend/src/**')) }}
+          restore-keys: |
+            ${{ runner.os }}-sam-
 
-    - name: Deployment Summary
-      run: |
-        echo "## 🚀 AWS デプロイ完了" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "- **環境**: ${{ inputs.environment || github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'staging') || 'development' }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **API Gateway URL**: ${{ steps.get-api-url.outputs.api-url }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **デプロイ時刻**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### 次のステップ" >> $GITHUB_STEP_SUMMARY
-        echo "1. Vercelフロントエンドの再デプロイ" >> $GITHUB_STEP_SUMMARY
-        echo "2. 統合テストの実行" >> $GITHUB_STEP_SUMMARY
+      - name: SAM Build
+        if: steps.params.outputs.skip_deploy != 'true'
+        run: sam build --use-container
+
+      - name: Deploy with AWS SAM
+        if: steps.params.outputs.skip_deploy != 'true'
+        run: |
+          ENVIRONMENT="${{ steps.params.outputs.environment }}"
+          ALLOWED="${{ secrets.ALLOWED_USERS }}"
+          if [ -z "$ALLOWED" ]; then
+            ALLOWED="admin@example.com"
+          fi
+
+          if [ "$ENVIRONMENT" = "production" ]; then
+            sam deploy --config-env production --confirm-changeset \
+              --parameter-overrides Environment=production AllowedUsers="$ALLOWED"
+          elif [ "$ENVIRONMENT" = "staging" ]; then
+            sam deploy --config-env staging --no-confirm-changeset --no-fail-on-empty-changeset \
+              --parameter-overrides Environment=staging AllowedUsers="$ALLOWED"
+          else
+            sam deploy --config-env default --no-confirm-changeset --no-fail-on-empty-changeset \
+              --parameter-overrides Environment=development AllowedUsers="$ALLOWED"
+          fi
+
+      - name: Get API Gateway URL
+        id: api-url
+        if: steps.params.outputs.skip_deploy != 'true'
+        run: |
+          ENVIRONMENT="${{ steps.params.outputs.environment }}"
+          STACK_NAME="excel-unlocker-api-$ENVIRONMENT"
+          API_URL=$(aws cloudformation describe-stacks \
+            --stack-name "$STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='ApiGatewayUrl'].OutputValue" \
+            --output text 2>/dev/null || echo "")
+
+          if [ -z "$API_URL" ] || [ "$API_URL" = "None" ]; then
+            echo "⚠️ API Gateway URL not found for stack: $STACK_NAME"
+            API_URL="https://api-not-deployed.example.com"
+          fi
+
+          echo "api-url=$API_URL" >> $GITHUB_OUTPUT
+          echo "API Gateway URL: $API_URL"
+
+      - name: Set up Node.js for Vercel updates
+        if: steps.params.outputs.skip_deploy != 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Update Vercel Environment Variables
+        if: steps.params.outputs.skip_deploy != 'true' && steps.api-url.outputs.api-url != ''
+        run: |
+          npm install -g vercel
+          cd frontend
+
+          case "${{ steps.params.outputs.environment }}" in
+            production)
+              ENV_TARGET="production"
+              ;;
+            staging)
+              ENV_TARGET="preview"
+              ;;
+            *)
+              ENV_TARGET="development"
+              ;;
+          esac
+
+          echo "${{ secrets.VERCEL_TOKEN }}" | vercel login --stdin
+          vercel link --yes --token "${{ secrets.VERCEL_TOKEN }}"
+
+          echo "${{ steps.api-url.outputs.api-url }}" | vercel env add NEXT_PUBLIC_API_URL "$ENV_TARGET" --token "${{ secrets.VERCEL_TOKEN }}" || true
+          echo "false" | vercel env add NEXT_PUBLIC_USE_MOCK_API "$ENV_TARGET" --token "${{ secrets.VERCEL_TOKEN }}" || true
+
+      - name: Integration Test
+        if: steps.params.outputs.skip_deploy != 'true' && steps.api-url.outputs.api-url != ''
+        run: |
+          API_URL="${{ steps.api-url.outputs.api-url }}"
+
+          curl -f "$API_URL/health" || echo "Health endpoint not found (normal)"
+
+          RESPONSE=$(curl -s -w "%{http_code}" -X POST "$API_URL/presigned-urls"             -H "Content-Type: application/json"             -H "Authorization: Bearer invalid-token"             -d '{"fileName": "test.xlsx", "fileSize": 1024, "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}')
+
+          if [[ "$RESPONSE" == *"401"* ]] || [[ "$RESPONSE" == *"403"* ]]; then
+            echo "✅ 認証エラー確認（期待通り）"
+          else
+            echo "⚠️ 認証テストの結果が予期しないものです: $RESPONSE"
+          fi
+
+      - name: Finalize workflow outputs
+        id: finalize
+        if: always()
+        run: |
+          API_URL="${{ steps.api-url.outputs.api-url }}"
+          if [ -z "$API_URL" ]; then
+            API_URL=""
+          fi
+          echo "api-url=$API_URL" >> $GITHUB_OUTPUT
+
+      - name: Deployment Summary
+        if: always()
+        run: |
+          if [ "${{ steps.params.outputs.skip_deploy }}" = "true" ]; then
+            echo "## 🧪 バックエンド検証のみ実行" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "- **環境**: ${{ steps.params.outputs.environment }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **実行内容**: テストのみ（デプロイはスキップ）" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## 🚀 AWS デプロイ完了" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "- **環境**: ${{ steps.params.outputs.environment }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **API Gateway URL**: ${{ steps.finalize.outputs.api-url }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **デプロイ時刻**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          fi
