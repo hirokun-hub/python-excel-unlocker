@@ -1,220 +1,300 @@
 #!/bin/bash
 
-# 設定情報管理システム - Bashラッパースクリプト
-# Python設定管理スクリプトの便利なラッパー
+# 設定ファイル管理スクリプト（Python環境に依存しない基本版）
+# Python環境の問題が発生した場合のフォールバック機能を提供
 
-set -euo pipefail
+set -e
 
+# 色付きログ出力
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+# ログ関数
+log_info() {
+    echo -e "${BLUE}📍${NC} $1"
+}
+
+log_success() {
+    echo -e "${GREEN}✅${NC} $1"
+}
+
+log_warning() {
+    echo -e "${YELLOW}⚠️${NC} $1"
+}
+
+log_error() {
+    echo -e "${RED}❌${NC} $1"
+}
+
+# スクリプトディレクトリ
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-CONFIG_MANAGER="$SCRIPT_DIR/config_manager.py"
 
-# 色付きメッセージ用の関数
-print_info() {
-    echo -e "\033[34m[INFO]\033[0m $1"
-}
+# 設定ファイルパス
+SETUP_CONFIG="$PROJECT_ROOT/setup-config.json"
+EXAMPLE_CONFIG="$PROJECT_ROOT/setup-config.example.json"
+SCHEMA_CONFIG="$PROJECT_ROOT/config-schema.json"
 
-print_success() {
-    echo -e "\033[32m[SUCCESS]\033[0m $1"
-}
-
-print_warning() {
-    echo -e "\033[33m[WARNING]\033[0m $1"
-}
-
-print_error() {
-    echo -e "\033[31m[ERROR]\033[0m $1"
-}
-
-# 依存関係のチェック
-check_dependencies() {
-    print_info "依存関係をチェックしています..."
-    
-    if ! command -v python3 &> /dev/null; then
-        print_error "Python 3が見つかりません。インストールしてください。"
-        exit 1
-    fi
-    
-    # 必要なPythonパッケージのインストール
-    if ! python3 -c "import jsonschema, cryptography" &> /dev/null; then
-        print_info "必要なPythonパッケージをインストールしています..."
-        pip3 install -r "$SCRIPT_DIR/requirements.txt" || {
-            print_error "依存関係のインストールに失敗しました"
-            exit 1
-        }
-    fi
-    
-    print_success "依存関係のチェックが完了しました"
-}
-
-# 設定ファイルの初期化
+# 初期化（テンプレートから設定ファイルを作成）
 init_config() {
-    print_info "設定ファイルを初期化しています..."
+    log_info "設定ファイルのテンプレートを作成しています..."
     
-    cd "$PROJECT_ROOT"
-    
-    if [[ -f "setup-config.json" ]]; then
-        print_warning "設定ファイルが既に存在します"
-        read -p "上書きしますか？ (y/N): " -n 1 -r
-        echo
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            print_info "初期化をキャンセルしました"
+    if [[ -f "$SETUP_CONFIG" ]]; then
+        log_warning "設定ファイルが既に存在します: $SETUP_CONFIG"
+        echo -n "上書きしますか？ (y/N): "
+        read -r response
+        if [[ "$response" != "y" && "$response" != "Y" ]]; then
+            log_info "作成をキャンセルしました"
             return 0
         fi
     fi
     
-    python3 "$CONFIG_MANAGER" create
-    
-    print_success "設定ファイルの初期化が完了しました"
-    print_warning "setup-config.json を編集して、機密情報を設定してください"
-}
-
-# 設定ファイルの検証
-validate_config() {
-    print_info "設定ファイルを検証しています..."
-    
-    cd "$PROJECT_ROOT"
-    
-    if [[ ! -f "setup-config.json" ]]; then
-        print_error "設定ファイルが見つかりません。'init' コマンドで作成してください。"
-        exit 1
-    fi
-    
-    python3 "$CONFIG_MANAGER" validate
-}
-
-# 環境変数の生成
-generate_env() {
-    local environment="$1"
-    local format="${2:-bash}"
-    local output_file="${3:-}"
-    
-    print_info "${environment}環境の環境変数を生成しています..."
-    
-    cd "$PROJECT_ROOT"
-    
-    if [[ ! -f "setup-config.json" ]]; then
-        print_error "設定ファイルが見つかりません。'init' コマンドで作成してください。"
-        exit 1
-    fi
-    
-    if [[ -n "$output_file" ]]; then
-        python3 "$CONFIG_MANAGER" generate-env "$environment" --format "$format" --output "$output_file"
-        print_success "環境変数を $output_file に出力しました"
+    # テンプレートファイルの確認
+    if [[ -f "$EXAMPLE_CONFIG" ]]; then
+        log_info "既存のテンプレートファイルを使用します"
+        cp "$EXAMPLE_CONFIG" "$SETUP_CONFIG"
     else
-        python3 "$CONFIG_MANAGER" generate-env "$environment" --format "$format"
+        log_info "基本的な設定ファイル構造を作成します"
+        create_basic_config
+    fi
+    
+    if [[ -f "$SETUP_CONFIG" ]]; then
+        log_success "設定ファイルを作成しました: $SETUP_CONFIG"
+        log_info "📝 次にすること："
+        echo "  1. $SETUP_CONFIG を開いて編集"
+        echo "  2. YOUR_... で始まる項目を実際の値に変更"
+        echo "  3. メールアドレスを実際のアドレスに変更"
+        echo "  4. ファイルを保存"
+        return 0
+    else
+        log_error "設定ファイルの作成に失敗しました"
+        return 1
     fi
 }
 
-# 設定ファイルのバックアップ
+# 基本的な設定ファイル構造を作成
+create_basic_config() {
+    cat > "$SETUP_CONFIG" << 'EOF'
+{
+  "environments": {
+    "development": {
+      "aws": {
+        "region": "ap-northeast-1",
+        "s3": {
+          "bucketName": "YOUR_S3_BUCKET_NAME_DEV",
+          "corsOrigin": "http://localhost:3000"
+        },
+        "lambda": {
+          "stackName": "excel-unlocker-api-dev",
+          "timeout": 300,
+          "memorySize": 512
+        }
+      },
+      "google": {
+        "clientId": "YOUR_GOOGLE_CLIENT_ID",
+        "clientSecret": "YOUR_GOOGLE_CLIENT_SECRET",
+        "redirectUri": "http://localhost:3000/api/auth/callback/google"
+      },
+      "vercel": {
+        "projectName": "excel-unlocker-dev"
+      },
+      "security": {
+        "allowedUsers": ["your-email@example.com"],
+        "jwtSecret": "YOUR_JWT_SECRET_32_CHARS_OR_MORE",
+        "sessionSecret": "YOUR_SESSION_SECRET_32_CHARS_OR_MORE"
+      }
+    },
+    "staging": {
+      "aws": {
+        "region": "ap-northeast-1",
+        "s3": {
+          "bucketName": "YOUR_S3_BUCKET_NAME_STAGING",
+          "corsOrigin": "https://your-app-staging.vercel.app"
+        },
+        "lambda": {
+          "stackName": "excel-unlocker-api-staging",
+          "timeout": 300,
+          "memorySize": 512
+        }
+      },
+      "google": {
+        "clientId": "YOUR_GOOGLE_CLIENT_ID",
+        "clientSecret": "YOUR_GOOGLE_CLIENT_SECRET",
+        "redirectUri": "https://your-app-staging.vercel.app/api/auth/callback/google"
+      },
+      "vercel": {
+        "projectName": "excel-unlocker-staging"
+      },
+      "security": {
+        "allowedUsers": ["your-email@example.com"],
+        "jwtSecret": "YOUR_JWT_SECRET_32_CHARS_OR_MORE",
+        "sessionSecret": "YOUR_SESSION_SECRET_32_CHARS_OR_MORE"
+      }
+    },
+    "production": {
+      "aws": {
+        "region": "ap-northeast-1",
+        "s3": {
+          "bucketName": "YOUR_S3_BUCKET_NAME_PROD",
+          "corsOrigin": "https://your-app.vercel.app"
+        },
+        "lambda": {
+          "stackName": "excel-unlocker-api-prod",
+          "timeout": 300,
+          "memorySize": 1024
+        }
+      },
+      "google": {
+        "clientId": "YOUR_GOOGLE_CLIENT_ID",
+        "clientSecret": "YOUR_GOOGLE_CLIENT_SECRET",
+        "redirectUri": "https://your-app.vercel.app/api/auth/callback/google"
+      },
+      "vercel": {
+        "projectName": "excel-unlocker"
+      },
+      "security": {
+        "allowedUsers": ["your-email@example.com"],
+        "jwtSecret": "YOUR_JWT_SECRET_32_CHARS_OR_MORE",
+        "sessionSecret": "YOUR_SESSION_SECRET_32_CHARS_OR_MORE"
+      }
+    }
+  },
+  "features": {
+    "googleDriveIntegration": true,
+    "multiFileProcessing": true,
+    "mockMode": false
+  },
+  "limits": {
+    "maxFileSize": 20971520,
+    "maxFilesPerBatch": 10,
+    "uploadTimeout": 60,
+    "downloadTimeout": 300
+  },
+  "logging": {
+    "level": "INFO",
+    "enableCloudWatch": true,
+    "retentionDays": 30
+  }
+}
+EOF
+}
+
+# 設定ファイルの基本検証
+validate_config() {
+    log_info "設定ファイルを検証しています..."
+    
+    if [[ ! -f "$SETUP_CONFIG" ]]; then
+        log_error "設定ファイルが見つかりません: $SETUP_CONFIG"
+        return 1
+    fi
+    
+    # JSON形式の検証
+    if ! python3 -m json.tool "$SETUP_CONFIG" > /dev/null 2>&1; then
+        log_error "設定ファイルのJSON形式が正しくありません"
+        echo
+        echo "🔧 JSON形式エラーの確認方法："
+        echo "  python3 -m json.tool $SETUP_CONFIG"
+        return 1
+    fi
+    
+    log_success "JSON形式は正常です"
+    
+    # 基本的な内容検証
+    local errors=0
+    
+    # 必須セクションの確認
+    if ! grep -q '"environments"' "$SETUP_CONFIG"; then
+        log_error "environments セクションが見つかりません"
+        errors=$((errors + 1))
+    fi
+    
+    # 各環境の確認
+    for env in "development" "staging" "production"; do
+        if ! grep -q "\"$env\"" "$SETUP_CONFIG"; then
+            log_error "$env 環境の設定が見つかりません"
+            errors=$((errors + 1))
+        fi
+    done
+    
+    # プレースホルダーの確認
+    local placeholders=(
+        "YOUR_S3_BUCKET_NAME"
+        "YOUR_GOOGLE_CLIENT_ID"
+        "YOUR_GOOGLE_CLIENT_SECRET"
+        "YOUR_JWT_SECRET"
+        "YOUR_SESSION_SECRET"
+        "your-email@example.com"
+    )
+    
+    for placeholder in "${placeholders[@]}"; do
+        if grep -q "$placeholder" "$SETUP_CONFIG"; then
+            log_warning "プレースホルダーが残っています: $placeholder"
+            errors=$((errors + 1))
+        fi
+    done
+    
+    if [[ $errors -eq 0 ]]; then
+        log_success "設定ファイルの検証が完了しました"
+        return 0
+    else
+        log_error "$errors 個の問題が見つかりました"
+        echo
+        echo "🔧 修正が必要な項目："
+        echo "  📝 プレースホルダー（YOUR_...）を実際の値に変更"
+        echo "  📝 メールアドレスを実際のアドレスに変更"
+        echo "  📝 必須セクションの追加"
+        return 1
+    fi
+}
+
+# 設定のバックアップ
 backup_config() {
-    print_info "設定ファイルをバックアップしています..."
+    log_info "設定ファイルをバックアップしています..."
     
-    cd "$PROJECT_ROOT"
-    
-    if [[ ! -f "setup-config.json" ]]; then
-        print_error "設定ファイルが見つかりません。"
-        exit 1
+    if [[ ! -f "$SETUP_CONFIG" ]]; then
+        log_error "設定ファイルが見つかりません: $SETUP_CONFIG"
+        return 1
     fi
     
-    python3 "$CONFIG_MANAGER" backup
-}
-
-# 設定ファイルの暗号化
-encrypt_config() {
-    print_info "設定ファイルを暗号化しています..."
+    local backup_dir="$PROJECT_ROOT/config-backup"
+    mkdir -p "$backup_dir"
     
-    cd "$PROJECT_ROOT"
+    local timestamp=$(date +%Y%m%d_%H%M%S)
+    local backup_file="$backup_dir/setup-config.${timestamp}.json"
     
-    if [[ ! -f "setup-config.json" ]]; then
-        print_error "設定ファイルが見つかりません。"
-        exit 1
+    cp "$SETUP_CONFIG" "$backup_file"
+    
+    if [[ -f "$backup_file" ]]; then
+        log_success "バックアップを作成しました: $backup_file"
+        return 0
+    else
+        log_error "バックアップの作成に失敗しました"
+        return 1
     fi
-    
-    python3 "$CONFIG_MANAGER" encrypt
-    print_warning "暗号化キー (.config-encryption-key) を安全に保管してください"
-}
-
-# 設定ファイルの復号化
-decrypt_config() {
-    local encrypted_file="$1"
-    
-    print_info "設定ファイルを復号化しています..."
-    
-    cd "$PROJECT_ROOT"
-    
-    if [[ ! -f "$encrypted_file" ]]; then
-        print_error "暗号化ファイルが見つかりません: $encrypted_file"
-        exit 1
-    fi
-    
-    python3 "$CONFIG_MANAGER" decrypt "$encrypted_file"
-}
-
-# 環境別設定の自動適用
-apply_env_config() {
-    local environment="$1"
-    
-    print_info "${environment}環境の設定を適用しています..."
-    
-    # 環境変数ファイルの生成
-    local env_file=".env.${environment}"
-    generate_env "$environment" "dotenv" "$env_file"
-    
-    # AWS SAM設定の更新
-    if [[ -f "samconfig.toml" ]]; then
-        print_info "SAM設定を更新しています..."
-        # samconfig.tomlの環境別パラメータを更新
-        # （実装は環境に応じてカスタマイズ）
-    fi
-    
-    print_success "${environment}環境の設定適用が完了しました"
 }
 
 # 使用方法の表示
 show_usage() {
-    cat << EOF
-設定情報管理システム
-
-使用方法:
-  $0 <command> [options]
-
-コマンド:
-  init                    設定ファイルの初期化
-  validate               設定ファイルの検証
-  generate-env <env>     環境変数の生成 (development|staging|production)
-  backup                 設定ファイルのバックアップ
-  encrypt                設定ファイルの暗号化
-  decrypt <file>         設定ファイルの復号化
-  apply <env>            環境別設定の自動適用
-  help                   このヘルプを表示
-
-例:
-  $0 init                                    # 設定ファイルの初期化
-  $0 validate                                # 設定ファイルの検証
-  $0 generate-env development                # 開発環境の環境変数を表示
-  $0 generate-env production bash prod.env  # 本番環境の環境変数をファイル出力
-  $0 backup                                  # 設定ファイルのバックアップ
-  $0 encrypt                                 # 設定ファイルの暗号化
-  $0 apply staging                           # ステージング環境設定の適用
-
-EOF
+    echo "使用方法: $0 <command>"
+    echo
+    echo "利用可能なコマンド:"
+    echo "  init      - テンプレートから設定ファイルを作成"
+    echo "  validate  - 設定ファイルの検証"
+    echo "  backup    - 設定ファイルのバックアップ"
+    echo "  help      - このヘルプを表示"
+    echo
+    echo "例:"
+    echo "  $0 init"
+    echo "  $0 validate"
+    echo "  $0 backup"
 }
 
 # メイン処理
 main() {
-    if [[ $# -eq 0 ]]; then
-        show_usage
-        exit 1
-    fi
-    
-    local command="$1"
-    shift
-    
-    # 依存関係のチェック（helpコマンド以外）
-    if [[ "$command" != "help" ]]; then
-        check_dependencies
-    fi
+    local command="${1:-help}"
     
     case "$command" in
         "init")
@@ -223,45 +303,22 @@ main() {
         "validate")
             validate_config
             ;;
-        "generate-env")
-            if [[ $# -lt 1 ]]; then
-                print_error "環境名を指定してください (development|staging|production)"
-                exit 1
-            fi
-            generate_env "$@"
-            ;;
         "backup")
             backup_config
-            ;;
-        "encrypt")
-            encrypt_config
-            ;;
-        "decrypt")
-            if [[ $# -lt 1 ]]; then
-                print_error "暗号化ファイルのパスを指定してください"
-                exit 1
-            fi
-            decrypt_config "$1"
-            ;;
-        "apply")
-            if [[ $# -lt 1 ]]; then
-                print_error "環境名を指定してください (development|staging|production)"
-                exit 1
-            fi
-            apply_env_config "$1"
             ;;
         "help"|"-h"|"--help")
             show_usage
             ;;
         *)
-            print_error "不明なコマンド: $command"
+            log_error "不明なコマンド: $command"
+            echo
             show_usage
             exit 1
             ;;
     esac
 }
 
-# スクリプトが直接実行された場合のみmain関数を呼び出す
+# スクリプトが直接実行された場合
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     main "$@"
 fi

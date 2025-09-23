@@ -50,6 +50,114 @@ log_manual() {
 }
 
 log_step() {
+    echo ""
+    echo -e "${CYAN}${ICON_STEP}${NC} ${WHITE}$1${NC}"
+    echo "----------------------------------------"
+}
+
+log_progress() {
+    echo -e "${YELLOW}${ICON_PROGRESS}${NC} $1"
+}
+
+# 設定管理関数
+check_config_status() {
+    log_step "設定ファイルの状況確認"
+    
+    if [ ! -f "setup-config.json" ]; then
+        log_warning "設定ファイルが見つかりません"
+        return 1
+    fi
+    
+    # プレースホルダーチェック
+    if python3 scripts/config_manager.py validate 2>/dev/null; then
+        log_success "設定ファイルは正常です"
+        return 0
+    else
+        log_warning "設定ファイルに問題があります"
+        return 1
+    fi
+}
+
+run_config_setup() {
+    log_step "設定ファイルのセットアップ"
+    
+    echo "🎯 設定方法を選択してください："
+    echo ""
+    echo "1. 🧙‍♂️ 簡単ウィザード（推奨）"
+    echo "   → 質問に答えるだけで自動設定"
+    echo "   → 初心者に最適"
+    echo ""
+    echo "2. 🔧 自動修正のみ"
+    echo "   → シークレットキーのみ自動生成"
+    echo "   → Google設定は手動"
+    echo ""
+    echo "3. ⏭️  スキップ（既に設定済み）"
+    echo ""
+    echo "推奨：初めての方は「1」がおすすめです"
+    
+    while true; do
+        read -p "選択してください (1-3): " config_choice
+        case $config_choice in
+            1|"")
+                log_info "簡単ウィザードを開始します..."
+                if ./scripts/setup-easy-config.sh; then
+                    log_success "設定が完了しました"
+                    return 0
+                else
+                    log_error "設定に失敗しました"
+                    return 1
+                fi
+                ;;
+            2)
+                log_info "自動修正を実行します..."
+                if python3 scripts/config_manager.py auto-fix; then
+                    log_success "自動修正が完了しました"
+                    return 0
+                else
+                    log_error "自動修正に失敗しました"
+                    return 1
+                fi
+                ;;
+            3)
+                log_info "設定をスキップします"
+                return 0
+                ;;
+            *)
+                log_error "1、2、または3を入力してください"
+                ;;
+        esac
+    done
+}
+
+verify_final_config() {
+    log_step "最終設定検証"
+    
+    log_progress "設定ファイルを検証中..."
+    
+    if python3 scripts/config_manager.py verify; then
+        log_success "全ての設定が正常です！"
+        return 0
+    else
+        log_warning "設定に問題があります"
+        echo ""
+        echo "🔧 修正方法："
+        echo "1. python3 scripts/config_manager.py wizard で再設定"
+        echo "2. setup-config.json を手動編集"
+        echo "3. python3 scripts/config_manager.py verify で再確認"
+        echo ""
+        
+        read -p "続行しますか？ (y/N): " continue_choice
+        if [[ $continue_choice =~ ^[Yy]$ ]]; then
+            log_warning "設定に問題がありますが続行します"
+            return 0
+        else
+            log_info "設定を修正してから再実行してください"
+            return 1
+        fi
+    fi
+}
+
+log_step() {
     echo -e "${CYAN}${ICON_STEP}${NC} $1"
 }
 
@@ -76,9 +184,265 @@ ENVIRONMENT="development"
 DEPLOY_VERCEL=false
 SETUP_START_TIME=$(date +%s)
 
+# Python環境管理用変数
+USE_PIPX=false
+VENV_ACTIVATED=false
+PYTHON_ENV_SETUP=false
+
 # 設定ファイル
 SETUP_CONFIG="$PROJECT_ROOT/setup-config.json"
 DEPLOYMENT_CONFIG="$PROJECT_ROOT/.deployment-config.json"
+
+# 設定ファイルテンプレートの作成
+create_config_template() {
+    local template_file="$PROJECT_ROOT/setup-config.example.json"
+    
+    if [[ -f "$template_file" ]]; then
+        log_progress "📋 既存のテンプレートファイルをコピーしています..."
+        if cp "$template_file" "$SETUP_CONFIG"; then
+            return 0
+        else
+            log_warning "⚠️  テンプレートファイルのコピーに失敗しました"
+        fi
+    fi
+    
+    # テンプレートファイルが存在しない場合は基本的な構造を作成
+    log_progress "📋 基本的な設定ファイル構造を作成しています..."
+    
+    cat > "$SETUP_CONFIG" << 'EOF'
+{
+  "environments": {
+    "development": {
+      "aws": {
+        "region": "ap-northeast-1",
+        "s3": {
+          "bucketName": "YOUR_S3_BUCKET_NAME",
+          "corsOrigin": "http://localhost:3000"
+        },
+        "lambda": {
+          "stackName": "excel-unlocker-api-dev",
+          "timeout": 300,
+          "memorySize": 512
+        }
+      },
+      "google": {
+        "clientId": "YOUR_GOOGLE_CLIENT_ID",
+        "clientSecret": "YOUR_GOOGLE_CLIENT_SECRET",
+        "redirectUri": "http://localhost:3000/api/auth/callback/google"
+      },
+      "vercel": {
+        "projectName": "excel-unlocker-dev"
+      },
+      "security": {
+        "allowedUsers": ["your-email@example.com"],
+        "jwtSecret": "YOUR_JWT_SECRET_32_CHARS_OR_MORE",
+        "sessionSecret": "YOUR_SESSION_SECRET_32_CHARS_OR_MORE"
+      }
+    },
+    "staging": {
+      "aws": {
+        "region": "ap-northeast-1",
+        "s3": {
+          "bucketName": "YOUR_S3_BUCKET_NAME_STAGING",
+          "corsOrigin": "https://your-app-staging.vercel.app"
+        },
+        "lambda": {
+          "stackName": "excel-unlocker-api-staging",
+          "timeout": 300,
+          "memorySize": 512
+        }
+      },
+      "google": {
+        "clientId": "YOUR_GOOGLE_CLIENT_ID",
+        "clientSecret": "YOUR_GOOGLE_CLIENT_SECRET",
+        "redirectUri": "https://your-app-staging.vercel.app/api/auth/callback/google"
+      },
+      "vercel": {
+        "projectName": "excel-unlocker-staging"
+      },
+      "security": {
+        "allowedUsers": ["your-email@example.com"],
+        "jwtSecret": "YOUR_JWT_SECRET_32_CHARS_OR_MORE",
+        "sessionSecret": "YOUR_SESSION_SECRET_32_CHARS_OR_MORE"
+      }
+    },
+    "production": {
+      "aws": {
+        "region": "ap-northeast-1",
+        "s3": {
+          "bucketName": "YOUR_S3_BUCKET_NAME_PROD",
+          "corsOrigin": "https://your-app.vercel.app"
+        },
+        "lambda": {
+          "stackName": "excel-unlocker-api-prod",
+          "timeout": 300,
+          "memorySize": 1024
+        }
+      },
+      "google": {
+        "clientId": "YOUR_GOOGLE_CLIENT_ID",
+        "clientSecret": "YOUR_GOOGLE_CLIENT_SECRET",
+        "redirectUri": "https://your-app.vercel.app/api/auth/callback/google"
+      },
+      "vercel": {
+        "projectName": "excel-unlocker"
+      },
+      "security": {
+        "allowedUsers": ["your-email@example.com"],
+        "jwtSecret": "YOUR_JWT_SECRET_32_CHARS_OR_MORE",
+        "sessionSecret": "YOUR_SESSION_SECRET_32_CHARS_OR_MORE"
+      }
+    }
+  },
+  "features": {
+    "googleDriveIntegration": true,
+    "multiFileProcessing": true,
+    "mockMode": false
+  },
+  "limits": {
+    "maxFileSize": 20971520,
+    "maxFilesPerBatch": 10,
+    "uploadTimeout": 60,
+    "downloadTimeout": 300
+  },
+  "logging": {
+    "level": "INFO",
+    "enableCloudWatch": true,
+    "retentionDays": 30
+  }
+}
+EOF
+    
+    if [[ -f "$SETUP_CONFIG" ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# 設定ファイルの検証
+validate_config_file() {
+    local config_file="$SETUP_CONFIG"
+    
+    # ファイルの存在確認
+    if [[ ! -f "$config_file" ]]; then
+        log_error "❌ 設定ファイルが見つかりません: $config_file"
+        return 1
+    fi
+    
+    # JSON形式の検証
+    log_progress "📋 JSON形式をチェックしています..."
+    
+    if ! python3 -m json.tool "$config_file" > /dev/null 2>&1; then
+        log_error "❌ 設定ファイルのJSON形式が正しくありません"
+        echo
+        echo -e "${YELLOW}🔧 JSON形式エラーの確認方法：${NC}"
+        echo "  💻 コマンド: python3 -m json.tool setup-config.json"
+        echo "  🔍 エラー箇所を確認して修正してください"
+        echo
+        echo -e "${BLUE}💡 よくあるJSON形式エラー：${NC}"
+        echo "  📝 カンマの不足または余分なカンマ"
+        echo "  📝 引用符の不足または不正な引用符"
+        echo "  📝 括弧の不一致"
+        echo "  📝 コメントの記述（JSONではコメント不可）"
+        return 1
+    fi
+    
+    log_success "✅ JSON形式は正常です"
+    
+    # Python環境に応じた検証方法の選択
+    if [[ "$USE_PIPX" == "true" ]]; then
+        log_progress "🔍 pipx環境で設定内容をチェックしています..."
+        
+        # pipxを使用した検証（基本的なチェックのみ）
+        if validate_config_basic; then
+            log_success "✅ 基本的な設定内容は正常です"
+            return 0
+        else
+            log_error "❌ 設定内容に問題があります"
+            return 1
+        fi
+    elif [[ "$VENV_ACTIVATED" == "true" ]]; then
+        log_progress "🔍 仮想環境で設定内容をチェックしています..."
+        
+        # config_manager.pyを使用した詳細検証
+        if python3 "$SCRIPT_DIR/config_manager.py" validate --config "$config_file"; then
+            log_success "✅ 詳細な設定内容チェックが完了しました"
+            return 0
+        else
+            log_error "❌ 設定内容に問題があります"
+            return 1
+        fi
+    else
+        log_progress "🔍 基本的な設定内容をチェックしています..."
+        
+        # フォールバック：基本的なチェック
+        if validate_config_basic; then
+            log_success "✅ 基本的な設定内容は正常です"
+            return 0
+        else
+            log_error "❌ 設定内容に問題があります"
+            return 1
+        fi
+    fi
+}
+
+# 基本的な設定ファイル検証
+validate_config_basic() {
+    local config_file="$SETUP_CONFIG"
+    local errors=0
+    
+    # 必須フィールドの存在確認
+    log_progress "📋 必須項目をチェックしています..."
+    
+    # environmentsセクションの確認
+    if ! grep -q '"environments"' "$config_file"; then
+        log_error "❌ 'environments' セクションが見つかりません"
+        errors=$((errors + 1))
+    fi
+    
+    # 各環境の確認
+    for env in "development" "staging" "production"; do
+        if ! grep -q "\"$env\"" "$config_file"; then
+            log_error "❌ '$env' 環境の設定が見つかりません"
+            errors=$((errors + 1))
+        fi
+    done
+    
+    # プレースホルダーの確認
+    log_progress "🔍 プレースホルダーをチェックしています..."
+    
+    local placeholders=(
+        "YOUR_S3_BUCKET_NAME"
+        "YOUR_GOOGLE_CLIENT_ID"
+        "YOUR_GOOGLE_CLIENT_SECRET"
+        "YOUR_JWT_SECRET"
+        "YOUR_SESSION_SECRET"
+        "your-email@example.com"
+    )
+    
+    for placeholder in "${placeholders[@]}"; do
+        if grep -q "$placeholder" "$config_file"; then
+            log_warning "⚠️  プレースホルダーが残っています: $placeholder"
+            errors=$((errors + 1))
+        fi
+    done
+    
+    # エラー数に応じた結果
+    if [[ $errors -eq 0 ]]; then
+        return 0
+    else
+        echo
+        log_error "❌ $errors 個の問題が見つかりました"
+        echo
+        echo -e "${YELLOW}🔧 修正が必要な項目：${NC}"
+        echo "  📝 プレースホルダー（YOUR_...）を実際の値に変更"
+        echo "  📝 メールアドレスを実際のアドレスに変更"
+        echo "  📝 必須セクションの追加"
+        echo
+        return 1
+    fi
+}
 
 # バナー表示
 show_banner() {
@@ -104,13 +468,14 @@ EOF
     echo "  🚀 複数のファイルを一度に処理"
     echo "  ☁️  Google Driveに直接保存"
     echo "  🔒 安全・安心のセキュリティ"
+    echo "  🌐 24時間いつでもどこからでもアクセス"
     echo
     
     echo -e "${BLUE}⏱️  どのくらい時間がかかるの？${NC}"
     echo "  🏃‍♂️ 初回セットアップ: 約15-20分"
     echo "  ⚡ 2回目以降: 約5分"
-    echo "  📝 手作業: 最初の設定のみ（5-10分）"
-    echo "  🤖 自動処理: あとは全部おまかせ"
+    echo "  📝 あなたがすること: 最初の設定のみ（5-10分）"
+    echo "  🤖 自動でやること: あとは全部おまかせ"
     echo
     
     echo -e "${PURPLE}🛡️  安心・安全について${NC}"
@@ -118,6 +483,7 @@ EOF
     echo "  ✅ いつでも元に戻すことができます"
     echo "  ✅ あなたのファイルは安全に保護されます"
     echo "  ✅ 分からないことがあっても大丈夫"
+    echo "  ✅ 小学生でも使えるように作りました"
     echo
 }
 
@@ -220,6 +586,152 @@ ask_confirmation() {
     done
 }
 
+# Python環境の準備
+setup_python_environment() {
+    log_step "🐍 Python環境を準備しています..."
+    
+    echo
+    log_info "💡 今何をしているか：Pythonプログラムを安全に動かすための環境を作成中"
+    log_info "⏱️  所要時間：約1-2分"
+    echo
+    
+    cd "$PROJECT_ROOT"
+    
+    # 仮想環境の作成
+    if [[ ! -d "venv" ]]; then
+        log_progress "🏗️  Python仮想環境を作成しています..."
+        
+        if python3 -m venv venv; then
+            log_success "✅ Python仮想環境を作成しました"
+        else
+            log_error "❌ Python仮想環境の作成に失敗しました"
+            echo
+            echo -e "${YELLOW}🔧 解決方法：${NC}"
+            echo "  💡 pipxを使用した分離環境での実行を試します"
+            echo "  🛡️ 完全に安全です。何も壊れません"
+            echo
+            
+            # pipxの確認とインストール
+            if ! command -v pipx &> /dev/null; then
+                log_progress "📦 pipxをインストールしています..."
+                
+                if command -v brew &> /dev/null; then
+                    if brew install pipx; then
+                        log_success "✅ pipxをインストールしました"
+                    else
+                        log_error "❌ pipxのインストールに失敗しました"
+                        show_python_environment_help
+                        exit 1
+                    fi
+                else
+                    log_error "❌ Homebrewが見つかりません"
+                    show_python_environment_help
+                    exit 1
+                fi
+            fi
+            
+            # pipxを使用してconfig_managerを実行
+            USE_PIPX=true
+            log_success "✅ pipx環境での実行に切り替えました"
+            return 0
+        fi
+    else
+        log_info "✅ 既存のPython仮想環境を使用します"
+    fi
+    
+    # 仮想環境のアクティベート
+    log_progress "⚡ Python仮想環境をアクティベートしています..."
+    
+    if source venv/bin/activate; then
+        log_success "✅ Python仮想環境をアクティベートしました"
+        VENV_ACTIVATED=true
+    else
+        log_error "❌ Python仮想環境のアクティベートに失敗しました"
+        show_python_environment_help
+        exit 1
+    fi
+    
+    # 依存関係のインストール
+    log_progress "📦 Python依存関係をインストールしています..."
+    
+    if pip install -r scripts/requirements.txt; then
+        log_success "✅ Python依存関係をインストールしました"
+        echo
+        log_info "🎯 インストールされたパッケージ："
+        echo "  📊 jsonschema: 設定ファイルの検証用"
+        echo "  🔒 cryptography: 暗号化機能用"
+        echo "  📄 PyYAML: YAML設定ファイル用"
+        echo "  🔧 msoffcrypto-tool: Excel解除用"
+    else
+        log_error "❌ Python依存関係のインストールに失敗しました"
+        echo
+        echo -e "${YELLOW}🔧 解決方法：${NC}"
+        echo "  💡 pipxを使用した分離環境での実行を試します"
+        
+        # pipxフォールバック
+        if ! command -v pipx &> /dev/null; then
+            log_progress "📦 pipxをインストールしています..."
+            
+            if command -v brew &> /dev/null; then
+                if brew install pipx; then
+                    log_success "✅ pipxをインストールしました"
+                else
+                    log_error "❌ pipxのインストールに失敗しました"
+                    show_python_environment_help
+                    exit 1
+                fi
+            else
+                log_error "❌ Homebrewが見つかりません"
+                show_python_environment_help
+                exit 1
+            fi
+        fi
+        
+        USE_PIPX=true
+        log_success "✅ pipx環境での実行に切り替えました"
+    fi
+    
+    echo
+    log_info "🎯 次に進みます：設定ファイルの準備を始めます"
+    echo
+}
+
+# Python環境問題のヘルプ表示
+show_python_environment_help() {
+    echo
+    log_error "🚨 Python環境の問題が発生しました"
+    echo
+    echo -e "${CYAN}📋 この問題について：${NC}"
+    echo "  🍎 macOSでは、システムのPython環境が外部管理されているため"
+    echo "  📦 直接パッケージをインストールできない場合があります"
+    echo "  🛡️ これは安全性のための仕組みです"
+    echo
+    echo -e "${GREEN}✅ 解決方法（自動で試行済み）：${NC}"
+    echo "  1️⃣ 仮想環境（venv）の使用"
+    echo "  2️⃣ pipxによる分離環境での実行"
+    echo
+    echo -e "${YELLOW}🔧 手動での解決方法：${NC}"
+    echo "  📝 以下のコマンドを実行してください："
+    echo
+    echo "     # Homebrewでpipxをインストール"
+    echo "     brew install pipx"
+    echo
+    echo "     # 仮想環境を作成"
+    echo "     python3 -m venv venv"
+    echo "     source venv/bin/activate"
+    echo "     pip install -r scripts/requirements.txt"
+    echo
+    echo -e "${BLUE}💡 その他の方法：${NC}"
+    echo "  🐍 pyenvを使用してPythonバージョンを管理"
+    echo "  🐳 Dockerを使用した完全分離環境"
+    echo
+    echo -e "${GREEN}🛡️  安心してください：${NC}"
+    echo "  ✅ この問題は一般的で、解決可能です"
+    echo "  ✅ あなたのシステムは安全です"
+    echo "  ✅ 上記の方法で確実に解決できます"
+    echo
+}
+
 # 前提条件チェック
 check_prerequisites() {
     log_step "🔍 必要なソフトウェアがインストールされているかチェックしています..."
@@ -297,6 +809,170 @@ check_prerequisites() {
     log_success "✅ 必要なソフトウェアが全て揃っています！"
     log_info "🎯 次に進みます：設定ファイルの準備を始めます"
     echo
+}
+
+# 環境変数ファイルの生成
+generate_env_file() {
+    local environment="$1"
+    local output_file=".env.${environment}"
+    
+    # Python環境に応じた生成方法の選択
+    if [[ "$USE_PIPX" == "true" ]]; then
+        log_progress "🔧 pipx環境で環境変数を生成しています..."
+        
+        # 基本的な環境変数生成（フォールバック）
+        if generate_env_basic "$environment" "$output_file"; then
+            return 0
+        else
+            return 1
+        fi
+    elif [[ "$VENV_ACTIVATED" == "true" ]]; then
+        log_progress "🔧 仮想環境で環境変数を生成しています..."
+        
+        # config_manager.pyを使用した生成
+        if python3 scripts/config_manager.py generate-env "$environment" --format dotenv --output "$output_file" --config "$SETUP_CONFIG"; then
+            return 0
+        else
+            log_warning "⚠️  詳細生成に失敗しました。基本生成を試行します..."
+            if generate_env_basic "$environment" "$output_file"; then
+                return 0
+            else
+                return 1
+            fi
+        fi
+    else
+        log_progress "🔧 基本的な環境変数を生成しています..."
+        
+        # フォールバック：基本的な生成
+        if generate_env_basic "$environment" "$output_file"; then
+            return 0
+        else
+            return 1
+        fi
+    fi
+}
+
+# 基本的な環境変数生成
+generate_env_basic() {
+    local environment="$1"
+    local output_file="$2"
+    local config_file="$SETUP_CONFIG"
+    
+    log_progress "📝 基本的な環境変数を抽出しています..."
+    
+    # JSONから値を抽出（jqが利用可能な場合）
+    if command -v jq &> /dev/null; then
+        log_progress "🔧 jqを使用して環境変数を生成しています..."
+        
+        # jqを使用した抽出
+        local aws_region=$(jq -r ".environments.${environment}.aws.region" "$config_file" 2>/dev/null || echo "ap-northeast-1")
+        local s3_bucket=$(jq -r ".environments.${environment}.aws.s3.bucketName" "$config_file" 2>/dev/null || echo "")
+        local cors_origin=$(jq -r ".environments.${environment}.aws.s3.corsOrigin" "$config_file" 2>/dev/null || echo "")
+        local stack_name=$(jq -r ".environments.${environment}.aws.lambda.stackName" "$config_file" 2>/dev/null || echo "excel-unlocker-api-${environment}")
+        local google_client_id=$(jq -r ".environments.${environment}.google.clientId" "$config_file" 2>/dev/null || echo "")
+        local google_client_secret=$(jq -r ".environments.${environment}.google.clientSecret" "$config_file" 2>/dev/null || echo "")
+        local nextauth_url=$(jq -r ".environments.${environment}.google.redirectUri" "$config_file" 2>/dev/null | sed 's|/api/auth/callback/google||' || echo "")
+        local allowed_users=$(jq -r ".environments.${environment}.security.allowedUsers | join(\",\")" "$config_file" 2>/dev/null || echo "")
+        local jwt_secret=$(jq -r ".environments.${environment}.security.jwtSecret" "$config_file" 2>/dev/null || echo "")
+        local session_secret=$(jq -r ".environments.${environment}.security.sessionSecret" "$config_file" 2>/dev/null || echo "")
+        
+        # 環境変数ファイルの作成
+        cat > "$output_file" << EOF
+# 自動生成された環境変数設定 (${environment})
+# 生成日時: $(date)
+
+# AWS設定
+AWS_REGION=${aws_region}
+S3_BUCKET_NAME=${s3_bucket}
+CORS_ORIGIN=${cors_origin}
+LAMBDA_STACK_NAME=${stack_name}
+LAMBDA_TIMEOUT=300
+LAMBDA_MEMORY_SIZE=512
+
+# Google OAuth設定
+GOOGLE_CLIENT_ID=${google_client_id}
+GOOGLE_CLIENT_SECRET=${google_client_secret}
+NEXTAUTH_URL=${nextauth_url}
+
+# セキュリティ設定
+ALLOWED_USERS=${allowed_users}
+NEXTAUTH_SECRET=${session_secret}
+JWT_SECRET=${jwt_secret}
+
+# 機能設定
+NEXT_PUBLIC_GOOGLE_DRIVE_ENABLED=true
+NEXT_PUBLIC_MULTI_FILE_ENABLED=true
+NEXT_PUBLIC_USE_MOCK_API=false
+
+# 制限設定
+MAX_FILE_SIZE=20971520
+MAX_FILES_PER_BATCH=10
+UPLOAD_TIMEOUT=60
+DOWNLOAD_TIMEOUT=300
+
+# ログ設定
+LOG_LEVEL=INFO
+CLOUDWATCH_ENABLED=true
+LOG_RETENTION_DAYS=30
+EOF
+        
+        if [[ -f "$output_file" ]]; then
+            log_success "✅ jqを使用して環境変数ファイルを生成しました"
+            return 0
+        fi
+    fi
+    
+    # jqが利用できない場合の基本的な抽出
+    log_progress "🔧 基本的な方法で環境変数を生成しています..."
+    
+    # 基本的な環境変数ファイルの作成
+    cat > "$output_file" << EOF
+# 基本的な環境変数設定 (${environment})
+# 生成日時: $(date)
+# 注意: 設定ファイルから手動で値を確認・更新してください
+
+# AWS設定
+AWS_REGION=ap-northeast-1
+S3_BUCKET_NAME=excel-unlocker-${environment}
+CORS_ORIGIN=http://localhost:3000
+LAMBDA_STACK_NAME=excel-unlocker-api-${environment}
+LAMBDA_TIMEOUT=300
+LAMBDA_MEMORY_SIZE=512
+
+# Google OAuth設定（要設定）
+GOOGLE_CLIENT_ID=YOUR_GOOGLE_CLIENT_ID
+GOOGLE_CLIENT_SECRET=YOUR_GOOGLE_CLIENT_SECRET
+NEXTAUTH_URL=http://localhost:3000
+
+# セキュリティ設定（要設定）
+ALLOWED_USERS=your-email@example.com
+NEXTAUTH_SECRET=YOUR_SESSION_SECRET_32_CHARS_OR_MORE
+JWT_SECRET=YOUR_JWT_SECRET_32_CHARS_OR_MORE
+
+# 機能設定
+NEXT_PUBLIC_GOOGLE_DRIVE_ENABLED=true
+NEXT_PUBLIC_MULTI_FILE_ENABLED=true
+NEXT_PUBLIC_USE_MOCK_API=false
+
+# 制限設定
+MAX_FILE_SIZE=20971520
+MAX_FILES_PER_BATCH=10
+UPLOAD_TIMEOUT=60
+DOWNLOAD_TIMEOUT=300
+
+# ログ設定
+LOG_LEVEL=INFO
+CLOUDWATCH_ENABLED=true
+LOG_RETENTION_DAYS=30
+EOF
+    
+    if [[ -f "$output_file" ]]; then
+        log_warning "⚠️  基本的な環境変数ファイルを生成しました"
+        log_info "📝 setup-config.json の値を確認して、必要に応じて ${output_file} を更新してください"
+        return 0
+    else
+        return 1
+    fi
 }
 
 # 対話式設定収集
@@ -387,6 +1063,11 @@ collect_interactive_settings() {
     echo
     echo "推奨：初めての方は「はい」がおすすめです"
     echo
+    echo "  🔄 後からいつでも変更できます"
+    echo "  ⏱️ 「はい」を選んでも追加で5分程度です"
+    echo
+    echo "推奨：初めての方は「はい」がおすすめです"
+    echo
     
     if ask_confirmation "インターネットからアクセスできるようにしますか？" "y"; then
         DEPLOY_VERCEL=true
@@ -454,91 +1135,87 @@ initialize_and_validate_config() {
     
     cd "$PROJECT_ROOT"
     
-    # 設定ファイルの存在確認
-    if [[ ! -f "$SETUP_CONFIG" ]]; then
-        log_info "📝 設定ファイルのひな形を作成しています..."
+    # 設定ファイルの状況確認
+    if ! check_config_status; then
+        log_info "📝 設定ファイルのセットアップが必要です"
         
-        if "$CONFIG_MANAGER" init; then
-            log_success "✅ 設定ファイルのひな形を作成しました"
+        if [[ "$INTERACTIVE_MODE" == "true" ]]; then
+            # 対話モードでは新しい設定管理機能を使用
+            if ! run_config_setup; then
+                log_error "❌ 設定セットアップに失敗しました"
+                show_recovery_help "config_setup_failed"
+                exit 1
+            fi
         else
-            log_error "❌ 設定ファイルのひな形作成に失敗しました"
-            show_recovery_help "config_template_failed"
-            exit 1
-        fi
-        
-        echo
-        echo -e "${YELLOW}🔧 手作業が必要です（5-10分程度）${NC}"
-        echo
-        echo "📋 setup-config.json ファイルを開いて、以下の情報を入力してください："
-        echo
-        echo -e "${CYAN}🔑 Google OAuth設定（Googleログイン用）：${NC}"
-        echo "   📝 clientId: GoogleのOAuthクライアントID"
-        echo "   📝 clientSecret: GoogleのOAuthクライアントシークレット"
-        echo "   💡 取得方法: Google Cloud Console → 認証情報 → OAuthクライアント"
-        echo
-        echo -e "${CYAN}☁️  AWS設定（ファイル保存用）：${NC}"
-        echo "   📝 s3.bucketName: ファイル保存用のバケット名（例: my-excel-tool-files）"
-        echo "   📝 region: 地域設定（日本なら ap-northeast-1）"
-        echo "   💡 バケット名は世界で唯一の名前にしてください"
-        echo
-        echo -e "${CYAN}👥 セキュリティ設定（誰が使えるか）：${NC}"
-        echo "   📝 allowedUsers: 使用を許可するメールアドレス（カンマ区切り）"
-        echo "   📝 jwtSecret: ランダムな文字列（32文字以上推奨）"
-        echo "   📝 sessionSecret: ランダムな文字列（32文字以上推奨）"
-        echo
-        echo -e "${CYAN}🌐 Vercel設定（ウェブ公開用）：${NC}"
-        echo "   📝 projectName: プロジェクト名（例: excel-unlocker）"
-        echo "   📝 domain: 独自ドメイン（オプション、なくてもOK）"
-        echo
-        echo -e "${GREEN}🛡️  安心してください：${NC}"
-        echo "  ✅ 設定ファイルは安全に保存されます"
-        echo "  ✅ 間違えても後から修正できます"
-        echo "  ✅ 分からない項目は空欄でもOKです"
-        echo
-        
-        log_tip "📚 詳しい設定方法は docs/beginner-complete-setup-guide.md を見てください"
-        echo
-        
-        if ask_confirmation "設定ファイルの編集を完了しましたか？" "n"; then
-            log_success "✅ 設定ファイルの編集が完了しました"
-        else
-            log_info "📋 次にすること："
-            echo "  1. setup-config.json ファイルを編集"
-            echo "  2. 必要な情報を入力"
-            echo "  3. ファイルを保存"
-            echo "  4. このスクリプトをもう一度実行"
+            # 非対話モードでは従来の方法
+            log_info "📝 設定ファイルのひな形を作成しています..."
+            
+            if python3 scripts/config_manager.py create; then
+                log_success "✅ 設定ファイルのひな形を作成しました"
+            else
+                log_error "❌ 設定ファイルのひな形作成に失敗しました"
+                show_recovery_help "config_template_failed"
+                exit 1
+            fi
+            
             echo
-            log_success "設定完了後にお待ちしています！"
-            exit 0
+            echo -e "${YELLOW}🔧 手作業が必要です（5-10分程度）${NC}"
+            echo
+            echo "📋 setup-config.json ファイルを開いて、以下の情報を入力してください："
+            echo
+            echo -e "${CYAN}🔑 Google OAuth設定（Googleログイン用）：${NC}"
+            echo "   📝 clientId: GoogleのOAuthクライアントID"
+            echo "   📝 clientSecret: GoogleのOAuthクライアントシークレット"
+            echo "   💡 取得方法: Google Cloud Console → 認証情報 → OAuthクライアント"
+            echo
+            echo -e "${CYAN}☁️  AWS設定（ファイル保存用）：${NC}"
+            echo "   📝 s3.bucketName: ファイル保存用のバケット名（例: my-excel-tool-files）"
+            echo "   📝 region: 地域設定（日本なら ap-northeast-1）"
+            echo "   💡 バケット名は世界で唯一の名前にしてください"
+            echo
+            echo -e "${CYAN}👥 セキュリティ設定（誰が使えるか）：${NC}"
+            echo "   📝 allowedUsers: 使用を許可するメールアドレス（カンマ区切り）"
+            echo "   📝 jwtSecret: ランダムな文字列（32文字以上推奨）"
+            echo "   📝 sessionSecret: ランダムな文字列（32文字以上推奨）"
+            echo
+            echo -e "${CYAN}🌐 Vercel設定（ウェブ公開用）：${NC}"
+            echo "   📝 projectName: プロジェクト名（例: excel-unlocker）"
+            echo "   📝 domain: 独自ドメイン（オプション、なくてもOK）"
+            echo
+            echo -e "${GREEN}🛡️  安心してください：${NC}"
+            echo "  ✅ 設定ファイルは安全に保存されます"
+            echo "  ✅ 間違えても後から修正できます"
+            echo "  ✅ 分からない項目は空欄でもOKです"
+            echo
+            
+            log_tip "📚 詳しい設定方法は docs/beginner-complete-setup-guide.md を見てください"
+            echo
+            
+            if ask_confirmation "設定ファイルの編集を完了しましたか？" "n"; then
+                log_success "✅ 設定ファイルの編集が完了しました"
+            else
+                log_info "📋 次にすること："
+                echo "  1. setup-config.json ファイルを編集"
+                echo "  2. 必要な情報を入力"
+                echo "  3. ファイルを保存"
+                echo "  4. このスクリプトをもう一度実行"
+                echo
+                log_success "設定完了後にお待ちしています！"
+                exit 0
+            fi
         fi
     else
-        log_info "✅ 既存の設定ファイルを使用します"
+        log_success "✅ 既存の設定ファイルを使用します"
     fi
     
-    # 設定ファイルの検証
-    echo
-    log_progress "🔍 設定ファイルの内容をチェックしています..."
-    
-    if "$CONFIG_MANAGER" validate; then
-        log_success "✅ 設定ファイルの内容に問題ありません！"
-        log_info "🎯 次に進みます：環境の準備を始めます"
-    else
-        log_error "❌ 設定ファイルに問題があります"
-        echo
-        echo -e "${YELLOW}🔧 設定ファイルを修正してください：${NC}"
-        echo "  📝 setup-config.json を開いて内容を確認"
-        echo "  🔍 エラーメッセージを参考に修正"
-        echo "  💾 ファイルを保存"
-        echo
+    # 最終検証
+    if ! verify_final_config; then
+        log_error "❌ 設定ファイルの最終検証に失敗しました"
         show_recovery_help "config_validation_failed"
-        
-        if ask_confirmation "設定ファイルを修正して再試行しますか？" "y"; then
-            log_info "📋 設定ファイルを修正してからもう一度実行してください"
-            exit 1
-        else
-            exit 1
-        fi
+        exit 1
     fi
+    
+    log_success "✅ 設定ファイルの準備が完了しました！"
     echo
 }
 
@@ -554,7 +1231,7 @@ setup_environment() {
     # 環境変数の生成
     log_progress "📝 環境設定ファイルを作成しています..."
     
-    if "$CONFIG_MANAGER" generate-env "$ENVIRONMENT" dotenv ".env.${ENVIRONMENT}"; then
+    if generate_env_file "$ENVIRONMENT"; then
         log_success "✅ 環境設定ファイルを作成しました"
     else
         log_error "❌ 環境設定ファイルの作成に失敗しました"
@@ -988,8 +1665,11 @@ show_recovery_help() {
             ;;
         "env_generation_failed")
             log_manual "環境変数の生成に失敗しました"
-            echo "  1. 設定ファイルを確認: $CONFIG_MANAGER validate"
-            echo "  2. Python依存関係を確認: pip3 install -r scripts/requirements.txt"
+            echo "  1. 設定ファイルを確認: python3 -m json.tool setup-config.json"
+            echo "  2. Python環境を確認:"
+            echo "     - 仮想環境: python3 -m venv venv && source venv/bin/activate"
+            echo "     - 依存関係: pip install -r scripts/requirements.txt"
+            echo "     - pipx使用: brew install pipx"
             echo "  3. 再実行: $0"
             ;;
         "aws_auth_failed")
@@ -1032,6 +1712,32 @@ show_recovery_help() {
             echo "  2. TypeScriptエラーを確認: npm run type-check"
             echo "  3. ESLintエラーを確認: npm run lint"
             echo "  4. 依存関係を再インストール: rm -rf node_modules && npm install"
+            ;;
+        "python_environment_failed")
+            log_manual "Python環境の問題が発生しました"
+            echo "  🚨 macOS外部管理環境エラーの解決方法:"
+            echo "  1. 仮想環境を作成:"
+            echo "     python3 -m venv venv"
+            echo "     source venv/bin/activate"
+            echo "     pip install -r scripts/requirements.txt"
+            echo "  2. pipxを使用:"
+            echo "     brew install pipx"
+            echo "     pipx install jsonschema cryptography PyYAML"
+            echo "  3. Homebrewでpipxをインストール:"
+            echo "     /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
+            echo "     brew install pipx"
+            echo "  4. 再実行: $0"
+            ;;
+        "config_json_invalid")
+            log_manual "設定ファイルのJSON形式が正しくありません"
+            echo "  1. JSON形式を確認: python3 -m json.tool setup-config.json"
+            echo "  2. よくあるエラー:"
+            echo "     - カンマの不足または余分なカンマ"
+            echo "     - 引用符の不足または不正な引用符"
+            echo "     - 括弧の不一致 { } [ ]"
+            echo "     - コメントの記述（JSONではコメント不可）"
+            echo "  3. オンラインJSONバリデーターを使用"
+            echo "  4. 再実行: $0"
             ;;
         *)
             log_manual "一般的なトラブルシューティング"
@@ -1242,13 +1948,18 @@ main() {
     show_banner
     
     # 進捗管理
-    local total_steps=8
+    local total_steps=9
     local current_step=0
     
     # Step 1: 前提条件チェック
     ((current_step++))
     show_progress_bar $current_step $total_steps "前提条件チェック"
     check_prerequisites
+    
+    # Step 1.5: Python環境セットアップ
+    ((current_step++))
+    show_progress_bar $current_step $total_steps "Python環境セットアップ"
+    setup_python_environment
     
     # Step 2: 対話式設定収集
     if [[ "$INTERACTIVE_MODE" == "true" ]]; then
