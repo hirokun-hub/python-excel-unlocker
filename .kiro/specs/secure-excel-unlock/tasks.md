@@ -778,7 +778,7 @@ error: externally-managed-environment
   - **対処完了後にコミットを行うこと**
   - _要件: 環境変数設定の確実な実行・初心者サポート・機密情報保護_
 
-- [ ] 45. 環境変数設定スクリプトの実装
+- [x] 45. 環境変数設定スクリプトの実装
   - `scripts/setup-github-secrets.sh` の新規作成
   - 対話式での環境変数収集（7つの必須変数）
     - Google Client ID

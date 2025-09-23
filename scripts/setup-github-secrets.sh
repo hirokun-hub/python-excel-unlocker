@@ -156,55 +156,93 @@ collect_environment_variables() {
     echo "  ✅ いつでも変更・削除できます"
     echo ""
     
-    # 必要な環境変数の定義
-    declare -A ENV_VARS
-    declare -A ENV_DESCRIPTIONS
-    declare -A ENV_EXAMPLES
-    declare -A ENV_VALIDATIONS
-    
-    # Google OAuth設定
-    ENV_DESCRIPTIONS["GOOGLE_CLIENT_ID"]="Google OAuth認証用のクライアントID"
-    ENV_EXAMPLES["GOOGLE_CLIENT_ID"]="123456789-abcdefg.apps.googleusercontent.com"
-    ENV_VALIDATIONS["GOOGLE_CLIENT_ID"]="apps.googleusercontent.com"
-    
-    ENV_DESCRIPTIONS["GOOGLE_CLIENT_SECRET"]="Google OAuth認証用のクライアントシークレット"
-    ENV_EXAMPLES["GOOGLE_CLIENT_SECRET"]="GOCSPX-abcdefghijklmnopqrstuvwxyz"
-    ENV_VALIDATIONS["GOOGLE_CLIENT_SECRET"]="GOCSPX-"
-    
-    # Vercel設定
-    ENV_DESCRIPTIONS["VERCEL_TOKEN"]="Vercelデプロイ用の個人アクセストークン"
-    ENV_EXAMPLES["VERCEL_TOKEN"]="vercel_1234567890abcdef"
-    ENV_VALIDATIONS["VERCEL_TOKEN"]="vercel_"
-    
-    ENV_DESCRIPTIONS["VERCEL_ORG_ID"]="Vercelチーム/組織ID"
-    ENV_EXAMPLES["VERCEL_ORG_ID"]="team_1234567890abcdef"
-    ENV_VALIDATIONS["VERCEL_ORG_ID"]="team_"
-    
-    ENV_DESCRIPTIONS["VERCEL_PROJECT_ID"]="Vercelプロジェクト固有ID"
-    ENV_EXAMPLES["VERCEL_PROJECT_ID"]="prj_1234567890abcdef"
-    ENV_VALIDATIONS["VERCEL_PROJECT_ID"]="prj_"
-    
-    # AWS設定
-    ENV_DESCRIPTIONS["AWS_ACCESS_KEY_ID"]="AWSリソースアクセス用のアクセスキーID"
-    ENV_EXAMPLES["AWS_ACCESS_KEY_ID"]="AKIAIOSFODNN7EXAMPLE"
-    ENV_VALIDATIONS["AWS_ACCESS_KEY_ID"]="AKIA"
-    
-    ENV_DESCRIPTIONS["AWS_SECRET_ACCESS_KEY"]="AWSリソースアクセス用のシークレットアクセスキー"
-    ENV_EXAMPLES["AWS_SECRET_ACCESS_KEY"]="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-    ENV_VALIDATIONS["AWS_SECRET_ACCESS_KEY"]=""
+    # 必要な環境変数のリスト（macOS Bash 3.x互換）
+    ENV_VARS_LIST="GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY NEXTAUTH_SECRET ALLOWED_USERS"
     
     # 各環境変数を収集
-    for var_name in "GOOGLE_CLIENT_ID" "GOOGLE_CLIENT_SECRET" "VERCEL_TOKEN" "VERCEL_ORG_ID" "VERCEL_PROJECT_ID" "AWS_ACCESS_KEY_ID" "AWS_SECRET_ACCESS_KEY"; do
+    for var_name in $ENV_VARS_LIST; do
         collect_single_variable "$var_name"
     done
+}
+
+# 環境変数情報を取得する関数（macOS Bash 3.x互換）
+get_var_info() {
+    local var_name="$1"
+    local info_type="$2"
+    
+    case "$var_name" in
+        "GOOGLE_CLIENT_ID")
+            case "$info_type" in
+                "description") echo "Google OAuth認証用のクライアントID" ;;
+                "example") echo "123456789-abcdefg.apps.googleusercontent.com" ;;
+                "validation") echo "apps.googleusercontent.com" ;;
+            esac
+            ;;
+        "GOOGLE_CLIENT_SECRET")
+            case "$info_type" in
+                "description") echo "Google OAuth認証用のクライアントシークレット" ;;
+                "example") echo "GOCSPX-abcdefghijklmnopqrstuvwxyz" ;;
+                "validation") echo "GOCSPX-" ;;
+            esac
+            ;;
+        "VERCEL_TOKEN")
+            case "$info_type" in
+                "description") echo "Vercelデプロイ用の個人アクセストークン" ;;
+                "example") echo "vercel_1234567890abcdef または 1234567890abcdef" ;;
+                "validation") echo "" ;;
+            esac
+            ;;
+        "VERCEL_ORG_ID")
+            case "$info_type" in
+                "description") echo "Vercelチーム/組織ID" ;;
+                "example") echo "team_1234567890abcdef" ;;
+                "validation") echo "team_" ;;
+            esac
+            ;;
+        "VERCEL_PROJECT_ID")
+            case "$info_type" in
+                "description") echo "Vercelプロジェクト固有ID" ;;
+                "example") echo "prj_1234567890abcdef" ;;
+                "validation") echo "prj_" ;;
+            esac
+            ;;
+        "AWS_ACCESS_KEY_ID")
+            case "$info_type" in
+                "description") echo "AWSリソースアクセス用のアクセスキーID" ;;
+                "example") echo "AKIAIOSFODNN7EXAMPLE" ;;
+                "validation") echo "" ;;
+            esac
+            ;;
+        "AWS_SECRET_ACCESS_KEY")
+            case "$info_type" in
+                "description") echo "AWSリソースアクセス用のシークレットアクセスキー" ;;
+                "example") echo "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY" ;;
+                "validation") echo "" ;;
+            esac
+            ;;
+        "NEXTAUTH_SECRET")
+            case "$info_type" in
+                "description") echo "NextAuth.js認証用のシークレットキー" ;;
+                "example") echo "32文字以上のランダム文字列" ;;
+                "validation") echo "" ;;
+            esac
+            ;;
+        "ALLOWED_USERS")
+            case "$info_type" in
+                "description") echo "アプリケーション利用を許可するユーザーのメールアドレス" ;;
+                "example") echo "user1@example.com,user2@example.com" ;;
+                "validation") echo "" ;;
+            esac
+            ;;
+    esac
 }
 
 # 単一環境変数の収集
 collect_single_variable() {
     local var_name="$1"
-    local description="${ENV_DESCRIPTIONS[$var_name]}"
-    local example="${ENV_EXAMPLES[$var_name]}"
-    local validation="${ENV_VALIDATIONS[$var_name]}"
+    local description=$(get_var_info "$var_name" "description")
+    local example=$(get_var_info "$var_name" "example")
+    local validation=$(get_var_info "$var_name" "validation")
     
     echo ""
     echo "────────────────────────────────────────"
@@ -245,15 +283,36 @@ collect_single_variable() {
             echo "  2. ユーザーを選択 → Security credentials"
             echo "  3. 「Create access key」でキーペアを作成"
             ;;
+        "NEXTAUTH_SECRET")
+            echo ""
+            echo "📍 設定方法:"
+            echo "  1. 32文字以上のランダム文字列を生成"
+            echo "  2. 例: openssl rand -base64 32"
+            echo "  3. または自動生成を選択（推奨）"
+            ;;
+        "ALLOWED_USERS")
+            echo ""
+            echo "📍 設定方法:"
+            echo "  1. アプリを利用させたいユーザーのメールアドレス"
+            echo "  2. 複数の場合はカンマ区切り"
+            echo "  3. 例: admin@company.com,user@company.com"
+            ;;
     esac
     
     echo ""
     
     while true; do
         if [[ "$var_name" == *"SECRET"* ]] || [[ "$var_name" == *"TOKEN"* ]] || [[ "$var_name" == *"KEY"* ]]; then
-            # 機密情報は非表示入力
-            read -s -p "🔐 $var_name: " var_value
+            # 機密情報は非表示入力（ペースト確認機能付き）
+            echo -n "🔐 $var_name: "
+            read -s var_value
             echo ""
+            
+            # ペースト確認（文字数のみ表示）
+            if [ -n "$var_value" ]; then
+                local char_count=${#var_value}
+                print_info "✅ ${char_count}文字の入力を確認しました"
+            fi
         else
             read -p "📝 $var_name: " var_value
         fi
@@ -272,12 +331,13 @@ collect_single_variable() {
         
         # 確認
         if [[ "$var_name" == *"SECRET"* ]] || [[ "$var_name" == *"TOKEN"* ]] || [[ "$var_name" == *"KEY"* ]]; then
-            print_success "入力を確認しました（セキュリティのため値は表示されません）"
+            print_success "入力を確認しました（${#var_value}文字、セキュリティのため値は非表示）"
         else
             print_success "入力値: $var_value"
         fi
         
-        ENV_VARS["$var_name"]="$var_value"
+        # 環境変数を一時ファイルに保存（macOS互換）
+        echo "$var_name=$var_value" >> /tmp/collected_env_vars.txt
         break
     done
 }
@@ -290,20 +350,28 @@ register_github_secrets() {
     echo ""
     
     local success_count=0
-    local total_count=${#ENV_VARS[@]}
+    local total_count=0
     
-    for var_name in "${!ENV_VARS[@]}"; do
-        local var_value="${ENV_VARS[$var_name]}"
+    # 一時ファイルから環境変数を読み込み
+    if [ -f "/tmp/collected_env_vars.txt" ]; then
+        while IFS='=' read -r var_name var_value; do
+            if [ -n "$var_name" ] && [ -n "$var_value" ]; then
+                ((total_count++))
         
-        print_info "登録中: $var_name"
-        
-        if echo "$var_value" | gh secret set "$var_name"; then
-            print_success "$var_name を登録しました"
-            ((success_count++))
-        else
-            print_error "$var_name の登録に失敗しました"
-        fi
-    done
+                print_info "登録中: $var_name"
+                
+                if echo "$var_value" | gh secret set "$var_name"; then
+                    print_success "$var_name を登録しました"
+                    ((success_count++))
+                else
+                    print_error "$var_name の登録に失敗しました"
+                fi
+            fi
+        done < /tmp/collected_env_vars.txt
+    else
+        print_error "環境変数が収集されていません"
+        return 1
+    fi
     
     echo ""
     print_success "$success_count/$total_count の環境変数を登録しました"
@@ -345,10 +413,8 @@ cleanup() {
     
     print_info "一時ファイルをクリーンアップ中..."
     
-    # 環境変数をメモリから削除
-    for var_name in "${!ENV_VARS[@]}"; do
-        unset ENV_VARS["$var_name"]
-    done
+    # 一時ファイルを削除
+    rm -f /tmp/collected_env_vars.txt
     
     # 履歴をクリア（bash）
     if [ -n "$BASH_VERSION" ]; then
