@@ -1,4 +1,9 @@
-import { generateCSPPolicy, isDevelopment, getScriptProps } from '@/lib/csp';
+import { generateCSPPolicy, isDevelopment, getScriptProps, getNonce } from '@/lib/csp';
+import { headers } from 'next/headers';
+
+jest.mock('next/headers', () => ({
+  headers: jest.fn(),
+}));
 
 // モック環境変数
 const originalEnv = process.env.NODE_ENV;
@@ -11,6 +16,7 @@ describe('CSP Utilities', () => {
       writable: true,
       configurable: true
     });
+    jest.clearAllMocks();
   });
 
   describe('generateCSPPolicy', () => {
@@ -66,6 +72,22 @@ describe('CSP Utilities', () => {
         configurable: true
       });
       expect(isDevelopment()).toBe(false);
+    });
+  });
+
+  describe('getNonce', () => {
+    it('ヘッダーからnonceを取得できる', async () => {
+      (headers as jest.Mock).mockResolvedValue({
+        get: jest.fn().mockReturnValue('header-nonce'),
+      });
+
+      await expect(getNonce()).resolves.toBe('header-nonce');
+    });
+
+    it('ヘッダー取得に失敗した場合はundefinedを返す', async () => {
+      (headers as jest.Mock).mockRejectedValue(new Error('no headers'));
+
+      await expect(getNonce()).resolves.toBeUndefined();
     });
   });
 

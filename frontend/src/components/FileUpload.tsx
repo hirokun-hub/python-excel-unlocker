@@ -2,10 +2,12 @@ import React, { useState } from 'react';
 import { Alert, AlertDescription } from './ui/alert';
 import { batchFileSecurityCheck, formatSecurityCheckResult } from '../lib/fileSecurity';
 
+type BatchSecurityCheckResult = ReturnType<typeof batchFileSecurityCheck>;
+
 // ファイルアップロードコンポーネントのPropsの型定義
 interface FileUploadProps {
   onFilesAdded: (files: File[]) => void; // ファイルが追加されたときに呼び出されるコールバック関数
-  onSecurityCheckFailed?: (results: any) => void; // セキュリティチェック失敗時のコールバック
+  onSecurityCheckFailed?: (results: BatchSecurityCheckResult) => void; // セキュリティチェック失敗時のコールバック
 }
 
 /**
@@ -40,10 +42,19 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFilesAdded, onSecurityCheckFa
     const safeFiles: File[] = [];
     
     securityCheck.results.forEach(({ file, check }) => {
-      if (check.safe) {
+      const sizeOnlyWarning =
+        !check.safe &&
+        check.failedChecks.length > 0 &&
+        check.failedChecks.every(({ check: failedCheck, result }) =>
+          failedCheck === 'size' && result.riskLevel === 'medium'
+        );
+
+      if (check.safe || sizeOnlyWarning) {
         safeFiles.push(file);
-      } else {
-        // 失敗したチェックの詳細を収集
+      }
+
+      if (!check.safe && !sizeOnlyWarning) {
+        // 失敗したチェックの詳細を収集（サイズのみの軽微な警告は除外）
         check.failedChecks.forEach(({ result }) => {
           const formatted = formatSecurityCheckResult(result);
           alerts.push({

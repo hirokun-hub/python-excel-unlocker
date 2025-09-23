@@ -8,7 +8,7 @@ export async function getNonce(): Promise<string | undefined> {
   try {
     const headersList = await headers();
     return headersList.get('x-nonce') || undefined;
-  } catch (error) {
+  } catch {
     // クライアントサイドでは使用できないため、undefinedを返す
     return undefined;
   }
