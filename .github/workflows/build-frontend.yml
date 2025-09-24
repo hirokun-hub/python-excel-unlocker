@@ -11,6 +11,16 @@ on:
         description: 'The API Gateway URL (optional)'
         required: false
         type: string
+    secrets:
+      VERCEL_TOKEN:
+        description: 'Vercel access token used for CLI authentication'
+        required: true
+      VERCEL_ORG_ID:
+        description: 'Identifier for the Vercel organization'
+        required: true
+      VERCEL_PROJECT_ID:
+        description: 'Identifier for the Vercel project'
+        required: true
     outputs:
       build-success:
         description: "Indicates whether the build was successful"
