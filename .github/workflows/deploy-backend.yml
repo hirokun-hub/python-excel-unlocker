@@ -1,4 +1,4 @@
-name: '[Backend] Deploy to AWS'
+name: "[Pipeline] Backend - Deploy to AWS"
 
 on:
   push:

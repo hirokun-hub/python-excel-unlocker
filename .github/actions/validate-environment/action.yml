@@ -30,7 +30,7 @@ runs:
         echo "🔍 CI/CD環境設定の検証を開始します..."
         
         # 検証スクリプト実行
-        python scripts/validate-ci-environment.py
+        python .github/scripts/validate-ci-environment.py
         VALIDATION_EXIT_CODE=$?
         
         echo "validation_success=$([ $VALIDATION_EXIT_CODE -eq 0 ] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT

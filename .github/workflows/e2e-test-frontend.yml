@@ -1,4 +1,4 @@
-name: '[Reusable] Frontend - E2E Test'
+name: "[Reusable] Frontend - E2E Test"
 
 on:
   workflow_call:

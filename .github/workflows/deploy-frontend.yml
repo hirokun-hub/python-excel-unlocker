@@ -1,4 +1,4 @@
-name: '[Frontend] Deploy to Vercel'
+name: "[Pipeline] Frontend - Deploy to Vercel"
 
 on:
   push:
