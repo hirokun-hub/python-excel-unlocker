@@ -1,0 +1,114 @@
+name: "[Pipeline] Platform - Deploy"
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'frontend/**'
+      - 'backend/**'
+      - 'template.yaml'
+      - 'samconfig.toml'
+      - '.github/workflows/**'
+      - '.github/scripts/**'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'frontend/**'
+      - 'backend/**'
+      - 'template.yaml'
+      - 'samconfig.toml'
+      - '.github/workflows/**'
+      - '.github/scripts/**'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'development'
+        type: choice
+        options:
+          - development
+          - staging
+          - production
+      deploy_frontend:
+        description: 'Execute frontend deployment steps'
+        required: false
+        default: true
+        type: boolean
+      run_frontend_e2e:
+        description: 'Run frontend E2E tests after deployment'
+        required: false
+        default: false
+        type: boolean
+      deploy_backend:
+        description: 'Execute backend deployment steps'
+        required: false
+        default: true
+        type: boolean
+
+env:
+  PLATFORM_ENVIRONMENT: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'staging') || (github.ref == 'refs/heads/develop' && 'development') || (github.base_ref == 'main' && 'staging') || 'development' }}
+
+jobs:
+  frontend:
+    name: Frontend Workflow
+    uses: ./.github/workflows/deploy-frontend.yml
+    with:
+      environment: ${{ env.PLATFORM_ENVIRONMENT }}
+      deploy_enabled: ${{ github.event_name == 'pull_request' && 'false' || github.event_name == 'workflow_dispatch' && (github.event.inputs.deploy_frontend == 'false' && 'false' || 'true') || 'true' }}
+      skip_e2e: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.run_frontend_e2e == 'true' && 'false' || 'true') || github.event_name == 'push' && github.ref != 'refs/heads/main' && 'false' || 'true' }}
+    secrets: inherit
+
+  backend:
+    name: Backend Workflow
+    uses: ./.github/workflows/deploy-backend.yml
+    with:
+      environment: ${{ env.PLATFORM_ENVIRONMENT }}
+      skip_deploy: ${{ github.event_name == 'pull_request' && 'true' || github.event_name == 'workflow_dispatch' && (github.event.inputs.deploy_backend == 'false' && 'true' || 'false') || 'false' }}
+    secrets: inherit
+
+  platform-summary:
+    name: Platform Summary
+    needs: [frontend, backend]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Summarize overall results
+        run: |
+          echo "## 🚀 プラットフォーム統合ワークフロー" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 実行情報" >> $GITHUB_STEP_SUMMARY
+          echo "- **トリガー**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **ブランチ**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **環境**: ${{ env.PLATFORM_ENVIRONMENT }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **実行時刻**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "### ワークフロー結果" >> $GITHUB_STEP_SUMMARY
+          echo "- **フロントエンド**: ${{ needs.frontend.result == 'success' && '✅ 成功' || needs.frontend.result == 'skipped' && '⏭️ スキップ' || '❌ 失敗' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **バックエンド**: ${{ needs.backend.result == 'success' && '✅ 成功' || needs.backend.result == 'skipped' && '⏭️ スキップ' || '❌ 失敗' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ needs.frontend.outputs.vercel-url || '' }}" != "" ]; then
+            echo "### フロントエンド" >> $GITHUB_STEP_SUMMARY
+            echo "- **デプロイURL**: ${{ needs.frontend.outputs.vercel-url }}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "${{ needs.backend.outputs.api-url || '' }}" != "" ]; then
+            echo "### バックエンド" >> $GITHUB_STEP_SUMMARY
+            echo "- **API URL**: ${{ needs.backend.outputs.api-url }}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "${{ needs.frontend.result }}" != "success" ] || [ "${{ needs.backend.result }}" != "success" ]; then
+            echo "### ❌ エラー対処ヒント" >> $GITHUB_STEP_SUMMARY
+            echo "1. 各ワークフローのログとSummaryを確認" >> $GITHUB_STEP_SUMMARY
+            echo "2. Secrets や設定値を再確認" >> $GITHUB_STEP_SUMMARY
+            echo "3. 必要に応じて個別ワークフローの手動実行で切り分け" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ すべての処理が完了しました" >> $GITHUB_STEP_SUMMARY
+          fi

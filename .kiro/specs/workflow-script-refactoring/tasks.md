@@ -13,7 +13,7 @@
   - 移動後のスクリプトが正常に動作することを確認 ✅
   - _要件: 2.1, 2.2, 6.1, 6.3, 7.2_
 
-- [ ] 3. validate-ci-environment.py の .github/scripts/ への移動
+- [x] 3. validate-ci-environment.py の .github/scripts/ への移動
   - `scripts/validate-ci-environment.py` を `.github/scripts/` ディレクトリに移動
   - 移動後のスクリプトファイルの実行権限を確認
   - 移動後のスクリプトが正常に動作することを確認
