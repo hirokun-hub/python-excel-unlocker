@@ -1,27 +1,6 @@
 name: "[Pipeline] Frontend - Deploy to Vercel"
 
 on:
-  push:
-    branches:
-      - main
-      - develop
-    paths:
-      - 'frontend/**'
-      - '.github/workflows/deploy-frontend.yml'
-      - '.github/workflows/validate-frontend.yml'
-      - '.github/workflows/build-frontend.yml'
-      - '.github/workflows/deploy-vercel-reusable.yml'
-      - '.github/workflows/e2e-test-frontend.yml'
-
-  pull_request:
-    branches:
-      - main
-    paths:
-      - 'frontend/**'
-      - '.github/workflows/deploy-frontend.yml'
-      - '.github/workflows/validate-frontend.yml'
-      - '.github/workflows/build-frontend.yml'
-
   workflow_dispatch:
     inputs:
       environment:
@@ -38,6 +17,35 @@ on:
         required: false
         default: true
         type: boolean
+      deploy_enabled:
+        description: 'Execute deployment step'
+        required: false
+        default: true
+        type: boolean
+
+  workflow_call:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        type: string
+      skip_e2e:
+        description: 'Skip E2E tests after deployment'
+        required: false
+        type: boolean
+        default: true
+      deploy_enabled:
+        description: 'Execute deployment step'
+        required: false
+        type: boolean
+        default: true
+    outputs:
+      vercel-url:
+        description: 'Deployed Vercel URL'
+        value: ${{ jobs.deploy.outputs.vercel-url }}
+      api-url:
+        description: 'API URL used for the build'
+        value: ${{ jobs.build.outputs.api-url }}
 
 jobs:
   validate:
@@ -50,25 +58,23 @@ jobs:
     needs: validate
     uses: ./.github/workflows/build-frontend.yml
     with:
-      environment: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'staging') || (github.ref == 'refs/heads/develop' && 'development') || (github.base_ref == 'main' && 'staging') || 'development' }}
+      environment: ${{ inputs.environment || github.event.inputs.environment || 'development' }}
       api_url: '' # Let the build workflow determine it
     secrets: inherit
 
   deploy:
     name: Deploy to Vercel
     needs: build
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    if: ${{ inputs.deploy_enabled != false && inputs.deploy_enabled != 'false' }}
     uses: ./.github/workflows/deploy-vercel-reusable.yml
     with:
-      environment: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'staging') || (github.ref == 'refs/heads/develop' && 'development') || (github.base_ref == 'main' && 'staging') || 'development' }}
+      environment: ${{ inputs.environment || github.event.inputs.environment || 'development' }}
     secrets: inherit
 
   e2e-test:
     name: E2E Test Deployed App
     needs: [build, deploy]
-    if: |
-      (github.event_name == 'push' && github.ref != 'refs/heads/main') ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment != 'production' && github.event.inputs.skip_e2e == 'false')
+    if: ${{ (inputs.deploy_enabled != false && inputs.deploy_enabled != 'false') && (inputs.skip_e2e == 'false' || inputs.skip_e2e == false) }}
     uses: ./.github/workflows/e2e-test-frontend.yml
     with:
       deployment-url: ${{ needs.deploy.outputs.vercel-url }}
@@ -84,8 +90,8 @@ jobs:
     steps:
     - name: Frontend Workflow Summary
       run: |
-        ENVIRONMENT="${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'staging') || (github.ref == 'refs/heads/develop' && 'development') || (github.base_ref == 'main' && 'staging') || 'development' }}"
-        IS_PR="${{ github.event_name == 'pull_request' }}"
+        ENVIRONMENT="${{ inputs.environment || github.event.inputs.environment || 'development' }}"
+        DEPLOY_ENABLED="${{ inputs.deploy_enabled != false && inputs.deploy_enabled != 'false' }}"
         
         echo "## 🎨 フロントエンドワークフロー完了" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
@@ -102,8 +108,8 @@ jobs:
         echo "- **E2Eテスト**: ${{ needs.e2e-test.result == 'success' && '✅ 成功' || needs.e2e-test.result == 'skipped' && '⏭️ スキップ' || '❌ 失敗' }}" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         
-        if [ "$IS_PR" = "true" ]; then
-          echo "### 📋 プルリクエスト検証" >> $GITHUB_STEP_SUMMARY
+        if [ "$DEPLOY_ENABLED" != "true" ]; then
+          echo "### 📋 検証実行" >> $GITHUB_STEP_SUMMARY
           echo "- **実行内容**: 検証・ビルドのみ（デプロイなし）" >> $GITHUB_STEP_SUMMARY
         else
           echo "### 🚀 デプロイ情報" >> $GITHUB_STEP_SUMMARY
@@ -144,7 +150,7 @@ jobs:
           echo "📖 **参考資料**: [フロントエンド開発ガイド](https://github.com/${{ github.repository }}/blob/main/docs/local-development-guide.md)" >> $GITHUB_STEP_SUMMARY
         else
           echo "✅ **フロントエンド処理完了**" >> $GITHUB_STEP_SUMMARY
-          if [ "$IS_PR" != "true" ] && [ "${{ needs.deploy.outputs.vercel-url }}" != "" ]; then
+          if [ "$DEPLOY_ENABLED" = "true" ] && [ "${{ needs.deploy.outputs.vercel-url }}" != "" ]; then
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "🔗 **アクセス**: [${{ needs.deploy.outputs.vercel-url }}](${{ needs.deploy.outputs.vercel-url }})" >> $GITHUB_STEP_SUMMARY
           fi

@@ -1,24 +1,6 @@
 name: "[Pipeline] Backend - Deploy to AWS"
 
 on:
-  push:
-    branches:
-      - main
-      - develop
-    paths:
-      - 'backend/**'
-      - 'template.yaml'
-      - 'samconfig.toml'
-      - '.github/workflows/deploy-backend.yml'
-
-  pull_request:
-    branches:
-      - main
-    paths:
-      - 'backend/**'
-      - 'template.yaml'
-      - 'samconfig.toml'
-
   workflow_dispatch:
     inputs:
       environment:
@@ -36,13 +18,29 @@ on:
         default: false
         type: boolean
 
+  workflow_call:
+    inputs:
+      environment:
+        description: 'デプロイ環境'
+        required: true
+        type: string
+      skip_deploy:
+        description: 'デプロイ処理をスキップしテストのみ実行'
+        required: false
+        type: boolean
+        default: false
+    outputs:
+      api-url:
+        description: 'API Gateway URL'
+        value: ${{ jobs.backend.outputs.api-url }}
+
 jobs:
   backend:
     name: Backend validation and deployment
     uses: ./.github/workflows/deploy-aws.yml
     with:
-      environment: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'staging') || (github.ref == 'refs/heads/develop' && 'development') || (github.base_ref == 'main' && 'staging') || 'development' }}
-      skip_deploy: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.event.inputs.skip_deploy == 'true') }}
+      environment: ${{ inputs.environment || github.event.inputs.environment || 'development' }}
+      skip_deploy: ${{ inputs.skip_deploy == true || inputs.skip_deploy == 'true' }}
     secrets: inherit
 
   workflow-summary:
@@ -54,8 +52,8 @@ jobs:
     steps:
     - name: Backend Workflow Summary
       run: |
-        ENVIRONMENT="${{ github.event_name == 'workflow_dispatch' && github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'staging') || (github.ref == 'refs/heads/develop' && 'development') || (github.base_ref == 'main' && 'staging') || 'development' }}"
-        SKIP_DEPLOY="${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.event.inputs.skip_deploy == 'true') }}"
+        ENVIRONMENT="${{ inputs.environment || github.event.inputs.environment || 'development' }}"
+        SKIP_DEPLOY="${{ inputs.skip_deploy == true || inputs.skip_deploy == 'true' }}"
         
         echo "## 🔧 バックエンドワークフロー完了" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
