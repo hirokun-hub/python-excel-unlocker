@@ -32,13 +32,45 @@ jobs:
         working-directory: frontend
         run: npm run type-check
 
+      - name: Handle type checking errors
+        if: failure()
+        uses: ./.github/actions/error-handler
+        with:
+          workflow-name: 'Frontend Validation'
+          step-name: 'Run type checking'
+          error-category: 'frontend'
+
       - name: Run linting
         working-directory: frontend
         run: npm run lint
 
+      - name: Handle linting errors
+        if: failure()
+        uses: ./.github/actions/error-handler
+        with:
+          workflow-name: 'Frontend Validation'
+          step-name: 'Run linting'
+          error-category: 'frontend'
+
       - name: Run unit tests
         working-directory: frontend
         run: npm run test -- --coverage --watchAll=false
+
+      - name: Handle unit test errors
+        if: failure()
+        uses: ./.github/actions/error-handler
+        with:
+          workflow-name: 'Frontend Validation'
+          step-name: 'Run unit tests'
+          error-category: 'test'
+
+      - name: Collect test failure artifacts
+        if: failure()
+        uses: ./.github/actions/test-artifact-collector
+        with:
+          test-type: 'unit'
+          working-directory: 'frontend'
+          collect-coverage: 'true'
 
       - name: Set validation output
         id: set-output
