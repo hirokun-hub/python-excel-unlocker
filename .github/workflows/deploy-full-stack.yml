@@ -152,18 +152,41 @@ jobs:
       run: |
         echo "## 🎉 フルスタックデプロイ完了" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### デプロイ結果" >> $GITHUB_STEP_SUMMARY
-        echo "- **AWS**: ${{ needs.deploy-aws.result }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Vercel**: ${{ needs.deploy-vercel.result }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **統合テスト**: ${{ needs.integration-test.result }}" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### 環境情報" >> $GITHUB_STEP_SUMMARY
+        echo "### 実行情報" >> $GITHUB_STEP_SUMMARY
         echo "- **環境**: ${{ github.event.inputs.environment }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **デプロイ時刻**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+        echo "- **テストスキップ**: ${{ github.event.inputs.skip_tests }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **実行時刻**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+        echo "- **実行者**: ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 実行結果" >> $GITHUB_STEP_SUMMARY
+        echo "- **AWS デプロイ**: ${{ needs.deploy-aws.result == 'success' && '✅ 成功' || '❌ 失敗' }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Vercel デプロイ**: ${{ needs.deploy-vercel.result == 'success' && '✅ 成功' || '❌ 失敗' }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **統合テスト**: ${{ needs.integration-test.result == 'success' && '✅ 成功' || needs.integration-test.result == 'skipped' && '⏭️ スキップ' || '❌ 失敗' }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### デプロイ情報" >> $GITHUB_STEP_SUMMARY
+        if [ "${{ needs.deploy-aws.outputs.api-url }}" != "" ]; then
+          echo "- **API Gateway URL**: ${{ needs.deploy-aws.outputs.api-url }}" >> $GITHUB_STEP_SUMMARY
+        fi
+        if [ "${{ needs.deploy-vercel.outputs.vercel-url }}" != "" ]; then
+          echo "- **Vercel URL**: ${{ needs.deploy-vercel.outputs.vercel-url }}" >> $GITHUB_STEP_SUMMARY
+        fi
         echo "" >> $GITHUB_STEP_SUMMARY
         
+        # 成功/失敗の判定とメッセージ
         if [[ "${{ needs.deploy-aws.result }}" == "success" && "${{ needs.deploy-vercel.result }}" == "success" ]]; then
-          echo "✅ **デプロイ成功** - アプリケーションが利用可能です" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **フルスタックデプロイ成功** - アプリケーションが利用可能です" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ needs.deploy-vercel.outputs.vercel-url }}" != "" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "🔗 **アクセス**: [${{ needs.deploy-vercel.outputs.vercel-url }}](${{ needs.deploy-vercel.outputs.vercel-url }})" >> $GITHUB_STEP_SUMMARY
+          fi
         else
-          echo "❌ **デプロイ失敗** - ログを確認してください" >> $GITHUB_STEP_SUMMARY
+          echo "❌ **デプロイ失敗** - 詳細を確認してください" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### エラー対処法" >> $GITHUB_STEP_SUMMARY
+          echo "1. **AWS失敗**: deploy-aws.yml ワークフローのログとSummaryを確認" >> $GITHUB_STEP_SUMMARY
+          echo "2. **Vercel失敗**: deploy-vercel-reusable.yml ワークフローのログとSummaryを確認" >> $GITHUB_STEP_SUMMARY
+          echo "3. **統合テスト失敗**: integration-test ジョブのログを確認" >> $GITHUB_STEP_SUMMARY
+          echo "4. **認証エラー**: GitHub Secrets の AWS・Vercel 設定を確認" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📖 **参考資料**: [デプロイガイド](https://github.com/${{ github.repository }}/blob/main/docs/deployment-guide.md)" >> $GITHUB_STEP_SUMMARY
         fi

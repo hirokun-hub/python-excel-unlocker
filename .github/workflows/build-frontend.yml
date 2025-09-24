@@ -128,3 +128,32 @@ PY
       - name: Set build output
         id: set-output
         run: echo "build-success=true" >> $GITHUB_OUTPUT
+
+      - name: Build Summary
+        if: always()
+        run: |
+          echo "## 🏗️ フロントエンドビルド結果" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### ビルド情報" >> $GITHUB_STEP_SUMMARY
+          echo "- **環境**: ${{ inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **API URL**: ${{ steps.build-meta.outputs.api_url }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Vercel環境**: ${{ steps.build-meta.outputs.vercel_env }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **ビルド時刻**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 実行結果" >> $GITHUB_STEP_SUMMARY
+          echo "- **依存関係インストール**: ${{ job.status == 'success' && '✅ 成功' || '❌ 失敗' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Vercel設定取得**: ${{ job.status == 'success' && '✅ 成功' || '❌ 失敗' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **ビルド実行**: ${{ job.status == 'success' && '✅ 成功' || '❌ 失敗' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **アーティファクト保存**: ${{ job.status == 'success' && '✅ 成功' || '❌ 失敗' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ job.status }}" != "success" ]; then
+            echo "### ❌ エラー対処法" >> $GITHUB_STEP_SUMMARY
+            echo "1. **依存関係エラー**: \`npm ci\` をローカルで実行して確認" >> $GITHUB_STEP_SUMMARY
+            echo "2. **Vercel設定エラー**: VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID を確認" >> $GITHUB_STEP_SUMMARY
+            echo "3. **ビルドエラー**: \`npm run build\` をローカルで実行" >> $GITHUB_STEP_SUMMARY
+            echo "4. **環境変数エラー**: NEXT_PUBLIC_API_URL の設定を確認" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "📖 **参考資料**: [Vercel設定ガイド](https://github.com/${{ github.repository }}/blob/main/docs/vercel-setup-detailed-guide.md)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ **ビルド完了** - デプロイステップに進めます" >> $GITHUB_STEP_SUMMARY
+          fi

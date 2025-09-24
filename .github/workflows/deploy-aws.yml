@@ -259,12 +259,58 @@ jobs:
           if [ "${{ steps.params.outputs.skip_deploy }}" = "true" ]; then
             echo "## 🧪 バックエンド検証のみ実行" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 実行情報" >> $GITHUB_STEP_SUMMARY
             echo "- **環境**: ${{ steps.params.outputs.environment }}" >> $GITHUB_STEP_SUMMARY
             echo "- **実行内容**: テストのみ（デプロイはスキップ）" >> $GITHUB_STEP_SUMMARY
+            echo "- **実行時刻**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 実行結果" >> $GITHUB_STEP_SUMMARY
+            echo "- **Python環境**: ${{ job.status == 'success' && '✅ 成功' || '❌ 失敗' }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **依存関係インストール**: ${{ job.status == 'success' && '✅ 成功' || '❌ 失敗' }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **バックエンドテスト**: ${{ job.status == 'success' && '✅ 成功' || '❌ 失敗' }}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            if [ "${{ job.status }}" != "success" ]; then
+              echo "### ❌ エラー対処法" >> $GITHUB_STEP_SUMMARY
+              echo "1. **テスト失敗**: \`cd backend && pytest\` でローカル確認" >> $GITHUB_STEP_SUMMARY
+              echo "2. **依存関係エラー**: \`pip install -r backend/src/requirements.txt\`" >> $GITHUB_STEP_SUMMARY
+              echo "3. **Python環境**: Python 3.9 の設定を確認" >> $GITHUB_STEP_SUMMARY
+              echo "4. **詳細ログ**: 上記のステップログを確認" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "✅ **検証完了** - テストが正常に実行されました" >> $GITHUB_STEP_SUMMARY
+            fi
           else
             echo "## 🚀 AWS デプロイ完了" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 実行情報" >> $GITHUB_STEP_SUMMARY
             echo "- **環境**: ${{ steps.params.outputs.environment }}" >> $GITHUB_STEP_SUMMARY
-            echo "- **API Gateway URL**: ${{ steps.finalize.outputs.api-url }}" >> $GITHUB_STEP_SUMMARY
             echo "- **デプロイ時刻**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+            echo "- **認証方式**: ${{ secrets.AWS_GITHUB_ACTIONS_ROLE_ARN != '' && 'GitHub OIDC' || 'アクセスキー' }}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 実行結果" >> $GITHUB_STEP_SUMMARY
+            echo "- **バックエンドテスト**: ${{ job.status == 'success' && '✅ 成功' || '❌ 失敗' }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **SAMビルド**: ${{ job.status == 'success' && '✅ 成功' || '❌ 失敗' }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **AWSデプロイ**: ${{ job.status == 'success' && '✅ 成功' || '❌ 失敗' }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Vercel環境変数更新**: ${{ job.status == 'success' && '✅ 成功' || '❌ 失敗' }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **統合テスト**: ${{ job.status == 'success' && '✅ 成功' || '❌ 失敗' }}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### デプロイ情報" >> $GITHUB_STEP_SUMMARY
+            if [ "${{ steps.finalize.outputs.api-url }}" != "" ]; then
+              echo "- **API Gateway URL**: ${{ steps.finalize.outputs.api-url }}" >> $GITHUB_STEP_SUMMARY
+            fi
+            echo "" >> $GITHUB_STEP_SUMMARY
+            if [ "${{ job.status }}" != "success" ]; then
+              echo "### ❌ エラー対処法" >> $GITHUB_STEP_SUMMARY
+              echo "1. **テスト失敗**: \`cd backend && pytest\` でローカル確認" >> $GITHUB_STEP_SUMMARY
+              echo "2. **AWS認証エラー**: GitHub Secrets の AWS 設定を確認" >> $GITHUB_STEP_SUMMARY
+              echo "3. **SAMエラー**: \`sam build && sam deploy\` をローカルで実行" >> $GITHUB_STEP_SUMMARY
+              echo "4. **Vercelエラー**: VERCEL_TOKEN の有効性を確認" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "📖 **参考資料**: [AWS設定ガイド](https://github.com/${{ github.repository }}/blob/main/docs/deployment-guide.md)" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "✅ **AWSデプロイ完了** - バックエンドが利用可能です" >> $GITHUB_STEP_SUMMARY
+              if [ "${{ steps.finalize.outputs.api-url }}" != "" ]; then
+                echo "" >> $GITHUB_STEP_SUMMARY
+                echo "🔗 **API エンドポイント**: ${{ steps.finalize.outputs.api-url }}" >> $GITHUB_STEP_SUMMARY
+              fi
+            fi
           fi

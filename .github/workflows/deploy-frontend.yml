@@ -74,3 +74,78 @@ jobs:
       deployment-url: ${{ needs.deploy.outputs.vercel-url }}
       api-url: ${{ needs.build.outputs.api-url }}
     secrets: inherit
+
+  workflow-summary:
+    name: Workflow Summary
+    needs: [validate, build, deploy, e2e-test]
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+    - name: Frontend Workflow Summary
+      run: |
+        ENVIRONMENT="${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'staging') || (github.ref == 'refs/heads/develop' && 'development') || (github.base_ref == 'main' && 'staging') || 'development' }}"
+        IS_PR="${{ github.event_name == 'pull_request' }}"
+        
+        echo "## 🎨 フロントエンドワークフロー完了" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 実行情報" >> $GITHUB_STEP_SUMMARY
+        echo "- **トリガー**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **ブランチ**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **環境**: $ENVIRONMENT" >> $GITHUB_STEP_SUMMARY
+        echo "- **実行時刻**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 実行結果" >> $GITHUB_STEP_SUMMARY
+        echo "- **検証**: ${{ needs.validate.result == 'success' && '✅ 成功' || needs.validate.result == 'skipped' && '⏭️ スキップ' || '❌ 失敗' }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **ビルド**: ${{ needs.build.result == 'success' && '✅ 成功' || needs.build.result == 'skipped' && '⏭️ スキップ' || '❌ 失敗' }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **デプロイ**: ${{ needs.deploy.result == 'success' && '✅ 成功' || needs.deploy.result == 'skipped' && '⏭️ スキップ' || '❌ 失敗' }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **E2Eテスト**: ${{ needs.e2e-test.result == 'success' && '✅ 成功' || needs.e2e-test.result == 'skipped' && '⏭️ スキップ' || '❌ 失敗' }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        if [ "$IS_PR" = "true" ]; then
+          echo "### 📋 プルリクエスト検証" >> $GITHUB_STEP_SUMMARY
+          echo "- **実行内容**: 検証・ビルドのみ（デプロイなし）" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "### 🚀 デプロイ情報" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ needs.deploy.outputs.vercel-url }}" != "" ]; then
+            echo "- **デプロイURL**: ${{ needs.deploy.outputs.vercel-url }}" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ "${{ needs.build.outputs.api-url }}" != "" ]; then
+            echo "- **API URL**: ${{ needs.build.outputs.api-url }}" >> $GITHUB_STEP_SUMMARY
+          fi
+        fi
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # エラー対処法の表示
+        FAILED_JOBS=""
+        if [ "${{ needs.validate.result }}" = "failure" ]; then
+          FAILED_JOBS="$FAILED_JOBS validate"
+        fi
+        if [ "${{ needs.build.result }}" = "failure" ]; then
+          FAILED_JOBS="$FAILED_JOBS build"
+        fi
+        if [ "${{ needs.deploy.result }}" = "failure" ]; then
+          FAILED_JOBS="$FAILED_JOBS deploy"
+        fi
+        if [ "${{ needs.e2e-test.result }}" = "failure" ]; then
+          FAILED_JOBS="$FAILED_JOBS e2e-test"
+        fi
+        
+        if [ -n "$FAILED_JOBS" ]; then
+          echo "### ❌ エラー対処法" >> $GITHUB_STEP_SUMMARY
+          echo "失敗したジョブ: $FAILED_JOBS" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "1. **検証失敗**: 各ワークフローのSummaryで詳細確認" >> $GITHUB_STEP_SUMMARY
+          echo "2. **ローカル確認**: \`cd frontend && npm run lint && npm run type-check && npm run test\`" >> $GITHUB_STEP_SUMMARY
+          echo "3. **ビルド確認**: \`cd frontend && npm run build\`" >> $GITHUB_STEP_SUMMARY
+          echo "4. **詳細ログ**: 各ステップのログとSummaryを確認" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📖 **参考資料**: [フロントエンド開発ガイド](https://github.com/${{ github.repository }}/blob/main/docs/local-development-guide.md)" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "✅ **フロントエンド処理完了**" >> $GITHUB_STEP_SUMMARY
+          if [ "$IS_PR" != "true" ] && [ "${{ needs.deploy.outputs.vercel-url }}" != "" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "🔗 **アクセス**: [${{ needs.deploy.outputs.vercel-url }}](${{ needs.deploy.outputs.vercel-url }})" >> $GITHUB_STEP_SUMMARY
+          fi
+        fi
