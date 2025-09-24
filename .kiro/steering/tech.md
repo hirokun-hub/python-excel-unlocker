@@ -29,19 +29,21 @@
 ## GitHub Actions実装指針
 
 ### 再利用可能ワークフロー設計
-- **分離原則**: 呼び出し側（ci.yml）と呼び出され側（ai-artifacts.yml）を明確に分離
-- **パラメータ化**: `workflow_call`でinputsを定義し、柔軟な実行制御を実現
-- **視覚的明確性**: ワークフロー名とジョブ名で何をしているかを明確に表示
+- **分離原則**: 呼び出し側（`deploy-frontend.yml` など）と再利用ワークフロー（`build-frontend.yml` 等）を明確に分ける
+- **パラメータ化**: `workflow_call` の `inputs` / `outputs` を活用し、環境や API URL を受け渡す
+- **視覚的明確性**: ジョブ名・ステップ名を日本語で記載し、Summary で実行結果を共有
 
-### 堅牢性の確保
-- **`if: always()`**: アーティファクト生成は必ず実行（テスト失敗時でも）
-- **`continue-on-error: true`**: 依存インストール等のベストエフォート処理
-- **差分限定実行**: `tj-actions/changed-files`で変更ファイルのみ処理
+### パイプライン運用方針
+- **ブランチ戦略**: `develop` → development 環境、`main` → staging 環境へ自動デプロイ。production は `workflow_dispatch`
+- **テストの段階化**: Lint/型チェック/Jest → Vercel ビルド → デプロイ → Playwright（非本番のみ）を順に実行
+- **バックエンド**: pytest + Coverage → SAM Build/Deploy → API URL を出力しフロントへ連携
+- **Summary の活用**: 主要ワークフローで `GITHUB_STEP_SUMMARY` に結果・URL を記録
 
-### 軽量化戦略
-- **重いテスト停止**: CodeQL、フルE2E、統合テストは週1または手動実行
-- **差分限定**: TypeScript型チェック、ESLint、テスト実行を変更ファイルに限定
-- **AI向け特化**: 原因特定に必要な「事実と文脈」の収集に集中
+### ベストプラクティス
+- **キャッシュ**: `actions/setup-node` / `actions/cache` による依存キャッシュ（package-lock / requirements.txt）
+- **OIDC 優先**: `aws-actions/configure-aws-credentials` でロール引受、未設定時のみアクセスキー
+- **失敗時のフォールバック**: CURL による疎通確認やデフォルト URL を備える（API 未展開時）
+- **手動運用**: `deploy-full-stack.yml` で統合テストと総括を実施。必要に応じて Summary で共有
 
 ## よく使うコマンド
 
