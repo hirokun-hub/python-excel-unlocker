@@ -29,6 +29,22 @@ on:
         required: false
         type: boolean
         default: false
+    secrets:
+      AWS_GITHUB_ACTIONS_ROLE_ARN:
+        description: 'Assumable IAM role ARN for OIDC-based deployments'
+        required: false
+      AWS_ACCESS_KEY_ID:
+        description: 'Access key ID for fallback AWS authentication'
+        required: false
+      AWS_SECRET_ACCESS_KEY:
+        description: 'Secret access key for fallback AWS authentication'
+        required: false
+      ALLOWED_USERS:
+        description: 'Comma-separated list of allowed users for production access'
+        required: false
+      VERCEL_TOKEN:
+        description: 'Vercel access token used for environment updates'
+        required: true
     outputs:
       api-url:
         description: 'API Gateway URL'
