@@ -1,0 +1,161 @@
+name: '[Reusable] Common Error Handler'
+
+on:
+  workflow_call:
+    inputs:
+      workflow_name:
+        description: 'ワークフロー名（エラー分類用）'
+        required: true
+        type: string
+      error_context:
+        description: 'エラーコンテキスト（JSON形式）'
+        required: true
+        type: string
+      failed_step:
+        description: '失敗したステップ名'
+        required: false
+        type: string
+        default: ''
+      environment:
+        description: 'デプロイ環境'
+        required: false
+        type: string
+        default: ''
+
+jobs:
+  error-analysis:
+    name: エラー分析とガイダンス生成
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: エラー分類と対処法生成
+        id: error-analysis
+        run: |
+          WORKFLOW_NAME="${{ inputs.workflow_name }}"
+          ERROR_CONTEXT="${{ inputs.error_context }}"
+          FAILED_STEP="${{ inputs.failed_step }}"
+          ENVIRONMENT="${{ inputs.environment }}"
+          
+          echo "## 🚨 エラー分析レポート" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### エラー情報" >> $GITHUB_STEP_SUMMARY
+          echo "- **ワークフロー**: $WORKFLOW_NAME" >> $GITHUB_STEP_SUMMARY
+          echo "- **失敗ステップ**: ${FAILED_STEP:-'不明'}" >> $GITHUB_STEP_SUMMARY
+          echo "- **環境**: ${ENVIRONMENT:-'指定なし'}" >> $GITHUB_STEP_SUMMARY
+          echo "- **発生時刻**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "- **実行者**: ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # エラー分類ロジック
+          case "$WORKFLOW_NAME" in
+            *"aws"*|*"backend"*)
+              echo "### 🔧 バックエンドエラー対処法" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "#### 一般的な対処手順" >> $GITHUB_STEP_SUMMARY
+              echo "1. **ローカル環境での確認**" >> $GITHUB_STEP_SUMMARY
+              echo "   \`\`\`bash" >> $GITHUB_STEP_SUMMARY
+              echo "   cd backend" >> $GITHUB_STEP_SUMMARY
+              echo "   pip install -r src/requirements.txt" >> $GITHUB_STEP_SUMMARY
+              echo "   pytest tests/unit/" >> $GITHUB_STEP_SUMMARY
+              echo "   \`\`\`" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "2. **AWS認証の確認**" >> $GITHUB_STEP_SUMMARY
+              echo "   - GitHub OIDC: \`AWS_GITHUB_ACTIONS_ROLE_ARN\` の設定確認" >> $GITHUB_STEP_SUMMARY
+              echo "   - アクセスキー: \`AWS_ACCESS_KEY_ID\`, \`AWS_SECRET_ACCESS_KEY\` の確認" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "3. **SAMデプロイの確認**" >> $GITHUB_STEP_SUMMARY
+              echo "   \`\`\`bash" >> $GITHUB_STEP_SUMMARY
+              echo "   sam build" >> $GITHUB_STEP_SUMMARY
+              echo "   sam deploy --guided" >> $GITHUB_STEP_SUMMARY
+              echo "   \`\`\`" >> $GITHUB_STEP_SUMMARY
+              ;;
+            *"frontend"*|*"vercel"*)
+              echo "### 🎨 フロントエンドエラー対処法" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "#### 一般的な対処手順" >> $GITHUB_STEP_SUMMARY
+              echo "1. **ローカル環境での確認**" >> $GITHUB_STEP_SUMMARY
+              echo "   \`\`\`bash" >> $GITHUB_STEP_SUMMARY
+              echo "   cd frontend" >> $GITHUB_STEP_SUMMARY
+              echo "   npm ci" >> $GITHUB_STEP_SUMMARY
+              echo "   npm run lint" >> $GITHUB_STEP_SUMMARY
+              echo "   npm run type-check" >> $GITHUB_STEP_SUMMARY
+              echo "   npm run test" >> $GITHUB_STEP_SUMMARY
+              echo "   \`\`\`" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "2. **Vercel認証の確認**" >> $GITHUB_STEP_SUMMARY
+              echo "   - \`VERCEL_TOKEN\` の有効性確認" >> $GITHUB_STEP_SUMMARY
+              echo "   - \`VERCEL_ORG_ID\`, \`VERCEL_PROJECT_ID\` の設定確認" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "3. **ビルドエラーの確認**" >> $GITHUB_STEP_SUMMARY
+              echo "   \`\`\`bash" >> $GITHUB_STEP_SUMMARY
+              echo "   npm run build" >> $GITHUB_STEP_SUMMARY
+              echo "   \`\`\`" >> $GITHUB_STEP_SUMMARY
+              ;;
+            *"e2e"*|*"test"*)
+              echo "### 🧪 テストエラー対処法" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "#### 一般的な対処手順" >> $GITHUB_STEP_SUMMARY
+              echo "1. **ローカルE2Eテスト実行**" >> $GITHUB_STEP_SUMMARY
+              echo "   \`\`\`bash" >> $GITHUB_STEP_SUMMARY
+              echo "   cd frontend" >> $GITHUB_STEP_SUMMARY
+              echo "   npm run test:e2e" >> $GITHUB_STEP_SUMMARY
+              echo "   \`\`\`" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "2. **デプロイメント状態の確認**" >> $GITHUB_STEP_SUMMARY
+              echo "   - フロントエンドURLにアクセス可能か確認" >> $GITHUB_STEP_SUMMARY
+              echo "   - APIエンドポイントの応答確認" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "3. **認証設定の確認**" >> $GITHUB_STEP_SUMMARY
+              echo "   - Google OAuth設定の確認" >> $GITHUB_STEP_SUMMARY
+              echo "   - テストユーザーの許可リスト確認" >> $GITHUB_STEP_SUMMARY
+              ;;
+            *)
+              echo "### 🔍 一般的なエラー対処法" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "1. **ログの詳細確認**: 失敗したステップのログを確認" >> $GITHUB_STEP_SUMMARY
+              echo "2. **環境変数確認**: 必要なSecrets・環境変数の設定確認" >> $GITHUB_STEP_SUMMARY
+              echo "3. **依存関係確認**: package.json, requirements.txt の整合性確認" >> $GITHUB_STEP_SUMMARY
+              echo "4. **権限確認**: GitHub Actions の実行権限確認" >> $GITHUB_STEP_SUMMARY
+              ;;
+          esac
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📚 参考資料" >> $GITHUB_STEP_SUMMARY
+          echo "- [デプロイガイド](https://github.com/${{ github.repository }}/blob/main/docs/deployment-guide.md)" >> $GITHUB_STEP_SUMMARY
+          echo "- [トラブルシューティング](https://github.com/${{ github.repository }}/blob/main/docs/troubleshooting-diagnostic-guide.md)" >> $GITHUB_STEP_SUMMARY
+          echo "- [GitHub Secrets設定](https://github.com/${{ github.repository }}/blob/main/docs/github-secrets-setup-guide.md)" >> $GITHUB_STEP_SUMMARY
+          echo "- [統合セットアップガイド](https://github.com/${{ github.repository }}/blob/main/docs/integrated-setup-guide.md)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🆘 サポート" >> $GITHUB_STEP_SUMMARY
+          echo "問題が解決しない場合は、以下の情報と共にIssueを作成してください：" >> $GITHUB_STEP_SUMMARY
+          echo "- エラーが発生したワークフロー名とステップ" >> $GITHUB_STEP_SUMMARY
+          echo "- 実行環境（development/staging/production）" >> $GITHUB_STEP_SUMMARY
+          echo "- エラーメッセージの全文" >> $GITHUB_STEP_SUMMARY
+          echo "- 実行時刻とコミットハッシュ" >> $GITHUB_STEP_SUMMARY
+
+      - name: エラーアーティファクト収集
+        if: always()
+        run: |
+          # エラー情報をアーティファクト用に保存
+          mkdir -p error-artifacts
+          
+          echo "Workflow: ${{ inputs.workflow_name }}" > error-artifacts/error-info.txt
+          echo "Failed Step: ${{ inputs.failed_step }}" >> error-artifacts/error-info.txt
+          echo "Environment: ${{ inputs.environment }}" >> error-artifacts/error-info.txt
+          echo "Error Context: ${{ inputs.error_context }}" >> error-artifacts/error-info.txt
+          echo "Timestamp: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> error-artifacts/error-info.txt
+          echo "Actor: ${{ github.actor }}" >> error-artifacts/error-info.txt
+          echo "Run ID: ${{ github.run_id }}" >> error-artifacts/error-info.txt
+          echo "Commit: ${{ github.sha }}" >> error-artifacts/error-info.txt
+
+      - name: エラーアーティファクトアップロード
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: error-analysis-${{ github.run_id }}
+          path: error-artifacts/
+          retention-days: 30

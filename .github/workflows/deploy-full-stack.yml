@@ -61,6 +61,13 @@ jobs:
         cd frontend
         npm ci
 
+    - name: Validate CI environment
+      uses: ./.github/actions/validate-environment
+      with:
+        validation-type: 'full'
+        fail-on-error: 'false'
+        generate-report: 'true'
+
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
@@ -129,6 +136,23 @@ jobs:
             exit 1
           fi
         fi
+
+    - name: Handle integration test errors
+      if: failure()
+      uses: ./.github/actions/error-handler
+      with:
+        workflow-name: 'Full Stack Integration Test'
+        step-name: 'Run integration tests'
+        error-category: 'test'
+        environment: ${{ github.event.inputs.environment }}
+
+    - name: Collect integration test failure artifacts
+      if: failure()
+      uses: ./.github/actions/test-artifact-collector
+      with:
+        test-type: 'integration'
+        working-directory: '.'
+        collect-logs: 'true'
 
     - name: Test Summary
       if: always()

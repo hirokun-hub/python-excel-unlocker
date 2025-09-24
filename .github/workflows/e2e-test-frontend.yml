@@ -48,6 +48,23 @@ jobs:
           BASE_URL: ${{ inputs.deployment-url }}
           NEXT_PUBLIC_API_URL: ${{ inputs.api-url }}
 
+      - name: Handle E2E test errors
+        if: failure()
+        uses: ./.github/actions/error-handler
+        with:
+          workflow-name: 'Frontend E2E Test'
+          step-name: 'Run E2E tests'
+          error-category: 'e2e'
+
+      - name: Collect E2E test failure artifacts
+        if: failure()
+        uses: ./.github/actions/test-artifact-collector
+        with:
+          test-type: 'e2e'
+          working-directory: 'frontend'
+          collect-screenshots: 'true'
+          collect-logs: 'true'
+
       - name: Set E2E test output
         id: set-output
         run: echo "e2e-test-success=true" >> $GITHUB_OUTPUT

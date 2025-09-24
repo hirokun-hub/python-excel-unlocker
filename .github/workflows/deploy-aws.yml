@@ -116,6 +116,23 @@ jobs:
           cd backend
           pytest tests/unit/ --cov=src --cov-report=xml --cov-report=term-missing
 
+      - name: Handle backend test errors
+        if: failure()
+        uses: ./.github/actions/error-handler
+        with:
+          workflow-name: 'Backend Deploy (AWS)'
+          step-name: 'Run backend tests'
+          error-category: 'backend'
+          environment: ${{ steps.params.outputs.environment }}
+
+      - name: Collect backend test failure artifacts
+        if: failure()
+        uses: ./.github/actions/test-artifact-collector
+        with:
+          test-type: 'unit'
+          working-directory: 'backend'
+          collect-coverage: 'true'
+
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
         with:
@@ -178,6 +195,15 @@ jobs:
             sam deploy --config-env default --no-confirm-changeset --no-fail-on-empty-changeset \
               --parameter-overrides Environment=development AllowedUsers="$ALLOWED"
           fi
+
+      - name: Handle SAM deployment errors
+        if: failure() && steps.params.outputs.skip_deploy != 'true'
+        uses: ./.github/actions/error-handler
+        with:
+          workflow-name: 'Backend Deploy (AWS)'
+          step-name: 'Deploy with AWS SAM'
+          error-category: 'deployment'
+          environment: ${{ steps.params.outputs.environment }}
 
       - name: Get API Gateway URL
         id: api-url

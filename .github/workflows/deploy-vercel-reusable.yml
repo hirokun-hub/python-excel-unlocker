@@ -103,6 +103,15 @@ jobs:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
+      - name: Handle Vercel deployment errors
+        if: failure()
+        uses: ./.github/actions/error-handler
+        with:
+          workflow-name: 'Frontend Deploy (Vercel)'
+          step-name: 'Deploy to Vercel'
+          error-category: 'deployment'
+          environment: ${{ inputs.environment }}
+
       - name: Set deployment output
         id: set-output
         run: echo "deploy-success=true" >> $GITHUB_OUTPUT
