@@ -1,125 +1,75 @@
 # プロジェクト構成
 
-## ルートレベルの構成
+## ルートディレクトリ概要
 ```
-├── frontend/           # Next.js Webアプリケーション
-├── backend/            # AWS Lambda関数のソースコード
-├── docs/               # プロジェクトドキュメント
-│   ├── authentication-integration-guide.md  # 認証・API統合ガイド
-│   └── local-development-guide.md           # ローカル開発環境ガイド
-├── scripts/            # ユーティリティスクリプトとレガシーコード
-├── tests/              # 統合テストとパフォーマンステスト
-├── template.yaml       # AWS SAMテンプレート
-├── samconfig.toml      # SAMデプロイ設定
-├── .aws-sam/           # SAMビルド成果物とドキュメント
-└── analysis_data/      # AI分析用データ（GitHub Actions生成）
+├── backend/                    # AWS Lambda（Python）ソースとテスト
+├── frontend/                   # Next.js (App Router) フロントエンド
+├── docs/                       # 各種ガイド・トラブルシューティング
+├── scripts/                    # セットアップ・自動化・検証スクリプト群
+├── tests/                      # 統合テスト・パフォーマンステスト
+├── .github/workflows/          # GitHub Actions ワークフロー定義
+├── .kiro/                      # 要件・設計・タスク・ステアリング文書
+├── logs/ , reports/ , events/  # 運用ログ類（コミット対象外想定）
+├── samconfig.toml , template.yaml
+├── setup-config*.json , secrets/  # 設定テンプレートと機密情報置き場
+└── README.md ほか
 ```
 
-## フロントエンド構成 (`frontend/`)
+## フロントエンド (`frontend/`)
 ```
 ├── src/
-│   ├── app/            # Next.js App RouterのページとAPIルート
-│   │   ├── api/        # APIルートハンドラー（auth, debug, drive）
-│   │   ├── page.tsx    # メインアプリケーションページ
-│   │   └── layout.tsx  # ルートレイアウトコンポーネント
-│   ├── components/     # Reactコンポーネント
-│   │   ├── ui/         # shadcn/uiコンポーネント
-│   │   ├── ExcelUnlocker.tsx  # Excel解除メインコンポーネント
-│   │   └── *.tsx       # その他カスタムコンポーネント（FileUpload, FileResults等）
-│   ├── lib/            # ユーティリティライブラリ
-│   │   ├── api.ts      # バックエンドAPI呼び出しライブラリ
-│   │   └── *.ts        # その他ユーティリティ
-│   ├── types/          # TypeScript型定義
-│   ├── utils/          # ヘルパー関数
-│   └── auth.ts         # Auth.js認証設定
-├── __tests__/          # ユニットテスト
-├── e2e/                # Playwright E2Eテスト
-└── public/             # 静的アセット
+│   ├── app/                    # ページ・API Route（Next.js App Router）
+│   ├── components/             # UI / 機能コンポーネント（shadcn/ui ベース）
+│   ├── lib/, utils/, types/    # クライアントロジック・型定義
+│   └── auth.ts                 # Auth.js (Google OAuth) 設定
+├── __tests__/                  # Jest ユニットテスト
+├── e2e/                        # Playwright E2E テスト
+└── public/                     # 静的アセット
 ```
 
-## バックエンド構成 (`backend/`)
+## バックエンド (`backend/`)
 ```
 ├── src/
-│   ├── get_upload_url.py    # 署名付きURL生成Lambda関数
-│   ├── unlock.py           # Excel解除Lambda関数
-│   ├── auth_utils.py       # 認証チェック共通ユーティリティ
-│   ├── excel_utils.py      # Excel処理ユーティリティ
-│   ├── s3_utils.py         # S3操作ユーティリティ
-│   └── requirements.txt    # Python依存関係
-├── .env.local              # ローカル開発用環境変数
-└── tests/
-    ├── unit/           # ユニットテスト
-    └── conftest.py     # テスト設定
+│   ├── unlock.py, get_upload_url.py  # Lambda エントリポイント
+│   ├── auth_utils.py, file_security.py などのユーティリティ
+│   └── requirements.txt               # Python 依存関係
+├── tests/unit/                        # pytest ユニットテスト
+└── samconfig.toml に対応する設定はルートに配置
 ```
 
-## ドキュメント構成 (`docs/`)
-```
-├── dev/                # 開発リソース
-├── guides/             # ユーザーと開発者ガイド
-├── how-to/             # ステップバイステップ手順
-├── project/            # プロジェクト計画とアーキテクチャ
-├── security/           # セキュリティドキュメント
-└── 企画/               # 企画書（日本語）
-```
+## ドキュメント (`docs/`)
+- `github-secrets-setup-guide.md` : 必須環境変数の設定手順
+- `integrated-setup-guide.md` : セットアップ全体像
+- `deployment-guide.md` : デプロイ運用ガイド
+- `python-environment-troubleshooting.md` / `troubleshooting-diagnostic-guide.md` : 問題解決
+- `index.md` : 初心者向けトップランディング
+- `runbook/` : 障害時対応手順
+
+## スクリプト (`scripts/`)
+- `setup-*.sh` : AWS / Vercel / Secrets 等のセットアップ
+- `task_manager.py`, `task-aliases.sh` : タスク自動化（完了マーク・コミット）
+- `normalize_vercel_project.py` : Vercel 設定補助
+- `validate-env-vars.py` : 環境変数チェック
+- `deploy-*.sh` : デプロイ支援
+
+## GitHub Actions (`.github/workflows/`)
+- `deploy-backend.yml` / `deploy-aws.yml` : バックエンド CI/CD
+- `deploy-frontend.yml` / `deploy-vercel-reusable.yml` : フロントエンド CI/CD
+- `build-frontend.yml`, `validate-frontend.yml`, `e2e-test-frontend.yml` : 再利用ワークフロー
+- `deploy-full-stack.yml` : 手動フルスタックデプロイ
 
 ## 命名規則
+- **TypeScript / React コンポーネント**: PascalCase (`ExcelUnlocker.tsx`)
+- **ユーティリティ・フック**: camelCase (`useUpload.ts`, `api.ts`)
+- **テスト**: `*.test.ts(x)` / `*.spec.ts`
+- **ドキュメント**: ASCII の kebab-case (`github-secrets-setup-guide.md`)
+- **シェル / Python スクリプト**: kebab-case (`setup-python-env.sh`), snake_case (`task_manager.py`)
 
-### ファイル
-- **コンポーネント**: PascalCase（例：`FileUpload.tsx`, `DriveFolderPicker.tsx`）
-- **ページ**: lowercase（例：`page.tsx`, `layout.tsx`）
-- **ユーティリティ**: camelCase（例：`googleDrive.ts`, `utils.ts`）
-- **テスト**: `*.test.tsx` または `*.spec.ts`
-- **ドキュメント**: ASCII の kebab-case のみ（日本語・全角記号・アンダースコア禁止）（例：`aws-deploy-prep-guide.md`）
+## Git 管理上の注意
+- `.gitignore` に従い `node_modules/`, `.next/`, `.aws-sam/`, `*.env*`, `secrets/` 等はコミットしない
+- `setup-config.json` など機密ファイルはテンプレート (`setup-config.example.json`) 経由で共有
+- タスク自動化機能を利用する場合は `task-complete-dry` で内容確認してから実行
 
-### ディレクトリ
-- **コンポーネント**: 機能またはUIライブラリ別に整理（`ui/`, `components/`）
-- **APIルート**: Next.js App Routerの規則に従う（`api/auth/[...nextauth]/`）
-- **テスト**: ソース構造をミラーリング（`__tests__/components/`）
-
-## AI分析用ディレクトリ (`analysis_data/`)
-```
-analysis_data/
-├── runtime.json           # Node/Python/OSバージョン情報
-├── todo-fixme.json        # 変更箇所のTODO/FIXME抽出
-├── change-context/        # 変更箇所の前後5行コンテキスト
-│   ├── full-diff.patch    # 全体差分
-│   └── *.patch            # ファイル別差分（前後5行）
-├── file-metrics.json      # ファイルサイズ・行数・複雑度統計
-├── hotspots.json          # 過去30日の変更頻度分析
-├── recent-commits.json    # 最近20コミットのパターン分析
-├── error-patterns.json    # ログファイルからのエラーパターン抽出
-├── npm-vulnerabilities.json # 依存関係の脆弱性情報
-├── kiro-context/          # プロジェクト全体像（.kiroファイル群）
-│   ├── .kiro_specs_*_requirements.md
-│   ├── .kiro_specs_*_design.md
-│   ├── .kiro_specs_*_tasks.md
-│   ├── .kiro_steering_*.md
-│   └── kiro-files-list.txt
-└── codeframes/            # JUnit失敗時のコードフレーム（±10行）
-    ├── junit-fe.txt
-    └── junit-be.txt
-```
-
-## 主要設定ファイル
-- `components.json`: shadcn/ui設定
-- `next.config.ts`: Next.js設定
-- `tailwind.config.ts`: Tailwind CSS設定
-- `tsconfig.json`: TypeScript設定
-- `pytest.ini`: Pythonテスト設定
-- `.env.local`: ローカル環境変数（フロントエンド）
-- `.gitignore`: バージョン管理から除外するファイル・ディレクトリの指定
-
-## Git管理の注意点
-
-### 除外すべきファイル・ディレクトリ
-- **環境変数ファイル**: `.env.local`, `.env.production.local`
-- **依存関係**: `node_modules/`, `__pycache__/`
-- **ビルド成果物**: `.next/`, `dist/`, `.aws-sam/`
-- **IDE設定**: `.vscode/`, `.idea/`
-- **ログファイル**: `*.log`
-- **一時ファイル**: `*.tmp`, `.DS_Store`
-
-### 機密情報の取り扱い
-- **APIキー、パスワード、トークンは絶対にコミットしない**
-- **AWSクレデンシャルファイルは除外する**
-- **データベース接続文字列は環境変数で管理する**
+## AI 解析関連
+- `.kiro/` 配下に要件・設計・タスク・ステアリング文書を配置
+- 分析系アーティファクトは `analysis_data/` が存在する場合に利用（必要時に生成）
