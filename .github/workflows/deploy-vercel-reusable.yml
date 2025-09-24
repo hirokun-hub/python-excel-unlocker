@@ -1,4 +1,4 @@
-name: '[Reusable] Frontend - Deploy to Vercel'
+name: "[Reusable] Frontend - Deploy to Vercel"
 
 on:
   workflow_call:

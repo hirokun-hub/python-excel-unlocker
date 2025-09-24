@@ -1,4 +1,4 @@
-name: '[Full Stack] Deploy All'
+name: "[Pipeline] Full Stack - Deploy All"
 
 on:
   # 手動実行のみ（安全のため）

@@ -1,4 +1,4 @@
-name: '[Reusable] Common Error Handler'
+name: "[Reusable] Common - Error Handler"
 
 on:
   workflow_call:
