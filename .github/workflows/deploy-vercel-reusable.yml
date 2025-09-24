@@ -106,3 +106,33 @@ jobs:
       - name: Set deployment output
         id: set-output
         run: echo "deploy-success=true" >> $GITHUB_OUTPUT
+
+      - name: Deployment Summary
+        if: always()
+        run: |
+          echo "## 🚀 Vercel デプロイ結果" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### デプロイ情報" >> $GITHUB_STEP_SUMMARY
+          echo "- **環境**: ${{ inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **デプロイURL**: ${{ steps.deploy.outputs.vercel-url }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **API URL**: ${{ inputs.api_url || 'デフォルト設定' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **デプロイ時刻**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 実行結果" >> $GITHUB_STEP_SUMMARY
+          echo "- **アーティファクト取得**: ${{ job.status == 'success' && '✅ 成功' || '❌ 失敗' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Vercel設定**: ${{ job.status == 'success' && '✅ 成功' || '❌ 失敗' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **デプロイ実行**: ${{ job.status == 'success' && '✅ 成功' || '❌ 失敗' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ job.status }}" != "success" ]; then
+            echo "### ❌ エラー対処法" >> $GITHUB_STEP_SUMMARY
+            echo "1. **アーティファクトエラー**: ビルドステップが正常完了しているか確認" >> $GITHUB_STEP_SUMMARY
+            echo "2. **Vercel認証エラー**: VERCEL_TOKEN の有効性を確認" >> $GITHUB_STEP_SUMMARY
+            echo "3. **プロジェクト設定エラー**: VERCEL_ORG_ID, VERCEL_PROJECT_ID を確認" >> $GITHUB_STEP_SUMMARY
+            echo "4. **デプロイエラー**: Vercelダッシュボードでプロジェクト状態を確認" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "📖 **参考資料**: [Vercel設定ガイド](https://github.com/${{ github.repository }}/blob/main/docs/vercel-setup-detailed-guide.md)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ **デプロイ完了** - アプリケーションが利用可能です" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "🔗 **アクセス**: [${{ steps.deploy.outputs.vercel-url }}](${{ steps.deploy.outputs.vercel-url }})" >> $GITHUB_STEP_SUMMARY
+          fi

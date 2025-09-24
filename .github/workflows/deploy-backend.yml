@@ -44,3 +44,48 @@ jobs:
       environment: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'staging') || (github.ref == 'refs/heads/develop' && 'development') || (github.base_ref == 'main' && 'staging') || 'development' }}
       skip_deploy: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.event.inputs.skip_deploy == 'true') }}
     secrets: inherit
+
+  workflow-summary:
+    name: Workflow Summary
+    needs: backend
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+    - name: Backend Workflow Summary
+      run: |
+        ENVIRONMENT="${{ github.event_name == 'workflow_dispatch' && github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'staging') || (github.ref == 'refs/heads/develop' && 'development') || (github.base_ref == 'main' && 'staging') || 'development' }}"
+        SKIP_DEPLOY="${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.event.inputs.skip_deploy == 'true') }}"
+        
+        echo "## 🔧 バックエンドワークフロー完了" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 実行情報" >> $GITHUB_STEP_SUMMARY
+        echo "- **トリガー**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **ブランチ**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **環境**: $ENVIRONMENT" >> $GITHUB_STEP_SUMMARY
+        echo "- **実行時刻**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 実行結果" >> $GITHUB_STEP_SUMMARY
+        echo "- **バックエンド処理**: ${{ needs.backend.result == 'success' && '✅ 成功' || '❌ 失敗' }}" >> $GITHUB_STEP_SUMMARY
+        
+        if [ "$SKIP_DEPLOY" = "true" ]; then
+          echo "- **実行内容**: テストのみ（デプロイはスキップ）" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- **実行内容**: テスト + デプロイ" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ needs.backend.outputs.api-url }}" != "" ]; then
+            echo "- **API URL**: ${{ needs.backend.outputs.api-url }}" >> $GITHUB_STEP_SUMMARY
+          fi
+        fi
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        if [ "${{ needs.backend.result }}" != "success" ]; then
+          echo "### ❌ エラー対処法" >> $GITHUB_STEP_SUMMARY
+          echo "1. **テスト失敗**: \`cd backend && pytest\` でローカル確認" >> $GITHUB_STEP_SUMMARY
+          echo "2. **AWS認証エラー**: GitHub Secrets の AWS 設定を確認" >> $GITHUB_STEP_SUMMARY
+          echo "3. **SAMデプロイエラー**: \`sam build && sam deploy\` をローカルで実行" >> $GITHUB_STEP_SUMMARY
+          echo "4. **詳細ログ**: deploy-aws.yml ワークフローのログを確認" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📖 **参考資料**: [AWS設定ガイド](https://github.com/${{ github.repository }}/blob/main/docs/deployment-guide.md)" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "✅ **バックエンド処理完了**" >> $GITHUB_STEP_SUMMARY
+        fi

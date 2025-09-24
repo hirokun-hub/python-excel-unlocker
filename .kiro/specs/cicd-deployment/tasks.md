@@ -26,7 +26,7 @@
   - 現在の動作フローの詳細文書化
   - _要件: 要件1, 要件2, 要件3, 要件6_
 
-- [ ] 2. GitHub Actions Summary機能の活用強化（フェーズ1）
+- [x] 2. GitHub Actions Summary機能の活用強化（フェーズ1）
   - deploy-full-stack.ymlのSummary出力を他ワークフローにも適用
   - 統一フォーマットでの環境情報・URL・実行時間表示
   - エラー時の詳細情報とトラブルシューティングリンク追加

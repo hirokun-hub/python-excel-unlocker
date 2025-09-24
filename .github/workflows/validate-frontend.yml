@@ -43,3 +43,27 @@ jobs:
       - name: Set validation output
         id: set-output
         run: echo "validation-success=true" >> $GITHUB_OUTPUT
+
+      - name: Validation Summary
+        if: always()
+        run: |
+          echo "## 🔍 フロントエンド検証結果" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 実行内容" >> $GITHUB_STEP_SUMMARY
+          echo "- **TypeScript型チェック**: ${{ job.status == 'success' && '✅ 成功' || '❌ 失敗' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **ESLint**: ${{ job.status == 'success' && '✅ 成功' || '❌ 失敗' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **単体テスト**: ${{ job.status == 'success' && '✅ 成功' || '❌ 失敗' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 実行情報" >> $GITHUB_STEP_SUMMARY
+          echo "- **実行時刻**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "- **Node.js バージョン**: 18" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ job.status }}" != "success" ]; then
+            echo "### ❌ エラー対処法" >> $GITHUB_STEP_SUMMARY
+            echo "1. **型エラー**: \`npm run type-check\` でローカル確認" >> $GITHUB_STEP_SUMMARY
+            echo "2. **Lintエラー**: \`npm run lint -- --fix\` で自動修正" >> $GITHUB_STEP_SUMMARY
+            echo "3. **テスト失敗**: \`npm run test\` でローカル実行" >> $GITHUB_STEP_SUMMARY
+            echo "4. **詳細ログ**: 上記のステップログを確認" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ **検証完了** - ビルドステップに進めます" >> $GITHUB_STEP_SUMMARY
+          fi

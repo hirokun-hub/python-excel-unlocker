@@ -51,3 +51,31 @@ jobs:
       - name: Set E2E test output
         id: set-output
         run: echo "e2e-test-success=true" >> $GITHUB_OUTPUT
+
+      - name: E2E Test Summary
+        if: always()
+        run: |
+          echo "## 🧪 E2Eテスト結果" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### テスト環境" >> $GITHUB_STEP_SUMMARY
+          echo "- **テスト対象URL**: ${{ inputs.deployment-url }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **API URL**: ${{ inputs.api-url }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **テスト実行時刻**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "- **ブラウザ**: Playwright (Chromium, Firefox, WebKit)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 実行結果" >> $GITHUB_STEP_SUMMARY
+          echo "- **環境セットアップ**: ${{ job.status == 'success' && '✅ 成功' || '❌ 失敗' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Playwrightインストール**: ${{ job.status == 'success' && '✅ 成功' || '❌ 失敗' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **E2Eテスト実行**: ${{ job.status == 'success' && '✅ 成功' || '❌ 失敗' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ job.status }}" != "success" ]; then
+            echo "### ❌ エラー対処法" >> $GITHUB_STEP_SUMMARY
+            echo "1. **環境エラー**: デプロイメントURLにアクセス可能か確認" >> $GITHUB_STEP_SUMMARY
+            echo "2. **認証エラー**: Google OAuth設定とテストユーザー設定を確認" >> $GITHUB_STEP_SUMMARY
+            echo "3. **テスト失敗**: \`npm run test:e2e\` をローカルで実行" >> $GITHUB_STEP_SUMMARY
+            echo "4. **タイムアウト**: アプリケーションの応答時間を確認" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "📖 **参考資料**: [E2Eテストガイド](https://github.com/${{ github.repository }}/blob/main/docs/integration-testing-guide.md)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ **E2Eテスト完了** - アプリケーションが正常動作しています" >> $GITHUB_STEP_SUMMARY
+          fi
