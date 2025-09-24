@@ -68,7 +68,7 @@ jobs:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
       - name: Normalize Vercel project root
-        run: python3 scripts/normalize_vercel_project.py
+        run: python3 .github/scripts/normalize_vercel_project.py
 
       - name: Prepare deployment metadata
         id: deploy-meta
