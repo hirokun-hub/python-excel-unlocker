@@ -4,6 +4,7 @@ S3条件拘束付きアップロード機能のユニットテスト
 """
 import pytest
 import json
+import os
 from unittest.mock import patch, MagicMock
 from moto import mock_aws
 import boto3
@@ -20,6 +21,13 @@ class TestS3ConstrainedUpload:
     """S3条件拘束付きアップロード機能のテストクラス"""
     
     @mock_aws
+    @patch.dict(os.environ, {
+        'AWS_ACCESS_KEY_ID': 'testing',
+        'AWS_SECRET_ACCESS_KEY': 'testing',
+        'AWS_SECURITY_TOKEN': 'testing',
+        'AWS_SESSION_TOKEN': 'testing',
+        'AWS_DEFAULT_REGION': 'ap-northeast-1'
+    })
     def test_generate_constrained_upload_url_success(self):
         """条件拘束付きアップロードURL生成の正常系テスト"""
         # S3バケットを作成
@@ -50,6 +58,13 @@ class TestS3ConstrainedUpload:
         assert result['url'].startswith('https://')
     
     @mock_aws
+    @patch.dict(os.environ, {
+        'AWS_ACCESS_KEY_ID': 'testing',
+        'AWS_SECRET_ACCESS_KEY': 'testing',
+        'AWS_SECURITY_TOKEN': 'testing',
+        'AWS_SESSION_TOKEN': 'testing',
+        'AWS_DEFAULT_REGION': 'ap-northeast-1'
+    })
     def test_generate_constrained_upload_url_with_invalid_params(self):
         """無効なパラメータでの条件拘束付きURL生成テスト"""
         # S3バケットを作成
@@ -75,7 +90,12 @@ class TestS3ConstrainedUpload:
     @patch('auth_utils.verify_google_jwt')
     @patch.dict(os.environ, {
         'S3_BUCKET_NAME': 'test-excel-unlock-bucket',
-        'ALLOWED_USERS': 'test@example.com'
+        'ALLOWED_USERS': 'test@example.com',
+        'AWS_ACCESS_KEY_ID': 'testing',
+        'AWS_SECRET_ACCESS_KEY': 'testing',
+        'AWS_SECURITY_TOKEN': 'testing',
+        'AWS_SESSION_TOKEN': 'testing',
+        'AWS_DEFAULT_REGION': 'ap-northeast-1'
     })
     def test_lambda_handler_with_constrained_upload(self, mock_verify_jwt):
         """Lambda関数での条件拘束付きアップロード処理テスト"""
