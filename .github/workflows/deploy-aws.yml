@@ -256,8 +256,18 @@ jobs:
           node-version: '18'
 
       - name: Update Vercel Environment Variables
-        if: steps.params.outputs.skip_deploy != 'true' && steps.api_url.outputs.api_url != '' && secrets.VERCEL_TOKEN != ''
+        if: steps.params.outputs.skip_deploy != 'true'
         run: |
+          if [ -z "${{ secrets.VERCEL_TOKEN || '' }}" ]; then
+            echo "🔸 VERCEL_TOKEN is not set; skipping Vercel environment update"
+            exit 0
+          fi
+
+          if [ -z "${{ steps.api_url.outputs.api_url }}" ]; then
+            echo "🔸 API URL is not available; skipping Vercel environment update"
+            exit 0
+          fi
+
           npm install -g vercel
           cd frontend
 
@@ -273,16 +283,21 @@ jobs:
               ;;
           esac
 
-          echo "${{ secrets.VERCEL_TOKEN }}" | vercel login --stdin
-          vercel link --yes --token "${{ secrets.VERCEL_TOKEN }}"
+         echo "${{ secrets.VERCEL_TOKEN }}" | vercel login --stdin
+         vercel link --yes --token "${{ secrets.VERCEL_TOKEN }}"
 
           echo "${{ steps.api_url.outputs.api_url }}" | vercel env add NEXT_PUBLIC_API_URL "$ENV_TARGET" --token "${{ secrets.VERCEL_TOKEN }}" || true
           echo "false" | vercel env add NEXT_PUBLIC_USE_MOCK_API "$ENV_TARGET" --token "${{ secrets.VERCEL_TOKEN }}" || true
 
       - name: Integration Test
-        if: steps.params.outputs.skip_deploy != 'true' && steps.api_url.outputs.api_url != ''
+        if: steps.params.outputs.skip_deploy != 'true'
         run: |
           API_URL="${{ steps.api_url.outputs.api_url }}"
+
+          if [ -z "$API_URL" ]; then
+            echo "🔸 API URL not available; skipping integration test"
+            exit 0
+          fi
 
           curl -f "$API_URL/health" || echo "Health endpoint not found (normal)"
 
