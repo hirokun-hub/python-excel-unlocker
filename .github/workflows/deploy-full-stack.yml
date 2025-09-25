@@ -35,7 +35,7 @@ jobs:
     uses: ./.github/workflows/deploy-vercel-reusable.yml
     with:
       environment: ${{ github.event.inputs.environment }}
-      api_url: ${{ needs.deploy-aws.outputs.api-url }}
+      api_url: ${{ needs.deploy-aws.outputs.api_url }}
     secrets: inherit
 
   # Step 3: 統合テスト
@@ -84,7 +84,7 @@ jobs:
           --stack-name "$STACK_NAME" \
           --query "Stacks[0].Outputs[?OutputKey=='ApiGatewayUrl'].OutputValue" \
           --output text)
-        echo "api-url=$API_URL" >> $GITHUB_OUTPUT
+        echo "api_url=$API_URL" >> $GITHUB_OUTPUT
         
         # Vercel URL取得（deploy-vercelジョブの出力から）
         VERCEL_URL="${{ needs.deploy-vercel.outputs.vercel-url }}"
@@ -104,7 +104,7 @@ jobs:
           npm install
           
           # 環境変数設定
-          export NEXT_PUBLIC_API_URL="${{ steps.get-urls.outputs.api-url }}"
+          export NEXT_PUBLIC_API_URL="${{ steps.get-urls.outputs.api_url }}"
           export FRONTEND_URL="${{ steps.get-urls.outputs.vercel-url }}"
           export TEST_ENVIRONMENT="${{ github.event.inputs.environment }}"
           
@@ -114,7 +114,7 @@ jobs:
           echo "⚠️ 統合テストディレクトリが見つかりません。基本的な疎通確認を実行します。"
           
           # 基本的な疎通確認
-          API_URL="${{ steps.get-urls.outputs.api-url }}"
+          API_URL="${{ steps.get-urls.outputs.api_url }}"
           FRONTEND_URL="${{ steps.get-urls.outputs.vercel-url }}"
           
           echo "API URL: $API_URL"
@@ -161,7 +161,7 @@ jobs:
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "- **環境**: ${{ github.event.inputs.environment }}" >> $GITHUB_STEP_SUMMARY
         echo "- **フロントエンド**: ${{ steps.get-urls.outputs.vercel-url }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **バックエンド**: ${{ steps.get-urls.outputs.api-url }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **バックエンド**: ${{ steps.get-urls.outputs.api_url }}" >> $GITHUB_STEP_SUMMARY
         echo "- **テスト実行時刻**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
 
   # Step 4: デプロイ完了通知
@@ -188,8 +188,8 @@ jobs:
         echo "- **統合テスト**: ${{ needs.integration-test.result == 'success' && '✅ 成功' || needs.integration-test.result == 'skipped' && '⏭️ スキップ' || '❌ 失敗' }}" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### デプロイ情報" >> $GITHUB_STEP_SUMMARY
-        if [ "${{ needs.deploy-aws.outputs.api-url }}" != "" ]; then
-          echo "- **API Gateway URL**: ${{ needs.deploy-aws.outputs.api-url }}" >> $GITHUB_STEP_SUMMARY
+        if [ "${{ needs.deploy-aws.outputs.api_url }}" != "" ]; then
+          echo "- **API Gateway URL**: ${{ needs.deploy-aws.outputs.api_url }}" >> $GITHUB_STEP_SUMMARY
         fi
         if [ "${{ needs.deploy-vercel.outputs.vercel-url }}" != "" ]; then
           echo "- **Vercel URL**: ${{ needs.deploy-vercel.outputs.vercel-url }}" >> $GITHUB_STEP_SUMMARY

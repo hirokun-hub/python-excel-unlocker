@@ -25,9 +25,9 @@ on:
       build-success:
         description: "Indicates whether the build was successful"
         value: ${{ jobs.build.outputs.build-success }}
-      api-url:
+      api_url:
         description: "The API URL used for the build"
-        value: ${{ jobs.build.outputs.api-url }}
+        value: ${{ jobs.build.outputs.api_url }}
 
 jobs:
   build:
@@ -35,7 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       build-success: ${{ steps.set-output.outputs.build-success }}
-      api-url: ${{ steps.build-meta.outputs.api_url }}
+      api_url: ${{ steps.build-meta.outputs.api_url }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4

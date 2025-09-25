@@ -131,9 +131,9 @@ jobs:
             echo "" >> $GITHUB_STEP_SUMMARY
           fi
 
-          if [ "${{ needs.backend_deploy.outputs.api-url || '' }}" != "" ]; then
+          if [ "${{ needs.backend_deploy.outputs.api_url || '' }}" != "" ]; then
             echo "### バックエンド" >> $GITHUB_STEP_SUMMARY
-            echo "- **API URL**: ${{ needs.backend_deploy.outputs.api-url }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **API URL**: ${{ needs.backend_deploy.outputs.api_url }}" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
           fi
 

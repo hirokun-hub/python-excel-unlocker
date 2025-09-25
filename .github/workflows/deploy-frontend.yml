@@ -57,9 +57,9 @@ on:
       vercel-url:
         description: 'Deployed Vercel URL'
         value: ${{ jobs.deploy.outputs.vercel-url }}
-      api-url:
+      api_url:
         description: 'API URL used for the build'
-        value: ${{ jobs.build.outputs.api-url }}
+        value: ${{ jobs.build.outputs.api_url }}
 
 jobs:
   validate:
@@ -93,8 +93,8 @@ jobs:
     if: ${{ needs.deploy.result == 'success' && (inputs.skip_e2e == false || inputs.skip_e2e == 'false' || github.event.inputs.skip_e2e == 'false') }}
     uses: ./.github/workflows/e2e-test-frontend.yml
     with:
-      deployment-url: ${{ needs.deploy.outputs.vercel-url }}
-      api-url: ${{ needs.build.outputs.api-url }}
+      deployment_url: ${{ needs.deploy.outputs.vercel-url }}
+      api_url: ${{ needs.build.outputs.api_url }}
     secrets: inherit
 
   workflow-summary:
@@ -132,8 +132,8 @@ jobs:
           if [ "${{ needs.deploy.outputs.vercel-url }}" != "" ]; then
             echo "- **デプロイURL**: ${{ needs.deploy.outputs.vercel-url }}" >> $GITHUB_STEP_SUMMARY
           fi
-          if [ "${{ needs.build.outputs.api-url }}" != "" ]; then
-            echo "- **API URL**: ${{ needs.build.outputs.api-url }}" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ needs.build.outputs.api_url }}" != "" ]; then
+            echo "- **API URL**: ${{ needs.build.outputs.api_url }}" >> $GITHUB_STEP_SUMMARY
           fi
         fi
         

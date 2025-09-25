@@ -3,11 +3,11 @@ name: "[Reusable] Frontend - E2E Test"
 on:
   workflow_call:
     inputs:
-      deployment-url:
+      deployment_url:
         description: 'The URL of the deployed application to test against'
         required: true
         type: string
-      api-url:
+      api_url:
         description: 'The API URL for the E2E tests'
         required: true
         type: string
@@ -45,8 +45,8 @@ jobs:
         working-directory: frontend
         run: npx playwright test
         env:
-          BASE_URL: ${{ inputs.deployment-url }}
-          NEXT_PUBLIC_API_URL: ${{ inputs.api-url }}
+          BASE_URL: ${{ inputs.deployment_url }}
+          NEXT_PUBLIC_API_URL: ${{ inputs.api_url }}
 
       - name: Handle E2E test errors
         if: failure()
@@ -75,8 +75,8 @@ jobs:
           echo "## 🧪 E2Eテスト結果" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### テスト環境" >> $GITHUB_STEP_SUMMARY
-          echo "- **テスト対象URL**: ${{ inputs.deployment-url }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **API URL**: ${{ inputs.api-url }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **テスト対象URL**: ${{ inputs.deployment_url }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **API URL**: ${{ inputs.api_url }}" >> $GITHUB_STEP_SUMMARY
           echo "- **テスト実行時刻**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
           echo "- **ブラウザ**: Playwright (Chromium, Firefox, WebKit)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY

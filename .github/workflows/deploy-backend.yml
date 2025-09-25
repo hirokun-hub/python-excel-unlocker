@@ -60,9 +60,9 @@ on:
       VERCEL_PROJECT_ID:
         required: false
     outputs:
-      api-url:
+      api_url:
         description: 'API Gateway URL'
-        value: ${{ jobs.backend.outputs.api-url }}
+        value: ${{ jobs.backend.outputs.api_url }}
 
 jobs:
   backend:
@@ -102,8 +102,8 @@ jobs:
           echo "- **実行内容**: テストのみ（デプロイはスキップ）" >> $GITHUB_STEP_SUMMARY
         else
           echo "- **実行内容**: テスト + デプロイ" >> $GITHUB_STEP_SUMMARY
-          if [ "${{ needs.backend.outputs.api-url }}" != "" ]; then
-            echo "- **API URL**: ${{ needs.backend.outputs.api-url }}" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ needs.backend.outputs.api_url }}" != "" ]; then
+            echo "- **API URL**: ${{ needs.backend.outputs.api_url }}" >> $GITHUB_STEP_SUMMARY
           fi
         fi
 

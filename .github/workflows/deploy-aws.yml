@@ -56,9 +56,9 @@ on:
         description: 'Vercel access token used for environment updates'
         required: false
     outputs:
-      api-url:
+      api_url:
         description: 'API Gateway URL'
-        value: ${{ jobs.deploy-aws.outputs.api-url }}
+        value: ${{ jobs.deploy-aws.outputs.api_url }}
 
 permissions:
   id-token: write
@@ -74,7 +74,7 @@ jobs:
     env:
       AWS_GITHUB_ACTIONS_ROLE_ARN: ${{ secrets.AWS_GITHUB_ACTIONS_ROLE_ARN }}
     outputs:
-      api-url: ${{ steps.finalize.outputs.api-url }}
+      api_url: ${{ steps.finalize.outputs.api_url }}
 
     steps:
       - name: Checkout
@@ -231,7 +231,7 @@ jobs:
           environment: ${{ steps.params.outputs.environment }}
 
       - name: Get API Gateway URL
-        id: api-url
+        id: api_url
         if: steps.params.outputs.skip_deploy != 'true'
         run: |
           ENVIRONMENT="${{ steps.params.outputs.environment }}"
@@ -246,7 +246,7 @@ jobs:
             API_URL="https://api-not-deployed.example.com"
           fi
 
-          echo "api-url=$API_URL" >> $GITHUB_OUTPUT
+          echo "api_url=$API_URL" >> $GITHUB_OUTPUT
           echo "API Gateway URL: $API_URL"
 
       - name: Set up Node.js for Vercel updates
@@ -256,7 +256,7 @@ jobs:
           node-version: '18'
 
       - name: Update Vercel Environment Variables
-        if: steps.params.outputs.skip_deploy != 'true' && steps.api-url.outputs.api-url != '' && secrets.VERCEL_TOKEN != ''
+        if: steps.params.outputs.skip_deploy != 'true' && steps.api_url.outputs.api_url != '' && secrets.VERCEL_TOKEN != ''
         run: |
           npm install -g vercel
           cd frontend
@@ -276,13 +276,13 @@ jobs:
           echo "${{ secrets.VERCEL_TOKEN }}" | vercel login --stdin
           vercel link --yes --token "${{ secrets.VERCEL_TOKEN }}"
 
-          echo "${{ steps.api-url.outputs.api-url }}" | vercel env add NEXT_PUBLIC_API_URL "$ENV_TARGET" --token "${{ secrets.VERCEL_TOKEN }}" || true
+          echo "${{ steps.api_url.outputs.api_url }}" | vercel env add NEXT_PUBLIC_API_URL "$ENV_TARGET" --token "${{ secrets.VERCEL_TOKEN }}" || true
           echo "false" | vercel env add NEXT_PUBLIC_USE_MOCK_API "$ENV_TARGET" --token "${{ secrets.VERCEL_TOKEN }}" || true
 
       - name: Integration Test
-        if: steps.params.outputs.skip_deploy != 'true' && steps.api-url.outputs.api-url != ''
+        if: steps.params.outputs.skip_deploy != 'true' && steps.api_url.outputs.api_url != ''
         run: |
-          API_URL="${{ steps.api-url.outputs.api-url }}"
+          API_URL="${{ steps.api_url.outputs.api_url }}"
 
           curl -f "$API_URL/health" || echo "Health endpoint not found (normal)"
 
@@ -298,11 +298,11 @@ jobs:
         id: finalize
         if: always()
         run: |
-          API_URL="${{ steps.api-url.outputs.api-url }}"
+          API_URL="${{ steps.api_url.outputs.api_url }}"
           if [ -z "$API_URL" ]; then
             API_URL=""
           fi
-          echo "api-url=$API_URL" >> $GITHUB_OUTPUT
+          echo "api_url=$API_URL" >> $GITHUB_OUTPUT
 
       - name: Deployment Summary
         if: always()
@@ -353,8 +353,8 @@ jobs:
             echo "- **統合テスト**: ${{ job.status == 'success' && '✅ 成功' || '❌ 失敗' }}" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "### デプロイ情報" >> $GITHUB_STEP_SUMMARY
-            if [ "${{ steps.finalize.outputs.api-url }}" != "" ]; then
-              echo "- **API Gateway URL**: ${{ steps.finalize.outputs.api-url }}" >> $GITHUB_STEP_SUMMARY
+            if [ "${{ steps.finalize.outputs.api_url }}" != "" ]; then
+              echo "- **API Gateway URL**: ${{ steps.finalize.outputs.api_url }}" >> $GITHUB_STEP_SUMMARY
             fi
             echo "" >> $GITHUB_STEP_SUMMARY
             if [ "${{ job.status }}" != "success" ]; then
@@ -367,9 +367,9 @@ jobs:
               echo "📖 **参考資料**: [AWS設定ガイド](https://github.com/${{ github.repository }}/blob/main/docs/deployment-guide.md)" >> $GITHUB_STEP_SUMMARY
             else
               echo "✅ **AWSデプロイ完了** - バックエンドが利用可能です" >> $GITHUB_STEP_SUMMARY
-              if [ "${{ steps.finalize.outputs.api-url }}" != "" ]; then
+              if [ "${{ steps.finalize.outputs.api_url }}" != "" ]; then
                 echo "" >> $GITHUB_STEP_SUMMARY
-                echo "🔗 **API エンドポイント**: ${{ steps.finalize.outputs.api-url }}" >> $GITHUB_STEP_SUMMARY
+                echo "🔗 **API エンドポイント**: ${{ steps.finalize.outputs.api_url }}" >> $GITHUB_STEP_SUMMARY
               fi
             fi
           fi
