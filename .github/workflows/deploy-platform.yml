@@ -2,6 +2,7 @@ name: "[Pipeline] Platform - Deploy"
 
 permissions:
   contents: read
+  actions: read
   id-token: write
 
 on:
@@ -70,6 +71,7 @@ jobs:
     name: Backend Workflow
     permissions:
       contents: read
+      actions: read
       id-token: write
     uses: ./.github/workflows/deploy-backend.yml
     with:
