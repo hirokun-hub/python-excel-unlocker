@@ -45,17 +45,24 @@ UPLOAD_URL_EXPIRES_IN = 60    # アップロード用：60秒
 DOWNLOAD_URL_EXPIRES_IN = 300  # ダウンロード用：300秒
 
 # S3クライアントのシングルトン管理
-_s3_client = None
+#
+# テストコードでは ``patch("s3_utils.s3_client", ...)`` のようにモジュール変数を
+# 差し替えて依存を注入している。過去のリファクタリングで遅延初期化のために
+# 変数名を ``_s3_client`` に変更した結果、このフックポイントが消えてしまい、
+# パッチ適用時に AttributeError が発生していた。ドキュメントでは後方互換性の
+# 重要性が強調されているため、公開インターフェースとして ``s3_client`` を復元
+# しつつ遅延初期化の最適化も維持する。
+s3_client = None
 
 def get_s3_client():
     """
     S3クライアントのシングルトンインスタンスを取得する
     コールドスタート対策とmotoテスト対応のため、遅延初期化を行う
     """
-    global _s3_client
-    if _s3_client is None:
+    global s3_client
+    if s3_client is None:
         AWS_REGION = os.environ.get('AWS_REGION', 'ap-northeast-1')
-        _s3_client = boto3.client(
+        s3_client = boto3.client(
             's3',
             region_name=AWS_REGION,
             config=Config(
@@ -65,7 +72,13 @@ def get_s3_client():
                 retries={'max_attempts': 3, 'mode': 'adaptive'}
             )
         )
-    return _s3_client
+    return s3_client
+
+
+def set_s3_client_for_tests(mock_client) -> None:
+    """テスト専用: S3クライアントのシングルトンを明示的に差し替える。"""
+    global s3_client
+    s3_client = mock_client
 
 def generate_presigned_url(bucket: str, key: str, client_method: str, expires_in: int) -> str:
     """
