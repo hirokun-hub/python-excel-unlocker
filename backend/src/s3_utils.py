@@ -44,19 +44,28 @@ def sanitize_for_log(text: str) -> str:
 UPLOAD_URL_EXPIRES_IN = 60    # アップロード用：60秒
 DOWNLOAD_URL_EXPIRES_IN = 300  # ダウンロード用：300秒
 
-# S3クライアントの初期化（コールドスタート対策：グローバルスコープ）
-# パフォーマンス最適化：接続プールとタイムアウト設定
-AWS_REGION = os.environ.get('AWS_REGION', 'ap-northeast-1')
-s3_client = boto3.client(
-    's3',
-    region_name=AWS_REGION,
-    config=Config(
-        signature_version='s3v4',
-        s3={'addressing_style': 'path'},
-        max_pool_connections=50,  # 並列処理対応
-        retries={'max_attempts': 3, 'mode': 'adaptive'}  # リトライ設定
-    )
-)
+# S3クライアントのシングルトン管理
+_s3_client = None
+
+def get_s3_client():
+    """
+    S3クライアントのシングルトンインスタンスを取得する
+    コールドスタート対策とmotoテスト対応のため、遅延初期化を行う
+    """
+    global _s3_client
+    if _s3_client is None:
+        AWS_REGION = os.environ.get('AWS_REGION', 'ap-northeast-1')
+        _s3_client = boto3.client(
+            's3',
+            region_name=AWS_REGION,
+            config=Config(
+                signature_version='s3v4',
+                s3={'addressing_style': 'path'},
+                max_pool_connections=50,
+                retries={'max_attempts': 3, 'mode': 'adaptive'}
+            )
+        )
+    return _s3_client
 
 def generate_presigned_url(bucket: str, key: str, client_method: str, expires_in: int) -> str:
     """
@@ -72,7 +81,8 @@ def generate_presigned_url(bucket: str, key: str, client_method: str, expires_in
         署名付きURL文字列、失敗時はNone
     """
     try:
-        url = s3_client.generate_presigned_url(
+        s3 = get_s3_client()
+        url = s3.generate_presigned_url(
             ClientMethod=client_method,
             Params={'Bucket': bucket, 'Key': key},
             ExpiresIn=expires_in
@@ -137,8 +147,9 @@ def generate_constrained_upload_url(bucket: str, key: str, content_type: str, ma
         # サーバーサイド暗号化を強制
         fields['x-amz-server-side-encryption'] = 'AES256'
         
+        s3 = get_s3_client()
         # 署名付きPOSTを生成
-        response = s3_client.generate_presigned_post(
+        response = s3.generate_presigned_post(
             Bucket=bucket,
             Key=key,
             Fields=fields,
@@ -200,7 +211,8 @@ def download_file_from_s3(bucket: str, key: str) -> str:
         sanitized_key = sanitize_for_log(key)
         sanitized_path = sanitize_for_log(local_path)
         logger.info(f"Downloading s3://{bucket}/{sanitized_key} to {sanitized_path}")
-        s3_client.download_file(bucket, key, local_path)
+        s3 = get_s3_client()
+        s3.download_file(bucket, key, local_path)
         logger.info("Download successful.")
         return local_path
     except ClientError as e:
@@ -224,7 +236,8 @@ def upload_file_to_s3(local_path: str, bucket: str, key: str) -> bool:
         sanitized_path = sanitize_for_log(local_path)
         sanitized_key = sanitize_for_log(key)
         logger.info(f"Uploading {sanitized_path} to s3://{bucket}/{sanitized_key}")
-        s3_client.upload_file(local_path, bucket, key)
+        s3 = get_s3_client()
+        s3.upload_file(local_path, bucket, key)
         logger.info("Upload successful.")
         return True
     except ClientError as e:
@@ -294,7 +307,8 @@ def cleanup_s3_object(bucket: str, key: str) -> bool:
         削除成功時True、失敗時False
     """
     try:
-        s3_client.delete_object(Bucket=bucket, Key=key)
+        s3 = get_s3_client()
+        s3.delete_object(Bucket=bucket, Key=key)
         sanitized_key = sanitize_for_log(key)
         logger.info(f"Successfully deleted S3 object: s3://{bucket}/{sanitized_key}")
         return True

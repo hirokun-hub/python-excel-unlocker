@@ -31,9 +31,7 @@ class TestS3Utils:
     def test_generate_presigned_url_success(self):
         """署名付きURL生成の成功テスト"""
         s3_client = boto3.client('s3', region_name='us-east-1')
-        s3_client.create_bucket(Bucket='test-bucket')
-        
-        with patch('s3_utils.s3_client', s3_client):
+        with patch('s3_utils.get_s3_client', return_value=s3_client):
             url = generate_presigned_url('test-bucket', 'test-key', 'get_object', 3600)
             
             assert url is not None
@@ -74,7 +72,7 @@ class TestS3Utils:
             tmp_path = tmp_file.name
         
         try:
-            with patch('s3_utils.s3_client', s3_client):
+            with patch('s3_utils.get_s3_client', return_value=s3_client):
                 result = upload_file_to_s3(tmp_path, 'test-bucket', 'uploaded-file.xlsx')
                 
                 assert result is True

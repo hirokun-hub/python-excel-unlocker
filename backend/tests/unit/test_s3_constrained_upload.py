@@ -14,7 +14,7 @@ import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../src'))
 
-from s3_utils import generate_constrained_upload_url
+from s3_utils import generate_constrained_upload_url, get_s3_client
 from get_upload_url import lambda_handler
 
 class TestS3ConstrainedUpload:
@@ -31,7 +31,7 @@ class TestS3ConstrainedUpload:
     def test_generate_constrained_upload_url_success(self):
         """条件拘束付きアップロードURL生成の正常系テスト"""
         # S3バケットを作成
-        s3_client = boto3.client('s3', region_name='ap-northeast-1')
+        s3_client = get_s3_client()
         bucket_name = 'test-excel-unlock-bucket'
         s3_client.create_bucket(
             Bucket=bucket_name,
@@ -68,7 +68,7 @@ class TestS3ConstrainedUpload:
     def test_generate_constrained_upload_url_with_invalid_params(self):
         """無効なパラメータでの条件拘束付きURL生成テスト"""
         # S3バケットを作成
-        s3_client = boto3.client('s3', region_name='ap-northeast-1')
+        s3_client = get_s3_client()
         bucket_name = 'test-excel-unlock-bucket'
         s3_client.create_bucket(
             Bucket=bucket_name,
@@ -100,7 +100,7 @@ class TestS3ConstrainedUpload:
     def test_lambda_handler_with_constrained_upload(self, mock_verify_jwt):
         """Lambda関数での条件拘束付きアップロード処理テスト"""
         # S3バケットを作成
-        s3_client = boto3.client('s3', region_name='ap-northeast-1')
+        s3_client = get_s3_client()
         bucket_name = 'test-excel-unlock-bucket'
         s3_client.create_bucket(
             Bucket=bucket_name,

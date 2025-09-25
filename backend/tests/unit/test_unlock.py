@@ -115,7 +115,7 @@ class TestUnlockHandler:
         }
         
         try:
-            with patch('s3_utils.s3_client', s3_client), \
+            with patch('s3_utils.get_s3_client', return_value=s3_client), \
                  TestEnvironment.temporary_env(**TestEnvironment.get_test_env_vars()):
                 
                 event = create_test_event(
@@ -162,7 +162,7 @@ class TestUnlockHandler:
             Body=sample_excel_file
         )
         
-        with patch('s3_utils.s3_client', s3_client), \
+        with patch('s3_utils.get_s3_client', return_value=s3_client), \
              patch('unlock.unlock_excel_file') as mock_unlock, \
              TestEnvironment.temporary_env(**TestEnvironment.get_test_env_vars()):
             
@@ -245,7 +245,7 @@ class TestProcessSingleFile:
         s3_client = boto3.client('s3', region_name='us-east-1')
         s3_client.create_bucket(Bucket='test-bucket')
         
-        with patch('s3_utils.s3_client', s3_client), \
+        with patch('s3_utils.get_s3_client', return_value=s3_client), \
              TestEnvironment.temporary_env(**TestEnvironment.get_test_env_vars()):
             
             result = process_single_file(
@@ -278,7 +278,7 @@ class TestProcessSingleFile:
             'message': 'All provided passwords failed to unlock the file.'
         }
         
-        with patch('s3_utils.s3_client', s3_client), \
+        with patch('s3_utils.get_s3_client', return_value=s3_client), \
              TestEnvironment.temporary_env(**TestEnvironment.get_test_env_vars()):
             
             result = process_single_file(
@@ -323,7 +323,7 @@ class TestParallelProcessing:
         
         mock_unlock.side_effect = create_unlocked_file
         
-        with patch('s3_utils.s3_client', s3_client), \
+        with patch('s3_utils.get_s3_client', return_value=s3_client), \
              TestEnvironment.temporary_env(**TestEnvironment.get_test_env_vars()):
             
             files_data = [
