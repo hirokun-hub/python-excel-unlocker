@@ -61,6 +61,8 @@ jobs:
   deploy-aws:
     name: Validate and Deploy Backend
     runs-on: ubuntu-latest
+    env:
+      AWS_GITHUB_ACTIONS_ROLE_ARN: ${{ secrets.AWS_GITHUB_ACTIONS_ROLE_ARN }}
     outputs:
       api-url: ${{ steps.finalize.outputs.api-url }}
 
@@ -148,7 +150,7 @@ jobs:
           use-installer: true
 
       - name: Configure AWS credentials (OIDC)
-        if: ${{ steps.params.outputs.skip_deploy != 'true' && secrets.AWS_GITHUB_ACTIONS_ROLE_ARN != '' }}
+        if: ${{ steps.params.outputs.skip_deploy != 'true' && env.AWS_GITHUB_ACTIONS_ROLE_ARN != '' }}
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_GITHUB_ACTIONS_ROLE_ARN }}
@@ -156,7 +158,7 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Configure AWS credentials (access keys)
-        if: ${{ steps.params.outputs.skip_deploy != 'true' && secrets.AWS_GITHUB_ACTIONS_ROLE_ARN == '' }}
+        if: ${{ steps.params.outputs.skip_deploy != 'true' && env.AWS_GITHUB_ACTIONS_ROLE_ARN == '' }}
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
