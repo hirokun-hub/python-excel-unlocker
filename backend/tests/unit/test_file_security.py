@@ -11,16 +11,32 @@ import zipfile
 from pathlib import Path
 
 # テスト対象のインポート
-from src.file_security import (
-    check_file_extension,
-    check_file_size,
-    check_magic_bytes,
-    check_mime_type,
-    check_file_structure,
-    comprehensive_security_check,
-    quarantine_file,
-    SecurityCheckResult
-)
+try:
+    from src.file_security import (
+        check_file_extension,
+        check_file_size,
+        check_magic_bytes,
+        check_mime_type,
+        check_file_structure,
+        comprehensive_security_check,
+        quarantine_file,
+        SecurityCheckResult
+    )
+except ImportError:
+    # 相対インポートでフォールバック
+    import sys
+    import os
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
+    from file_security import (
+        check_file_extension,
+        check_file_size,
+        check_magic_bytes,
+        check_mime_type,
+        check_file_structure,
+        comprehensive_security_check,
+        quarantine_file,
+        SecurityCheckResult
+    )
 
 class TestSecurityCheckResult:
     """SecurityCheckResultクラスのテスト"""
