@@ -50,14 +50,14 @@ on:
         type: boolean
 
 env:
-  PLATFORM_ENVIRONMENT: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'staging') || (github.ref == 'refs/heads/develop' && 'development') || (github.base_ref == 'main' && 'staging') || 'development' }}
+  PLATFORM_ENVIRONMENT: &platform_environment ${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'staging') || (github.ref == 'refs/heads/develop' && 'development') || (github.base_ref == 'main' && 'staging') || 'development' }}
 
 jobs:
   frontend:
     name: Frontend Workflow
     uses: ./.github/workflows/deploy-frontend.yml
     with:
-      environment: ${{ env.PLATFORM_ENVIRONMENT }}
+      environment: *platform_environment
       deploy_enabled: ${{ github.event_name == 'pull_request' && 'false' || github.event_name == 'workflow_dispatch' && (github.event.inputs.deploy_frontend == 'false' && 'false' || 'true') || 'true' }}
       skip_e2e: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.run_frontend_e2e == 'true' && 'false' || 'true') || github.event_name == 'push' && github.ref != 'refs/heads/main' && 'false' || 'true' }}
     secrets: inherit
@@ -66,7 +66,7 @@ jobs:
     name: Backend Workflow
     uses: ./.github/workflows/deploy-backend.yml
     with:
-      environment: ${{ env.PLATFORM_ENVIRONMENT }}
+      environment: *platform_environment
       skip_deploy: ${{ github.event_name == 'pull_request' && 'true' || github.event_name == 'workflow_dispatch' && (github.event.inputs.deploy_backend == 'false' && 'true' || 'false') || 'false' }}
     secrets: inherit
 
