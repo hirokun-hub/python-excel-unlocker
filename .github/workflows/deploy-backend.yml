@@ -22,6 +22,11 @@ on:
         required: false
         default: false
         type: boolean
+      run_tests:
+        description: 'バックエンドテストを実行'
+        required: false
+        default: true
+        type: boolean
 
   workflow_call:
     inputs:
@@ -34,6 +39,26 @@ on:
         required: false
         type: boolean
         default: false
+      run_tests:
+        description: 'バックエンドテストを実行'
+        required: false
+        type: boolean
+        default: true
+    secrets:
+      AWS_GITHUB_ACTIONS_ROLE_ARN:
+        required: false
+      AWS_ACCESS_KEY_ID:
+        required: false
+      AWS_SECRET_ACCESS_KEY:
+        required: false
+      ALLOWED_USERS:
+        required: false
+      VERCEL_TOKEN:
+        required: false
+      VERCEL_ORG_ID:
+        required: false
+      VERCEL_PROJECT_ID:
+        required: false
     outputs:
       api-url:
         description: 'API Gateway URL'
@@ -46,6 +71,7 @@ jobs:
     with:
       environment: ${{ inputs.environment || github.event.inputs.environment || 'development' }}
       skip_deploy: ${{ inputs.skip_deploy == true || inputs.skip_deploy == 'true' }}
+      run_tests: ${{ github.event.inputs.run_tests != 'false' && inputs.run_tests != false }}
     secrets: inherit
 
   workflow-summary:
@@ -59,6 +85,7 @@ jobs:
       run: |
         ENVIRONMENT="${{ inputs.environment || github.event.inputs.environment || 'development' }}"
         SKIP_DEPLOY="${{ inputs.skip_deploy == true || inputs.skip_deploy == 'true' }}"
+        RUN_TESTS="${{ github.event.inputs.run_tests != 'false' && inputs.run_tests != false }}"
         
         echo "## 🔧 バックエンドワークフロー完了" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
@@ -78,6 +105,10 @@ jobs:
           if [ "${{ needs.backend.outputs.api-url }}" != "" ]; then
             echo "- **API URL**: ${{ needs.backend.outputs.api-url }}" >> $GITHUB_STEP_SUMMARY
           fi
+        fi
+
+        if [ "$RUN_TESTS" = "false" ]; then
+          echo "- **バックエンドテスト**: ⏭️ スキップ" >> $GITHUB_STEP_SUMMARY
         fi
         
         echo "" >> $GITHUB_STEP_SUMMARY

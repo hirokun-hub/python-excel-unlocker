@@ -17,6 +17,11 @@ on:
         required: false
         default: false
         type: boolean
+      run_tests:
+        description: 'バックエンドテストを実行'
+        required: false
+        default: true
+        type: boolean
 
   workflow_call:
     inputs:
@@ -29,6 +34,11 @@ on:
         required: false
         type: boolean
         default: false
+      run_tests:
+        description: 'バックエンドテストを実行'
+        required: false
+        type: boolean
+        default: true
     secrets:
       AWS_GITHUB_ACTIONS_ROLE_ARN:
         description: 'Assumable IAM role ARN for OIDC-based deployments'
@@ -44,7 +54,7 @@ on:
         required: false
       VERCEL_TOKEN:
         description: 'Vercel access token used for environment updates'
-        required: true
+        required: false
     outputs:
       api-url:
         description: 'API Gateway URL'
@@ -91,8 +101,19 @@ jobs:
             SKIP_DEPLOY="false"
           fi
 
+          RUN_TESTS="${{ inputs.run_tests }}"
+          if [ -z "$RUN_TESTS" ]; then
+            RUN_TESTS="${{ github.event.inputs.run_tests }}"
+          fi
+          if [ "$RUN_TESTS" = "false" ] || [ "$RUN_TESTS" = "0" ]; then
+            RUN_TESTS="false"
+          else
+            RUN_TESTS="true"
+          fi
+
           echo "environment=$ENV" >> $GITHUB_OUTPUT
           echo "skip_deploy=$SKIP_DEPLOY" >> $GITHUB_OUTPUT
+          echo "run_tests=$RUN_TESTS" >> $GITHUB_OUTPUT
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -114,12 +135,13 @@ jobs:
           pip install pytest pytest-cov moto
 
       - name: Run backend tests
+        if: steps.params.outputs.run_tests != 'false'
         run: |
           cd backend
           pytest tests/unit/ --cov=src --cov-report=xml --cov-report=term-missing
 
       - name: Handle backend test errors
-        if: failure()
+        if: failure() && steps.params.outputs.run_tests != 'false'
         uses: ./.github/actions/error-handler
         with:
           workflow-name: 'Backend Deploy (AWS)'
@@ -128,7 +150,7 @@ jobs:
           environment: ${{ steps.params.outputs.environment }}
 
       - name: Collect backend test failure artifacts
-        if: failure()
+        if: failure() && steps.params.outputs.run_tests != 'false'
         uses: ./.github/actions/test-artifact-collector
         with:
           test-type: 'unit'
@@ -136,6 +158,7 @@ jobs:
           collect-coverage: 'true'
 
       - name: Upload coverage to Codecov
+        if: steps.params.outputs.run_tests != 'false'
         uses: codecov/codecov-action@v3
         with:
           file: ./backend/coverage.xml
@@ -233,7 +256,7 @@ jobs:
           node-version: '18'
 
       - name: Update Vercel Environment Variables
-        if: steps.params.outputs.skip_deploy != 'true' && steps.api-url.outputs.api-url != ''
+        if: steps.params.outputs.skip_deploy != 'true' && steps.api-url.outputs.api-url != '' && secrets.VERCEL_TOKEN != ''
         run: |
           npm install -g vercel
           cd frontend
@@ -295,7 +318,11 @@ jobs:
             echo "### 実行結果" >> $GITHUB_STEP_SUMMARY
             echo "- **Python環境**: ${{ job.status == 'success' && '✅ 成功' || '❌ 失敗' }}" >> $GITHUB_STEP_SUMMARY
             echo "- **依存関係インストール**: ${{ job.status == 'success' && '✅ 成功' || '❌ 失敗' }}" >> $GITHUB_STEP_SUMMARY
-            echo "- **バックエンドテスト**: ${{ job.status == 'success' && '✅ 成功' || '❌ 失敗' }}" >> $GITHUB_STEP_SUMMARY
+            if [ "${{ steps.params.outputs.run_tests }}" = "false" ]; then
+              echo "- **バックエンドテスト**: ⏭️ スキップ" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "- **バックエンドテスト**: ${{ job.status == 'success' && '✅ 成功' || '❌ 失敗' }}" >> $GITHUB_STEP_SUMMARY
+            fi
             echo "" >> $GITHUB_STEP_SUMMARY
             if [ "${{ job.status }}" != "success" ]; then
               echo "### ❌ エラー対処法" >> $GITHUB_STEP_SUMMARY
@@ -315,7 +342,11 @@ jobs:
             echo "- **認証方式**: ${{ secrets.AWS_GITHUB_ACTIONS_ROLE_ARN != '' && 'GitHub OIDC' || 'アクセスキー' }}" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "### 実行結果" >> $GITHUB_STEP_SUMMARY
-            echo "- **バックエンドテスト**: ${{ job.status == 'success' && '✅ 成功' || '❌ 失敗' }}" >> $GITHUB_STEP_SUMMARY
+            if [ "${{ steps.params.outputs.run_tests }}" = "false" ]; then
+              echo "- **バックエンドテスト**: ⏭️ スキップ" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "- **バックエンドテスト**: ${{ job.status == 'success' && '✅ 成功' || '❌ 失敗' }}" >> $GITHUB_STEP_SUMMARY
+            fi
             echo "- **SAMビルド**: ${{ job.status == 'success' && '✅ 成功' || '❌ 失敗' }}" >> $GITHUB_STEP_SUMMARY
             echo "- **AWSデプロイ**: ${{ job.status == 'success' && '✅ 成功' || '❌ 失敗' }}" >> $GITHUB_STEP_SUMMARY
             echo "- **Vercel環境変数更新**: ${{ job.status == 'success' && '✅ 成功' || '❌ 失敗' }}" >> $GITHUB_STEP_SUMMARY
