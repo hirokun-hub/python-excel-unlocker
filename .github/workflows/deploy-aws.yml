@@ -283,8 +283,8 @@ jobs:
               ;;
           esac
 
-         echo "${{ secrets.VERCEL_TOKEN }}" | vercel login --stdin
-         vercel link --yes --token "${{ secrets.VERCEL_TOKEN }}"
+          echo "${{ secrets.VERCEL_TOKEN }}" | vercel login --stdin
+          vercel link --yes --token "${{ secrets.VERCEL_TOKEN }}"
 
           echo "${{ steps.api_url.outputs.api_url }}" | vercel env add NEXT_PUBLIC_API_URL "$ENV_TARGET" --token "${{ secrets.VERCEL_TOKEN }}" || true
           echo "false" | vercel env add NEXT_PUBLIC_USE_MOCK_API "$ENV_TARGET" --token "${{ secrets.VERCEL_TOKEN }}" || true
