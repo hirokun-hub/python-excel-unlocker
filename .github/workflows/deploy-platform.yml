@@ -54,34 +54,53 @@ on:
         default: true
         type: boolean
 
+concurrency:
+  group: platform-${{ github.repository }}-${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'staging') || (github.ref == 'refs/heads/develop' && 'development') || (github.base_ref == 'main' && 'staging') || 'development' }}-${{ github.ref_name }}
+  cancel-in-progress: true
+
 env:
   PLATFORM_ENVIRONMENT: &platform_environment ${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'staging') || (github.ref == 'refs/heads/develop' && 'development') || (github.base_ref == 'main' && 'staging') || 'development' }}
 
 jobs:
-  frontend:
-    name: Frontend Workflow
-    uses: ./.github/workflows/deploy-frontend.yml
-    with:
-      environment: *platform_environment
-      deploy_enabled: ${{ github.event_name == 'pull_request' && 'false' || github.event_name == 'workflow_dispatch' && (github.event.inputs.deploy_frontend == 'false' && 'false' || 'true') || 'true' }}
-      skip_e2e: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.run_frontend_e2e == 'true' && 'false' || 'true') || github.event_name == 'push' && github.ref != 'refs/heads/main' && 'false' || 'true' }}
+  frontend_tests:
+    name: Frontend Tests
+    uses: ./.github/workflows/validate-frontend.yml
     secrets: inherit
 
-  backend:
-    name: Backend Workflow
-    permissions:
-      contents: read
-      actions: read
-      id-token: write
+  backend_tests:
+    name: Backend Tests
     uses: ./.github/workflows/deploy-backend.yml
     with:
       environment: *platform_environment
-      skip_deploy: ${{ github.event_name == 'pull_request' && 'true' || github.event_name == 'workflow_dispatch' && (github.event.inputs.deploy_backend == 'false' && 'true' || 'false') || 'false' }}
+      skip_deploy: true
+      run_tests: true
     secrets: inherit
 
-  platform-summary:
+  frontend_deploy:
+    name: Frontend Deploy
+    needs: [frontend_tests, backend_tests]
+    if: ${{ needs.frontend_tests.result == 'success' && needs.backend_tests.result == 'success' && github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || github.event.inputs.deploy_frontend != 'false') }}
+    uses: ./.github/workflows/deploy-frontend.yml
+    with:
+      environment: *platform_environment
+      run_validation: false
+      skip_e2e: ${{ !((github.event_name == 'workflow_dispatch' && github.event.inputs.run_frontend_e2e == 'true') || (github.event_name == 'push' && github.ref != 'refs/heads/main')) }}
+    secrets: inherit
+
+  backend_deploy:
+    name: Backend Deploy
+    needs: [frontend_tests, backend_tests]
+    if: ${{ needs.frontend_tests.result == 'success' && needs.backend_tests.result == 'success' && github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || github.event.inputs.deploy_backend != 'false') }}
+    uses: ./.github/workflows/deploy-backend.yml
+    with:
+      environment: *platform_environment
+      skip_deploy: false
+      run_tests: false
+    secrets: inherit
+
+  platform_summary:
     name: Platform Summary
-    needs: [frontend, backend]
+    needs: [frontend_tests, backend_tests, frontend_deploy, backend_deploy]
     runs-on: ubuntu-latest
     if: always()
     steps:
@@ -96,24 +115,29 @@ jobs:
           echo "- **実行時刻**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          echo "### ワークフロー結果" >> $GITHUB_STEP_SUMMARY
-          echo "- **フロントエンド**: ${{ needs.frontend.result == 'success' && '✅ 成功' || needs.frontend.result == 'skipped' && '⏭️ スキップ' || '❌ 失敗' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **バックエンド**: ${{ needs.backend.result == 'success' && '✅ 成功' || needs.backend.result == 'skipped' && '⏭️ スキップ' || '❌ 失敗' }}" >> $GITHUB_STEP_SUMMARY
+          echo "### テスト結果" >> $GITHUB_STEP_SUMMARY
+          echo "- **フロントエンドテスト**: ${{ needs.frontend_tests.result == 'success' && '✅ 成功' || needs.frontend_tests.result == 'skipped' && '⏭️ スキップ' || '❌ 失敗' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **バックエンドテスト**: ${{ needs.backend_tests.result == 'success' && '✅ 成功' || needs.backend_tests.result == 'skipped' && '⏭️ スキップ' || '❌ 失敗' }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          if [ "${{ needs.frontend.outputs.vercel-url || '' }}" != "" ]; then
+          echo "### デプロイ結果" >> $GITHUB_STEP_SUMMARY
+          echo "- **フロントエンド**: ${{ needs.frontend_deploy.result == 'success' && '✅ 成功' || needs.frontend_deploy.result == 'skipped' && '⏭️ スキップ' || '❌ 失敗' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **バックエンド**: ${{ needs.backend_deploy.result == 'success' && '✅ 成功' || needs.backend_deploy.result == 'skipped' && '⏭️ スキップ' || '❌ 失敗' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ needs.frontend_deploy.outputs.vercel-url || '' }}" != "" ]; then
             echo "### フロントエンド" >> $GITHUB_STEP_SUMMARY
-            echo "- **デプロイURL**: ${{ needs.frontend.outputs.vercel-url }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **デプロイURL**: ${{ needs.frontend_deploy.outputs.vercel-url }}" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
           fi
 
-          if [ "${{ needs.backend.outputs.api-url || '' }}" != "" ]; then
+          if [ "${{ needs.backend_deploy.outputs.api-url || '' }}" != "" ]; then
             echo "### バックエンド" >> $GITHUB_STEP_SUMMARY
-            echo "- **API URL**: ${{ needs.backend.outputs.api-url }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **API URL**: ${{ needs.backend_deploy.outputs.api-url }}" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
           fi
 
-          if [ "${{ needs.frontend.result }}" != "success" ] || [ "${{ needs.backend.result }}" != "success" ]; then
+          if [ "${{ needs.frontend_deploy.result }}" != "success" ] || [ "${{ needs.backend_deploy.result }}" != "success" ]; then
             echo "### ❌ エラー対処ヒント" >> $GITHUB_STEP_SUMMARY
             echo "1. 各ワークフローのログとSummaryを確認" >> $GITHUB_STEP_SUMMARY
             echo "2. Secrets や設定値を再確認" >> $GITHUB_STEP_SUMMARY

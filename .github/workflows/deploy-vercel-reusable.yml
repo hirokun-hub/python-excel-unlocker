@@ -92,8 +92,12 @@ jobs:
           DEPLOYMENT_OUTPUT=$(vercel deploy $DEPLOY_ARGS)
           echo "$DEPLOYMENT_OUTPUT"
 
-          DEPLOYMENT_URL=$(echo "$DEPLOYMENT_OUTPUT" | tail -n1 | tr -d '[:space:]')
+          DEPLOYMENT_URL=$(echo "$DEPLOYMENT_OUTPUT" | grep -Eo 'https://[^[:space:]]+\.vercel\.app' | tail -n1)
           if [ -z "$DEPLOYMENT_URL" ]; then
+            DEPLOYMENT_URL=$(echo "$DEPLOYMENT_OUTPUT" | grep -Eo 'https://[^[:space:]]+' | tail -n1)
+          fi
+          if [ -z "$DEPLOYMENT_URL" ]; then
+            echo "::warning::Failed to parse deployment URL from Vercel CLI output" >&2
             DEPLOYMENT_URL="https://excel-unlocker.vercel.app"
           fi
 

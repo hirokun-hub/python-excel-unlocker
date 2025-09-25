@@ -3,10 +3,13 @@
 ## 概要
 
 このガイドでは、Excel解除ツールに必要な環境変数をGitHub Secretsに安全に設定する方法を説明します。
+このガイドでは、本プロジェクトのCI/CDパイプライン（GitHub Actions）に必要な環境変数をGitHub Secretsに安全に設定する方法を説明します。
+**AWS認証には、安全なOIDC認証を強く推奨します。**
 
 ## 🎯 このガイドの目的
 
 - **環境変数設定の簡素化**: 複雑な設定を廃止し、必要最小限の7つの環境変数のみに特化
+- **設定の明確化**: 必要なシークレットを網羅し、推奨設定を明記
 - **初心者サポート**: 技術的な知識がなくても安全に設定できる
 - **機密情報保護**: GitHubにのみ保存し、ローカルには残さない徹底した保護
 - **自動化**: GitHub Actionsでの自動デプロイメントを実現
@@ -15,6 +18,7 @@
 
 | 環境変数名 | 説明 | 取得場所 |
 |-----------|------|----------|
+|-----------|------|:----------|
 | `GOOGLE_CLIENT_ID` | Google OAuth認証用クライアントID | Google Cloud Console |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth認証用クライアントシークレット | Google Cloud Console |
 | `VERCEL_TOKEN` | Vercelデプロイ用個人アクセストークン | Vercel Dashboard |
@@ -22,6 +26,9 @@
 | `VERCEL_PROJECT_ID` | Vercelプロジェクト固有ID | .vercel/project.json |
 | `AWS_ACCESS_KEY_ID` | AWSリソースアクセス用アクセスキーID | AWS Console |
 | `AWS_SECRET_ACCESS_KEY` | AWSリソースアクセス用シークレットアクセスキー | AWS Console |
+| `AWS_GITHUB_ACTIONS_ROLE_ARN` | **[推奨]** AWS OIDC認証用のIAMロールARN | AWS Console (IAM) |
+| `AWS_ACCESS_KEY_ID` | **[非推奨]** AWSアクセスキーID (OIDCが使えない場合) | AWS Console (IAM) |
+| `AWS_SECRET_ACCESS_KEY` | **[非推奨]** AWSシークレットアクセスキー (OIDCが使えない場合) | AWS Console (IAM) |
 
 ## 🚀 クイックスタート
 
@@ -90,6 +97,13 @@ cat .vercel/project.json
 ### 3. AWS設定
 
 #### AWS Access Keyの作成
+#### 方法1: OIDC認証の設定 (推奨)
+
+セキュリティと管理の観点から、永続的なアクセスキーの代わりにOIDC認証を使用することを強く推奨します。設定方法は以下のガイドを参照してください。
+
+- **GitHub OIDC移行ガイド**
+
+#### 方法2: アクセスキーの作成 (フォールバック)
 
 1. **AWS Console** → **IAM** → **Users**
 2. ユーザーを選択 → **Security credentials**
@@ -130,11 +144,14 @@ gh auth login
 # 各環境変数を設定
 gh secret set GOOGLE_CLIENT_ID
 gh secret set GOOGLE_CLIENT_SECRET
+gh secret set AWS_GITHUB_ACTIONS_ROLE_ARN # 推奨
 gh secret set VERCEL_TOKEN
 gh secret set VERCEL_ORG_ID
 gh secret set VERCEL_PROJECT_ID
 gh secret set AWS_ACCESS_KEY_ID
 gh secret set AWS_SECRET_ACCESS_KEY
+# 非推奨: gh secret set AWS_ACCESS_KEY_ID
+# 非推奨: gh secret set AWS_SECRET_ACCESS_KEY
 
 # 登録確認
 gh secret list
@@ -227,6 +244,7 @@ pip install -r scripts/requirements.txt
 | `GOOGLE_CLIENT_SECRET` | `GOCSPX-*` | プレフィックスなし |
 | `VERCEL_ORG_ID` | `team_*` | `user_*` を使用 |
 | `AWS_ACCESS_KEY_ID` | `AKIA*` | 他のプレフィックス |
+| `AWS_GITHUB_ACTIONS_ROLE_ARN` | `arn:aws:iam::...` | ARN形式でない |
 
 #### 4. GitHub Actions失敗
 

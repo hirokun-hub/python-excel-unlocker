@@ -17,11 +17,12 @@ def main() -> None:
     data = json.loads(project_file.read_text())
     settings = data.get("projectSettings") or {}
 
+    desired_root = "frontend"
     root = settings.get("rootDirectory")
-    if root in (None, "", "."):
+    if root == desired_root:
         return
 
-    settings["rootDirectory"] = ""
+    settings["rootDirectory"] = desired_root
     data["projectSettings"] = settings
     project_file.write_text(json.dumps(data, indent=2) + "\n")
 
