@@ -15,7 +15,7 @@ parameter_overrides = [
     "AllowedOrigin=https://localhost:3000",
     "EnableBotProtection=false",
     "GoogleClientId=dummy-client-id-dev",
-    "CreateOIDCProvider=true"
+    "CreateOIDCProvider=false"
 ]
 
 # ステージング環境設定
@@ -33,7 +33,7 @@ parameter_overrides = [
     "AllowedOrigin=https://excel-unlocker-staging.vercel.app",
     "EnableBotProtection=true",
     "GoogleClientId=dummy-client-id-staging",
-    "CreateOIDCProvider=true"
+    "CreateOIDCProvider=false"
 ]
 
 # 本番環境設定

@@ -74,6 +74,8 @@ aws iam create-open-id-connect-provider \
 aws iam list-open-id-connect-providers --query "OpenIDConnectProviderList[?contains(Arn, 'token.actions.githubusercontent.com')]"
 ```
 
+> ℹ️ **SAMデプロイ時のポイント**: 一度プロバイダーを用意できたら、`samconfig.toml` や `sam deploy` の `parameter_overrides` では `CreateOIDCProvider=false` を指定してください。CloudFormationが新規作成を試みなくなるため、IAM権限を追加する必要がなく、CI/CDが安定します。
+
 ### 自動設定（CloudFormation）
 
 本プロジェクトのAWS SAMテンプレートには、GitHub OIDC設定が含まれています。
