@@ -46,7 +46,35 @@ GitHub ActionsからAWSへの認証を、従来の長期アクセスキーから
 
 ## AWS側の設定
 
-### 自動設定（推奨）
+### 手動設定（必須）
+
+GitHub OIDC プロバイダーは、CloudFormationでの権限問題を避けるため、事前に手動作成する必要があります。
+
+#### 1. OIDC プロバイダーの作成
+
+```bash
+# 自動作成スクリプトを実行
+./scripts/create-github-oidc-provider.sh
+```
+
+または手動で作成：
+
+```bash
+# AWS CLI で直接作成
+aws iam create-open-id-connect-provider \
+    --url https://token.actions.githubusercontent.com \
+    --client-id-list sts.amazonaws.com \
+    --thumbprint-list 6938fd4d98bab03faadb97b34396831e3780aea1,1c58a3a8518e8759bf075b76b750d4f2df264fcd
+```
+
+#### 2. 作成確認
+
+```bash
+# OIDC プロバイダーの存在確認
+aws iam list-open-id-connect-providers --query "OpenIDConnectProviderList[?contains(Arn, 'token.actions.githubusercontent.com')]"
+```
+
+### 自動設定（CloudFormation）
 
 本プロジェクトのAWS SAMテンプレートには、GitHub OIDC設定が含まれています。
 

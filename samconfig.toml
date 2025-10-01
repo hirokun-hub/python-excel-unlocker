@@ -14,7 +14,8 @@ parameter_overrides = [
     "AllowedUsers=hironomac2025@gmail.com",
     "AllowedOrigin=https://localhost:3000",
     "EnableBotProtection=false",
-    "GoogleClientId=dummy-client-id-dev"
+    "GoogleClientId=dummy-client-id-dev",
+    "CreateOIDCProvider=true"
 ]
 
 # ステージング環境設定
@@ -31,7 +32,8 @@ parameter_overrides = [
     "AllowedUsers=hironomac2025@gmail.com,staging-user@example.com",
     "AllowedOrigin=https://excel-unlocker-staging.vercel.app",
     "EnableBotProtection=true",
-    "GoogleClientId=dummy-client-id-staging"
+    "GoogleClientId=dummy-client-id-staging",
+    "CreateOIDCProvider=true"
 ]
 
 # 本番環境設定
@@ -48,5 +50,6 @@ parameter_overrides = [
     "AllowedUsers=hironomac2025@gmail.com,user2@nsc.co.jp,user3@nsc.co.jp",
     "AllowedOrigin=https://excel-unlocker.vercel.app",
     "EnableBotProtection=true",
-    "GoogleClientId=dummy-client-id-prod"
+    "GoogleClientId=dummy-client-id-prod",
+    "CreateOIDCProvider=false"
 ]
