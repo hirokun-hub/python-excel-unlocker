@@ -42,6 +42,12 @@ Parameters:
       - "true"
       - "false"
     Description: "Enable additional bot protection (reCAPTCHA/Turnstile)"
+  
+  GoogleClientId:
+    Type: String
+    Default: "dummy-client-id"
+    Description: "Google OAuth Client ID for JWT authentication"
+    NoEcho: true
 
 # Global parameters can be defined here
 Globals:
@@ -236,7 +242,7 @@ Resources:
           ALLOWED_USERS: !Ref AllowedUsers
           ENVIRONMENT: !Ref Environment
           # JWT認証用のGoogle Client ID
-          GOOGLE_CLIENT_ID: "{{resolve:ssm:/excel-unlocker/google-client-id:1}}"
+          GOOGLE_CLIENT_ID: !Ref GoogleClientId
           # CORS設定の厳格化：環境別許可オリジン（単一値）
           ALLOWED_ORIGIN: !Ref AllowedOrigin
           # Bot保護設定
@@ -268,7 +274,7 @@ Resources:
           ALLOWED_USERS: !Ref AllowedUsers
           ENVIRONMENT: !Ref Environment
           # JWT認証用のGoogle Client ID
-          GOOGLE_CLIENT_ID: "{{resolve:ssm:/excel-unlocker/google-client-id:1}}"
+          GOOGLE_CLIENT_ID: !Ref GoogleClientId
           # CORS設定の厳格化：環境別許可オリジン（単一値）
           ALLOWED_ORIGIN: !Ref AllowedOrigin
           # Bot保護設定
