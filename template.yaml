@@ -9,6 +9,7 @@ Conditions:
   IsProduction: !Equals [!Ref Environment, "production"]
   IsStaging: !Equals [!Ref Environment, "staging"]
   IsDevelopment: !Equals [!Ref Environment, "development"]
+  ShouldCreateOIDCProvider: !Equals [!Ref CreateOIDCProvider, "true"]
 
 # Parameters for configuration
 Parameters:
@@ -48,6 +49,14 @@ Parameters:
     Default: "dummy-client-id"
     Description: "Google OAuth Client ID for JWT authentication"
     NoEcho: true
+  
+  CreateOIDCProvider:
+    Type: String
+    Default: "false"
+    AllowedValues:
+      - "true"
+      - "false"
+    Description: "Create GitHub OIDC Provider (set to true only if not exists)"
 
 # Global parameters can be defined here
 Globals:
@@ -343,9 +352,10 @@ Resources:
       TopicArn: !Ref AlertTopic
       Endpoint: "hironomac2025@gmail.com"  # 管理者メールアドレス
 
-  # GitHub OIDC化：IAM OIDCプロバイダー
+  # GitHub OIDC化：IAM OIDCプロバイダー（条件付き作成）
   GitHubOIDCProvider:
     Type: AWS::IAM::OIDCProvider
+    Condition: ShouldCreateOIDCProvider
     Properties:
       Url: https://token.actions.githubusercontent.com
       ClientIdList:
@@ -369,7 +379,10 @@ Resources:
         Statement:
           - Effect: Allow
             Principal:
-              Federated: !Ref GitHubOIDCProvider
+              Federated: !If 
+                - ShouldCreateOIDCProvider
+                - !Ref GitHubOIDCProvider
+                - !Sub "arn:aws:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com"
             Action: sts:AssumeRoleWithWebIdentity
             Condition:
               StringEquals:
@@ -408,6 +421,16 @@ Resources:
                 Resource: 
                   - !Sub "arn:aws:iam::${AWS::AccountId}:role/excel-*"
                   - !Sub "arn:aws:iam::${AWS::AccountId}:role/GitHubActions-*"
+              - Effect: Allow
+                Action:
+                  - iam:CreateOpenIDConnectProvider
+                  - iam:DeleteOpenIDConnectProvider
+                  - iam:GetOpenIDConnectProvider
+                  - iam:TagOpenIDConnectProvider
+                  - iam:UntagOpenIDConnectProvider
+                  - iam:UpdateOpenIDConnectProviderThumbprint
+                Resource: 
+                  - !Sub "arn:aws:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com"
       Tags:
         - Key: Name
           Value: !Sub "GitHubActions-ExcelUnlocker-${Environment}"
@@ -744,7 +767,10 @@ Outputs:
   
   GitHubOIDCProviderArn:
     Description: "GitHub OIDC Provider ARN"
-    Value: !Ref GitHubOIDCProvider
+    Value: !If 
+      - ShouldCreateOIDCProvider
+      - !Ref GitHubOIDCProvider
+      - !Sub "arn:aws:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com"
     Export:
       Name: !Sub "${AWS::StackName}-GitHubOIDCProviderArn"
   
