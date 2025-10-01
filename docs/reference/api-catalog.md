@@ -1,6 +1,3 @@
-【出力】リファレンス.API_カタログ
-
-```yaml
 ---
 layout: default
 title: APIカタログ
@@ -20,7 +17,6 @@ Tags:
   - google_drive
   - error_handling
 ---
-```
 
 > 内容の最終確認が必要です。数値・日付は原典と照合してください。
 

@@ -1,6 +1,3 @@
-【出力】アーキテクチャ.バックエンド設計_Lambda関数とAWSリソース
-
-```yaml
 ---
 layout: default
 title: Lambda関数とAWSリソース
@@ -18,7 +15,6 @@ Tags:
   - template_yaml
   - python
 ---
-```
 
 > **AI生成物の注意書き**：内容の最終確認が必要です。数値・日付は原典と照合してください。
 

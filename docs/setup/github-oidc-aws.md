@@ -1,6 +1,3 @@
-GitHub OIDC連携によるAWS認証設定ガイド
-
-```yaml
 ---
 layout: default
 title: GitHub OIDC連携によるAWS認証設定ガイド
@@ -20,7 +17,6 @@ Tags:
   - cloudformation
   - 自動化
 ---
-```
 
 > **AI生成物の注意書き**：内容の最終確認が必要です。数値・日付は原典と照合してください。
 
