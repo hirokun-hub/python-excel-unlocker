@@ -339,7 +339,7 @@ Resources:
 
   # GitHub OIDC化：IAM OIDCプロバイダー
   GitHubOIDCProvider:
-    Type: AWS::IAM::OIDCIdentityProvider
+    Type: AWS::IAM::OIDCProvider
     Properties:
       Url: https://token.actions.githubusercontent.com
       ClientIdList:
