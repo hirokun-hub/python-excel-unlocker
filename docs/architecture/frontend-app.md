@@ -1,6 +1,3 @@
-【出力】アーキテクチャ.フロントエンド設計_Next.jsアプリ構成と認証フロー
-
-```yaml
 ---
 layout: default
 title: Next.jsアプリ構成と認証フロー
@@ -18,7 +15,6 @@ Tags:
   - google_oauth
   - google_drive_api
 ---
-```
 
 > **AI生成物の注意書き**：内容の最終確認が必要です。数値・日付は原典と照合してください。
 
