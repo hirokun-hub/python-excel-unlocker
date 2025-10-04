@@ -178,7 +178,12 @@ jobs:
         if: steps.params.outputs.skip_deploy != 'true'
         run: |
           ENVIRONMENT="${{ steps.params.outputs.environment }}"
-          STACK_NAME="excel-unlocker-api-$ENVIRONMENT"
+          case "$ENVIRONMENT" in
+            production) STACK_SUFFIX="prod" ;;
+            staging) STACK_SUFFIX="staging" ;;
+            *) STACK_SUFFIX="dev" ;;
+          esac
+          STACK_NAME="excel-unlocker-api-$STACK_SUFFIX"
           set +e
           STATUS=$(aws cloudformation describe-stacks \
             --stack-name "$STACK_NAME" \
@@ -200,7 +205,7 @@ jobs:
           echo "stack_status=$STATUS" >> $GITHUB_OUTPUT
           echo "can_deploy=$CAN_DEPLOY" >> $GITHUB_OUTPUT
           if [ "$CAN_DEPLOY" != "true" ]; then
-            echo "::warning::Stack $STACK_NAME is in status '$STATUS' and cannot be updated. Delete the stack or use a new stack name, then retry." 
+            echo "::warning::Stack $STACK_NAME is in status '$STATUS' and cannot be updated. Delete the stack or use a new stack name, then retry."
           fi
 
       - name: Configure AWS credentials (OIDC)
@@ -249,13 +254,6 @@ jobs:
             ALLOWED="admin@example.com"
           fi
 
-      - name: Abort due to bad stack status
-        if: steps.params.outputs.skip_deploy != 'true' && steps.cfn_check.outputs.can_deploy != 'true'
-        run: |
-          echo "❌ CloudFormation stack status '${{ steps.cfn_check.outputs.stack_status }}' prevents deployment."
-          echo "🛠️ 対処: 'aws cloudformation delete-stack --stack-name excel-unlocker-api-${{ steps.params.outputs.environment }} --region ${{ env.AWS_REGION }}' で削除完了後に再実行してください。" 
-          exit 1
-
           if [ "$ENVIRONMENT" = "production" ]; then
             sam deploy --config-env production --confirm-changeset \
               --parameter-overrides Environment=production AllowedUsers="$ALLOWED"
@@ -266,6 +264,13 @@ jobs:
             sam deploy --config-env default --no-confirm-changeset --no-fail-on-empty-changeset \
               --parameter-overrides Environment=development AllowedUsers="$ALLOWED"
           fi
+
+      - name: Abort due to bad stack status
+        if: steps.params.outputs.skip_deploy != 'true' && steps.cfn_check.outputs.can_deploy != 'true'
+        run: |
+          echo "❌ CloudFormation stack status '${{ steps.cfn_check.outputs.stack_status }}' prevents deployment."
+          echo "🛠️ 対処: 'aws cloudformation delete-stack --stack-name excel-unlocker-api-${{ steps.params.outputs.environment }} --region ${{ env.AWS_REGION }}' で削除完了後に再実行してください。" 
+          exit 1
 
       - name: Handle SAM deployment errors
         if: failure() && steps.params.outputs.skip_deploy != 'true'
@@ -281,7 +286,12 @@ jobs:
         if: steps.params.outputs.skip_deploy != 'true'
         run: |
           ENVIRONMENT="${{ steps.params.outputs.environment }}"
-          STACK_NAME="excel-unlocker-api-$ENVIRONMENT"
+          case "$ENVIRONMENT" in
+            production) STACK_SUFFIX="prod" ;;
+            staging) STACK_SUFFIX="staging" ;;
+            *) STACK_SUFFIX="dev" ;;
+          esac
+          STACK_NAME="excel-unlocker-api-$STACK_SUFFIX"
           # Try to fetch ApiUrl (present in template.yaml), then fallback to ApiGatewayUrl, then any execute-api URL
           ATTEMPTS=0
           API_URL=""
@@ -317,21 +327,14 @@ jobs:
               sleep 5
             fi
           done
-          if [ -z "$API_URL" ] || [ "$API_URL" = "None" ]; then
-            API_URL=$(aws cloudformation describe-stacks \
-              --stack-name "$STACK_NAME" \
-              --query "Stacks[0].Outputs[?OutputKey=='ApiGatewayUrl'].OutputValue" \
-              --output text 2>/dev/null || echo "")
-          fi
-          if [ -z "$API_URL" ] || [ "$API_URL" = "None" ]; then
-            API_URL=$(aws cloudformation describe-stacks \
-              --stack-name "$STACK_NAME" \
-              --query "Stacks[0].Outputs[?contains(OutputValue, 'execute-api')].OutputValue | [0]" \
-              --output text 2>/dev/null || echo "")
-          fi
 
           if [ -z "$API_URL" ] || [ "$API_URL" = "None" ]; then
             echo "⚠️ API Gateway URL not found for stack: $STACK_NAME"
+            # For staging/production, missing URL is a failure
+            if [ "$ENVIRONMENT" = "staging" ] || [ "$ENVIRONMENT" = "production" ]; then
+              echo "::error::API URL could not be resolved for $STACK_NAME. Failing deployment for $ENVIRONMENT."
+              exit 1
+            fi
             API_URL=""
           fi
 
@@ -382,10 +385,16 @@ jobs:
         if: steps.params.outputs.skip_deploy != 'true'
         run: |
           API_URL="${{ steps.api_url.outputs.api_url }}"
+          ENVIRONMENT="${{ steps.params.outputs.environment }}"
 
           if [ -z "$API_URL" ]; then
-            echo "🔸 API URL not available; skipping integration test"
-            exit 0
+            if [ "$ENVIRONMENT" = "staging" ] || [ "$ENVIRONMENT" = "production" ]; then
+              echo "❌ API URL missing on $ENVIRONMENT; integration test cannot run"
+              exit 1
+            else
+              echo "🔸 API URL not available; skipping integration test (development)"
+              exit 0
+            fi
           fi
 
           curl -f "$API_URL/health" || echo "Health endpoint not found (normal)"
