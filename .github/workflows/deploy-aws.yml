@@ -211,6 +211,14 @@ jobs:
           role-session-name: GitHubActions-Backend-${{ github.run_id }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Show AWS identity
+        if: steps.params.outputs.skip_deploy != 'true'
+        run: |
+          echo "### AWS Caller Identity" >> $GITHUB_STEP_SUMMARY
+          echo "- Account: $(aws sts get-caller-identity --query Account --output text)" >> $GITHUB_STEP_SUMMARY
+          echo "- Arn:     $(aws sts get-caller-identity --query Arn --output text)" >> $GITHUB_STEP_SUMMARY
+          echo "- Region:  ${{ env.AWS_REGION }}" >> $GITHUB_STEP_SUMMARY
+
       - name: Configure AWS credentials (access keys)
         if: ${{ steps.params.outputs.skip_deploy != 'true' && env.AWS_GITHUB_ACTIONS_ROLE_ARN == '' }}
         uses: aws-actions/configure-aws-credentials@v4
