@@ -274,10 +274,23 @@ jobs:
         run: |
           ENVIRONMENT="${{ steps.params.outputs.environment }}"
           STACK_NAME="excel-unlocker-api-$ENVIRONMENT"
+          # Try to fetch ApiUrl (present in template.yaml), then fallback to ApiGatewayUrl, then any execute-api URL
           API_URL=$(aws cloudformation describe-stacks \
             --stack-name "$STACK_NAME" \
-            --query "Stacks[0].Outputs[?OutputKey=='ApiGatewayUrl'].OutputValue" \
+            --query "Stacks[0].Outputs[?OutputKey=='ApiUrl'].OutputValue" \
             --output text 2>/dev/null || echo "")
+          if [ -z "$API_URL" ] || [ "$API_URL" = "None" ]; then
+            API_URL=$(aws cloudformation describe-stacks \
+              --stack-name "$STACK_NAME" \
+              --query "Stacks[0].Outputs[?OutputKey=='ApiGatewayUrl'].OutputValue" \
+              --output text 2>/dev/null || echo "")
+          fi
+          if [ -z "$API_URL" ] || [ "$API_URL" = "None" ]; then
+            API_URL=$(aws cloudformation describe-stacks \
+              --stack-name "$STACK_NAME" \
+              --query "Stacks[0].Outputs[?contains(OutputValue, 'execute-api')].OutputValue | [0]" \
+              --output text 2>/dev/null || echo "")
+          fi
 
           if [ -z "$API_URL" ] || [ "$API_URL" = "None" ]; then
             echo "⚠️ API Gateway URL not found for stack: $STACK_NAME"
