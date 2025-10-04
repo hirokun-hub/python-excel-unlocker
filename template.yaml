@@ -9,7 +9,6 @@ Conditions:
   IsProduction: !Equals [!Ref Environment, "production"]
   IsStaging: !Equals [!Ref Environment, "staging"]
   IsDevelopment: !Equals [!Ref Environment, "development"]
-  ShouldCreateOIDCProvider: !Equals [!Ref CreateOIDCProvider, "true"]
 
 # Parameters for configuration
 Parameters:
@@ -49,14 +48,6 @@ Parameters:
     Default: "dummy-client-id"
     Description: "Google OAuth Client ID for JWT authentication"
     NoEcho: true
-  
-  CreateOIDCProvider:
-    Type: String
-    Default: "false"
-    AllowedValues:
-      - "true"
-      - "false"
-    Description: "Create GitHub OIDC Provider (set to true only if not exists)"
 
 # Global parameters can be defined here
 Globals:
@@ -352,94 +343,7 @@ Resources:
       TopicArn: !Ref AlertTopic
       Endpoint: "hironomac2025@gmail.com"  # 管理者メールアドレス
 
-  # GitHub OIDC化：IAM OIDCプロバイダー（条件付き作成）
-  GitHubOIDCProvider:
-    Type: AWS::IAM::OIDCProvider
-    DeletionPolicy: Retain
-    UpdateReplacePolicy: Retain
-    Condition: ShouldCreateOIDCProvider
-    Properties:
-      Url: https://token.actions.githubusercontent.com
-      ClientIdList:
-        - sts.amazonaws.com
-      ThumbprintList:
-        - 6938fd4d98bab03faadb97b34396831e3780aea1
-        - 1c58a3a8518e8759bf075b76b750d4f2df264fcd
-      Tags:
-        - Key: Name
-          Value: !Sub "GitHubOIDC-${Environment}"
-        - Key: Environment
-          Value: !Ref Environment
-
-  # GitHub OIDC化：GitHub Actions用IAMロール
-  GitHubActionsRole:
-    Type: AWS::IAM::Role
-    DeletionPolicy: Retain
-    UpdateReplacePolicy: Retain
-    Properties:
-      RoleName: !Sub "GitHubActions-ExcelUnlocker-${Environment}"
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Federated: !If 
-                - ShouldCreateOIDCProvider
-                - !Ref GitHubOIDCProvider
-                - !Sub "arn:aws:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com"
-            Action: sts:AssumeRoleWithWebIdentity
-            Condition:
-              StringEquals:
-                "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
-              StringLike:
-                "token.actions.githubusercontent.com:sub": "repo:hirokun-hub/python-excel-unlocker:*"
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/PowerUserAccess  # SAMデプロイに必要な権限
-      Policies:
-        - PolicyName: CloudFormationFullAccess
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - cloudformation:*
-                Resource: "*"
-        - PolicyName: IAMRoleManagement
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - iam:CreateRole
-                  - iam:DeleteRole
-                  - iam:GetRole
-                  - iam:UpdateRole
-                  - iam:AttachRolePolicy
-                  - iam:DetachRolePolicy
-                  - iam:PutRolePolicy
-                  - iam:DeleteRolePolicy
-                  - iam:GetRolePolicy
-                  - iam:PassRole
-                  - iam:TagRole
-                  - iam:UntagRole
-                Resource: 
-                  - !Sub "arn:aws:iam::${AWS::AccountId}:role/excel-*"
-                  - !Sub "arn:aws:iam::${AWS::AccountId}:role/GitHubActions-*"
-              - Effect: Allow
-                Action:
-                  - iam:CreateOpenIDConnectProvider
-                  - iam:DeleteOpenIDConnectProvider
-                  - iam:GetOpenIDConnectProvider
-                  - iam:TagOpenIDConnectProvider
-                  - iam:UntagOpenIDConnectProvider
-                  - iam:UpdateOpenIDConnectProviderThumbprint
-                Resource: 
-                  - !Sub "arn:aws:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com"
-      Tags:
-        - Key: Name
-          Value: !Sub "GitHubActions-ExcelUnlocker-${Environment}"
-        - Key: Environment
-          Value: !Ref Environment
+  # (Removed) GitHub OIDC/IAM role resources are managed outside of this stack
 
   # WAFv2 Web ACL for API Gateway protection
   ApiGatewayWebACL:
@@ -762,21 +666,7 @@ Outputs:
     Description: "SNS Topic ARN for alerts"
     Value: !Ref AlertTopic
   
-  # GitHub OIDC化：GitHub Actions用の情報
-  GitHubActionsRoleArn:
-    Description: "GitHub Actions IAM Role ARN for OIDC authentication"
-    Value: !GetAtt GitHubActionsRole.Arn
-    Export:
-      Name: !Sub "${AWS::StackName}-GitHubActionsRoleArn"
-  
-  GitHubOIDCProviderArn:
-    Description: "GitHub OIDC Provider ARN"
-    Value: !If 
-      - ShouldCreateOIDCProvider
-      - !Ref GitHubOIDCProvider
-      - !Sub "arn:aws:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com"
-    Export:
-      Name: !Sub "${AWS::StackName}-GitHubOIDCProviderArn"
+  # (Removed) CI-related outputs are managed outside of this stack
   
   # WAF関連の出力
   WebACLArn:
