@@ -275,10 +275,40 @@ jobs:
           ENVIRONMENT="${{ steps.params.outputs.environment }}"
           STACK_NAME="excel-unlocker-api-$ENVIRONMENT"
           # Try to fetch ApiUrl (present in template.yaml), then fallback to ApiGatewayUrl, then any execute-api URL
-          API_URL=$(aws cloudformation describe-stacks \
-            --stack-name "$STACK_NAME" \
-            --query "Stacks[0].Outputs[?OutputKey=='ApiUrl'].OutputValue" \
-            --output text 2>/dev/null || echo "")
+          ATTEMPTS=0
+          API_URL=""
+          while [ $ATTEMPTS -lt 6 ] && { [ -z "$API_URL" ] || [ "$API_URL" = "None" ]; }; do
+            API_URL=$(aws cloudformation describe-stacks \
+              --stack-name "$STACK_NAME" \
+              --query "Stacks[0].Outputs[?OutputKey=='ApiUrl'].OutputValue" \
+              --output text 2>/dev/null || echo "")
+            if [ -z "$API_URL" ] || [ "$API_URL" = "None" ]; then
+              API_URL=$(aws cloudformation describe-stacks \
+                --stack-name "$STACK_NAME" \
+                --query "Stacks[0].Outputs[?OutputKey=='ApiGatewayUrl'].OutputValue" \
+                --output text 2>/dev/null || echo "")
+            fi
+            if [ -z "$API_URL" ] || [ "$API_URL" = "None" ]; then
+              API_URL=$(aws cloudformation describe-stacks \
+                --stack-name "$STACK_NAME" \
+                --query "Stacks[0].Outputs[?contains(OutputValue, 'execute-api')].OutputValue | [0]" \
+                --output text 2>/dev/null || echo "")
+            fi
+            if [ -z "$API_URL" ] || [ "$API_URL" = "None" ]; then
+              # Fallback: derive from stack resources (RestApi + Prod stage)
+              REST_API_ID=$(aws cloudformation list-stack-resources \
+                --stack-name "$STACK_NAME" \
+                --query "StackResourceSummaries[?ResourceType=='AWS::ApiGateway::RestApi'].PhysicalResourceId | [0]" \
+                --output text 2>/dev/null || echo "")
+              if [ -n "$REST_API_ID" ] && [ "$REST_API_ID" != "None" ]; then
+                API_URL="https://${REST_API_ID}.execute-api.${{ env.AWS_REGION }}.amazonaws.com/Prod"
+              fi
+            fi
+            if [ -z "$API_URL" ] || [ "$API_URL" = "None" ]; then
+              ATTEMPTS=$((ATTEMPTS+1))
+              sleep 5
+            fi
+          done
           if [ -z "$API_URL" ] || [ "$API_URL" = "None" ]; then
             API_URL=$(aws cloudformation describe-stacks \
               --stack-name "$STACK_NAME" \
@@ -294,7 +324,7 @@ jobs:
 
           if [ -z "$API_URL" ] || [ "$API_URL" = "None" ]; then
             echo "⚠️ API Gateway URL not found for stack: $STACK_NAME"
-            API_URL="https://api-not-deployed.example.com"
+            API_URL=""
           fi
 
           echo "api_url=$API_URL" >> $GITHUB_OUTPUT
