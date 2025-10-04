@@ -321,7 +321,7 @@ jobs:
               ;;
           esac
 
-          echo "${{ secrets.VERCEL_TOKEN }}" | vercel login --stdin
+          # Newer Vercel CLI does not support --stdin login; use per-command --token instead
           vercel link --yes --token "${{ secrets.VERCEL_TOKEN }}"
 
           echo "${{ steps.api_url.outputs.api_url }}" | vercel env add NEXT_PUBLIC_API_URL "$ENV_TARGET" --token "${{ secrets.VERCEL_TOKEN }}" || true
