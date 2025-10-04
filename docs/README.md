@@ -71,6 +71,7 @@ Tags:
 | [ローカル開発環境](setup/local-development.md) | 前提ツール、環境変数、SAM Local 連携 | 開発者 |
 | [環境プロビジョニング](setup/environment-provisioning.md) | AWS デプロイ、Vercel 設定、環境別設定 | 運用者 |
 | [GitHub OIDC 連携](setup/github-oidc-aws.md) | IAM Role 設計、CI/CD パイプライン設定 | 運用者 |
+| [AWSコンソールでのOIDC設定](setup/manual-aws-console-oidc-setup.md) | コンソール操作でのOIDC/最小権限ロール設定 | 運用者 |
 
 ### 🔐 セキュリティ（認証・認可・データ保護）
 | ドキュメント | 内容 | 対象者 |

@@ -24,11 +24,11 @@ Tags:
 **対象**：GitHub ActionsでAWSデプロイを行う開発者・DevOpsエンジニア  
 **所要時間**：初回設定30分、テスト確認15分  
 **次の一手**：1) AWS OIDC設定 → 2) GitHub Secrets登録 → 3) ワークフロー動作確認  
-**根拠**：・長期アクセスキーのセキュリティリスク排除／・template.yamlの自動OIDC設定／・deploy-aws.ymlの対応済み実装
+**根拠**：・長期アクセスキーのセキュリティリスク排除／・CI用IAM(OIDC)はブートストラップで管理（2025-10-04更新）／・deploy-aws.ymlのOIDC対応
 
 ## 概要
 
-GitHub ActionsからAWSへの認証を、従来の長期アクセスキーから[[OIDC]]（OpenID Connect）による短期クレデンシャルに移行する手順を説明します。本プロジェクトでは、AWS SAMテンプレートにOIDC設定が組み込まれており、GitHub Actionsワークフローも対応済みです。
+GitHub ActionsからAWSへの認証を、従来の長期アクセスキーから[[OIDC]]（OpenID Connect）による短期クレデンシャルに移行する手順を説明します。現在は、CI用のOIDCプロバイダーとAssumeRoleロールはアプリケーションスタックから分離し、手動またはブートストラップ用のIaCで管理します（2025-10-04更新）。GitHub ActionsワークフローはOIDCに対応済みです。
 
 ### OIDC認証の利点
 
@@ -43,6 +43,17 @@ GitHub ActionsからAWSへの認証を、従来の長期アクセスキーから
 - GitHubリポジトリの管理者権限
 - AWS CLI設定済み環境
 - 本プロジェクトのtemplate.yamlとdeploy-aws.ymlが最新版
+
+## 変更履歴（重要／今回の修正理由）
+
+- 2025-10-04（本ドキュメント更新）
+  - 変更内容:
+    - CI用IAM（GitHub OIDCプロバイダーおよびGitHub Actionsロール）のスタック内自動作成に関する記述を廃止し、ブートストラップで管理する方針に統一
+    - GitHub ActionsがCloudFormation経由でLambda実行ロールを作成・更新・削除できるよう、OIDCロールへ「最小限のIAM権限」を付与する手順を新規追加
+  - 理由:
+    - スタック更新時にCI自身のロールやOIDCプロバイダーへ変更が及ぶと、権限不足や循環依存で失敗しやすいため（運用安定性の観点から分離がベストプラクティス）
+    - デプロイ時にLambda実行ロールを作る必要があるが、既存のOIDCロールにIAMロール管理権限が不足していたため
+
 
 ## AWS側の設定
 
@@ -77,20 +88,7 @@ aws iam list-open-id-connect-providers --query "OpenIDConnectProviderList[?conta
 > ℹ️ **SAMデプロイ時のポイント**: 一度プロバイダーを用意できたら、`samconfig.toml` や `sam deploy` の `parameter_overrides` では `CreateOIDCProvider=false` を指定してください。CloudFormationが新規作成を試みなくなるため、IAM権限を追加する必要がなく、CI/CDが安定します。
 
 ### 自動設定（CloudFormation）
-
-本プロジェクトのAWS SAMテンプレートには、GitHub OIDC設定が含まれています。
-
-```bash
-# プロジェクトルートで実行
-sam build
-sam deploy --config-env development
-
-# 出力からGitHub Actions用のロールARNを確認
-aws cloudformation describe-stacks \
-  --stack-name excel-unlocker-api-development \
-  --query "Stacks[0].Outputs[?OutputKey=='GitHubActionsRoleArn'].OutputValue" \
-  --output text
-```
+（2025-10-04更新）現在、CI用IAM（OIDCプロバイダー／GitHub Actionsロール）はアプリケーションスタック（template.yaml）から削除済みです。ブートストラップとして手動または別IaCで作成・管理してください。
 
 ### 手動設定（トラブルシューティング用）
 
@@ -144,6 +142,52 @@ aws iam attach-role-policy \
   --role-name GitHubActions-ExcelUnlocker-development \
   --policy-arn arn:aws:iam::aws:policy/PowerUserAccess
 ```
+
+#### 3. OIDCロールへの最小権限付与（Lambda実行ロール管理／新規）
+
+CloudFormationがLambda実行ロール（例: `GetUploadUrlFunctionRole`, `UnlockFunctionRole`）を作成・更新・削除できるよう、GitHub ActionsがAssumeするOIDCロールに最小限のIAM権限を追加します。リソースはロール名パターンで厳格に絞り、`iam:PassRole`は`lambda.amazonaws.com`に限定します。
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ManageLambdaExecutionRoles",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreateRole",
+        "iam:DeleteRole",
+        "iam:GetRole",
+        "iam:UpdateRole",
+        "iam:AttachRolePolicy",
+        "iam:DetachRolePolicy",
+        "iam:PutRolePolicy",
+        "iam:DeleteRolePolicy",
+        "iam:TagRole",
+        "iam:UntagRole"
+      ],
+      "Resource": [
+        "arn:aws:iam::<ACCOUNT_ID>:role/excel-unlocker-api-*-GetUploadUrlFunctionRole-*",
+        "arn:aws:iam::<ACCOUNT_ID>:role/excel-unlocker-api-*-UnlockFunctionRole-*"
+      ]
+    },
+    {
+      "Sid": "PassLambdaExecutionRoles",
+      "Effect": "Allow",
+      "Action": "iam:PassRole",
+      "Resource": [
+        "arn:aws:iam::<ACCOUNT_ID>:role/excel-unlocker-api-*-GetUploadUrlFunctionRole-*",
+        "arn:aws:iam::<ACCOUNT_ID>:role/excel-unlocker-api-*-UnlockFunctionRole-*"
+      ],
+      "Condition": {
+        "StringEquals": { "iam:PassedToService": "lambda.amazonaws.com" }
+      }
+    }
+  ]
+}
+```
+
+> 推奨: 可能であればPermissions Boundaryを必須化し、作成される実行ロールの上限権限を制限してください。
 
 ## GitHub Secrets設定
 
