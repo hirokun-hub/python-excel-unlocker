@@ -161,11 +161,11 @@ def create_too_many_requests_response() -> JSONResponse:
     )
 
 
-# ルーターの登録（後続タスクで実装）
-# from app.routers import unlock, download, health
-# app.include_router(unlock.router)
-# app.include_router(download.router)
-# app.include_router(health.router)
+# ルーターの登録
+from app.routers import unlock, download, health
+app.include_router(unlock.router)
+app.include_router(download.router)
+app.include_router(health.router)
 
 
 # 一時的なルートエンドポイント（ルーター実装前の動作確認用）
@@ -185,16 +185,6 @@ async def root(request: Request):
             "allowed_extensions": settings.ALLOWED_EXTENSIONS
         }
     )
-
-
-@app.get("/health")
-async def health_check():
-    """
-    ヘルスチェックエンドポイント
-    
-    Requirements: 4.4
-    """
-    return {"status": "ok"}
 
 
 if __name__ == "__main__":

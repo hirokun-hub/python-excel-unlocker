@@ -100,8 +100,8 @@
     - **Property 4: 過負荷時の 429 レスポンス**
     - **Validates: Requirements 1.5**
 
-- [ ] 7. /unlock エンドポイントの実装
-  - [ ] 7.1 unlock.py ルーターの作成
+- [x] 7. /unlock エンドポイントの実装
+  - [x] 7.1 unlock.py ルーターの作成
     - multipart/form-data の受け取り（file, password1, password2）
     - ファイルバリデーション（拡張子、サイズ）を **save 前に実施**、NG なら 400 で即返却
     - バリデーション通過後に `storage.save` でファイル保存
@@ -113,15 +113,15 @@
     - **Property 9: ファイルサイズバリデーション**
     - **Validates: Requirements 6.2, 6.3**
 
-- [ ] 8. /download エンドポイントの実装
-  - [ ] 8.1 download.py ルーターの作成
+- [x] 8. /download エンドポイントの実装
+  - [x] 8.1 download.py ルーターの作成
     - file_id からのファイル取得（`storage.load`）
     - 存在しない/期限切れ file_id は HTTP 404 で `{"error":"Not Found","message":"ファイルが見つかりません"}` を返却
     - ダウンロード成功時は必ず `storage.delete` を呼び出す
     - _Requirements: API仕様（/download/{file_id}）、ダウンロードURLの有効期限_
 
-- [ ] 9. /health エンドポイントの実装
-  - [ ] 9.1 health.py ルーターの作成
+- [x] 9. /health エンドポイントの実装
+  - [x] 9.1 health.py ルーターの作成
     - {"status": "ok"} レスポンス
     - _Requirements: 4.4_
 
