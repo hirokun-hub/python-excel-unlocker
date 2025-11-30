@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Excel Unlocker</title>
+    <title>パスワード解除 - Excel</title>
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
@@ -32,9 +32,15 @@
                 </div>
             </section>
 
-            <!-- 選択されたファイル一覧 -->
+            <!-- 処理結果エリア（ドロップゾーンの直下に配置してUX向上） -->
+            <section id="results-section" class="results-section hidden">
+                <h2 class="section-title">処理結果</h2>
+                <ul id="results-list" class="results-list"></ul>
+            </section>
+
+            <!-- 解除対象ファイル一覧 -->
             <section id="file-list-section" class="file-list-section hidden">
-                <h2 class="section-title">選択されたファイル</h2>
+                <h2 class="section-title">解除対象ファイル</h2>
                 <ul id="file-list" class="file-list"></ul>
                 <button type="button" id="clear-files-btn" class="clear-btn">ファイルをクリア</button>
             </section>
@@ -47,40 +53,44 @@
                         <label for="password1" class="form-label">
                             第1パスワード <span class="required">*必須</span>
                         </label>
-                        <input 
-                            type="password" 
-                            id="password1" 
-                            name="password1" 
-                            class="form-input" 
-                            placeholder="パスワードを入力"
-                            required
-                            autocomplete="off"
-                        >
-                        <button type="button" class="toggle-password" data-target="password1" aria-label="パスワードを表示">
-                            <svg class="eye-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                                <circle cx="12" cy="12" r="3"/>
-                            </svg>
-                        </button>
+                        <div class="input-wrapper">
+                            <input 
+                                type="password" 
+                                id="password1" 
+                                name="password1" 
+                                class="form-input" 
+                                placeholder="パスワードを入力"
+                                required
+                                autocomplete="off"
+                            >
+                            <button type="button" class="toggle-password" data-target="password1" aria-label="パスワードを表示">
+                                <svg class="eye-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                    <circle cx="12" cy="12" r="3"/>
+                                </svg>
+                            </button>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label for="password2" class="form-label">
                             第2パスワード <span class="optional">任意</span>
                         </label>
-                        <input 
-                            type="password" 
-                            id="password2" 
-                            name="password2" 
-                            class="form-input" 
-                            placeholder="別のパスワードを試す場合に入力"
-                            autocomplete="off"
-                        >
-                        <button type="button" class="toggle-password" data-target="password2" aria-label="パスワードを表示">
-                            <svg class="eye-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                                <circle cx="12" cy="12" r="3"/>
-                            </svg>
-                        </button>
+                        <div class="input-wrapper">
+                            <input 
+                                type="password" 
+                                id="password2" 
+                                name="password2" 
+                                class="form-input" 
+                                placeholder="別のパスワードを試す場合に入力"
+                                autocomplete="off"
+                            >
+                            <button type="button" class="toggle-password" data-target="password2" aria-label="パスワードを表示">
+                                <svg class="eye-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                    <circle cx="12" cy="12" r="3"/>
+                                </svg>
+                            </button>
+                        </div>
                     </div>
                     <p class="password-hint">第1パスワードで解除できない場合、第2パスワードで再試行します</p>
                     
@@ -94,12 +104,6 @@
                         </span>
                     </button>
                 </form>
-            </section>
-
-            <!-- 処理結果エリア -->
-            <section id="results-section" class="results-section hidden">
-                <h2 class="section-title">処理結果</h2>
-                <ul id="results-list" class="results-list"></ul>
             </section>
         </main>
 

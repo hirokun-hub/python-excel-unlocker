@@ -333,6 +333,13 @@ body {
     position: relative;
 }
 
+/* 入力欄のラッパー（目のアイコン配置用） */
+.input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
 .form-label {
     display: block;
     font-size: 0.875rem;
@@ -378,10 +385,14 @@ body {
 .toggle-password {
     position: absolute;
     right: var(--spacing-sm);
-    bottom: var(--spacing-sm);
+    top: 0;
+    bottom: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 var(--spacing-xs);
     background: none;
     border: none;
-    padding: var(--spacing-xs);
     cursor: pointer;
     color: var(--color-text-muted);
     transition: color var(--transition-fast);
