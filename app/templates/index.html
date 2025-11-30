@@ -109,13 +109,24 @@
     </div>
 
     <!-- 設定値をJavaScriptに渡す -->
+    <script type="application/json" id="app-config-data">
+    {
+        "clientConcurrency": {{ client_concurrency }},
+        "maxFileSizeMB": {{ max_file_size_mb }},
+        "allowedExtensions": "{{ allowed_extensions }}",
+        "maxRetryCount": {{ max_retry_count }}
+    }
+    </script>
     <script>
-        window.APP_CONFIG = {
-            clientConcurrency: {{ client_concurrency }},
-            maxFileSizeMB: {{ max_file_size_mb }},
-            allowedExtensions: "{{ allowed_extensions }}".split(",").map(ext => ext.trim().toLowerCase()),
-            maxRetryCount: {{ max_retry_count }}
-        };
+        (function() {
+            var configData = JSON.parse(document.getElementById('app-config-data').textContent);
+            window.APP_CONFIG = {
+                clientConcurrency: configData.clientConcurrency,
+                maxFileSizeMB: configData.maxFileSizeMB,
+                allowedExtensions: configData.allowedExtensions.split(",").map(function(ext) { return ext.trim().toLowerCase(); }),
+                maxRetryCount: configData.maxRetryCount
+            };
+        })();
     </script>
     <script src="/static/js/app.js"></script>
 </body>
