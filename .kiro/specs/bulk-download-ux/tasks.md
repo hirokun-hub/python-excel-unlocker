@@ -35,10 +35,11 @@
 
 - [ ] 5. バックエンド: expiresAt と fileId フィールド追加
   - `app/routers/unlock.py` の `/unlock` エンドポイントを拡張
-  - 成功時に `fileId` (解除済みファイルのID) を返す
-  - 成功時に `expiresAt` (UTC ISO8601) を計算して返す
-  - エラー時は `expiresAt: null`, `fileId: null` を返す
-  - `app/models/schemas.py` の `UnlockResponse` に `fileId: str` と `expiresAt: Optional[str]` フィールドを追加
+  - **成功時のみ** `fileId` (解除済みファイルのID) を返す
+  - **成功時のみ** `expiresAt` (UTC ISO8601) を計算して返す
+  - **エラー時は** `expiresAt: null`, `fileId: null` を返す（または未付与）
+  - `app/models/schemas.py` の `UnlockResponse` に `fileId: Optional[str]` と `expiresAt: Optional[str]` フィールドを追加
+  - フロントエンドは `status === 'success' && fileId !== null` で成功判定を行う
   - _要件: 2.6, API仕様拡張_
 
 - [ ] 6. フロントエンド: APP_CONFIG に期限定数を注入
