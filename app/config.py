@@ -46,12 +46,12 @@ class Settings(BaseSettings):
     MAX_RETRY_COUNT: int = 3
     RETRY_AFTER_SECONDS: int = 5
     
-    class Config:
-        """Pydantic Settings の設定"""
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        # 環境変数の大文字小文字を区別しない
-        case_sensitive = False
+    # Pydantic V2 の設定（ConfigDict を使用）
+    model_config = {
+        "env_file": ".env",
+        "env_file_encoding": "utf-8",
+        "case_sensitive": False,
+    }
     
     @property
     def allowed_extensions_list(self) -> List[str]:
