@@ -13,7 +13,7 @@ from fastapi import APIRouter, File, Form, Request, UploadFile
 from fastapi.responses import JSONResponse
 
 from app.config import settings
-from app.services.unlock_service import ErrorMessages
+from app.models.schemas import ErrorMessages
 
 # ロガー設定
 logger = logging.getLogger(__name__)
