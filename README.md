@@ -1,181 +1,188 @@
-# Secure Excel Unlock
+# Docker Excel Unlocker
 
-パスワード付きExcelファイルを安全かつ効率的に解除するWebアプリケーションです。
+Docker コンテナで動作するシンプルな Excel パスワード解除ツールです。自宅 Windows PC 上の Docker コンテナで FastAPI アプリケーションを起動し、Tailscale VPN 経由で iPhone を含む全デバイスから Excel ファイルのパスワードを解除できます。
 
 ## 概要
 
-- **フロントエンド**: Next.js + Auth.js（Google OAuth認証）
-- **バックエンド**: AWS Lambda + API Gateway + S3
-- **認証**: Google OAuth 2.0 + 招待制アクセス制御
-- **処理**: msoffcrypto-toolによるExcelパスワード解除
+- **バックエンド**: FastAPI + Jinja2（単一 Docker コンテナ）
+- **処理エンジン**: msoffcrypto-tool による Excel パスワード解除
+- **アクセス制御**: Tailscale VPN によるプライベートネットワーク保護
+- **対応デバイス**: iPhone / Android / PC / Mac（レスポンシブ対応）
 
 ## 主要機能
 
-- 🔐 **パスワード解除**: 複数パスワード候補での自動解除
-- 👥 **招待制認証**: Google OAuth + 管理者による許可ユーザー制御
-- 📁 **Google Drive連携**: 解除済みファイルの直接保存
-- 📱 **マルチデバイス対応**: iPhone/Android/PC/Mac対応
-- 🔒 **セキュア**: S3署名付きURL + HTTPS通信
+- 🔐 **パスワード解除**: 第1パスワード → 第2パスワードの順で自動試行
+- 📁 **複数ファイル対応**: クライアント側並列処理で複数ファイルを同時処理
+- 📱 **マルチデバイス対応**: タッチ操作に最適化されたレスポンシブ UI
+- 🚀 **シンプル運用**: `docker-compose up -d` で即起動
+
+## クイックスタート
+
+### 前提条件
+
+- Docker / Docker Compose がインストール済み
+- Tailscale VPN が設定済み（外部アクセス時）
+
+### 起動方法
+
+```bash
+# コンテナを起動（バックグラウンド）
+docker-compose up -d
+
+# ログを確認
+docker logs excel-unlocker
+
+# コンテナを停止
+docker-compose down
+```
+
+### アクセス方法
+
+起動後、以下の URL でアクセスできます：
+
+- **ローカル**: http://localhost:3000
+- **Tailscale 経由**: http://<Tailscale IP>:3000
+
+## 使用方法
+
+1. ブラウザで Web UI にアクセス
+2. Excel ファイル（.xlsx / .xls）を選択またはドラッグ＆ドロップ
+3. 第1パスワード（必須）を入力
+4. 必要に応じて第2パスワード（任意）を入力
+5. 「解除」ボタンをクリック
+6. 解除成功後、ダウンロードボタンからファイルを取得
+
+### 解除後のファイル名
+
+解除されたファイルは `{元ファイル名}_解除.{拡張子}` の形式で保存されます。
+
+例: `report.xlsx` → `report_解除.xlsx`
+
+## 設定項目一覧
+
+環境変数で以下の設定をカスタマイズできます：
+
+| 設定項目 | 環境変数 | デフォルト値 | 説明 |
+|----------|----------|--------------|------|
+| ポート | `PORT` | `3000` | サーバー待ち受けポート |
+| ホスト | `HOST` | `0.0.0.0` | サーバー待ち受けアドレス |
+| 最大ファイルサイズ | `MAX_FILE_SIZE_MB` | `50` | アップロード上限（MB） |
+| 許可拡張子 | `ALLOWED_EXTENSIONS` | `.xlsx,.xls` | 許可するファイル拡張子 |
+| 一時ディレクトリ | `TMP_DIR` | `/tmp/excel-unlocker` | 一時ファイル保存先 |
+| 最大同時処理数 | `MAX_WORKERS` | `4` | 同時処理リクエスト数 |
+| クライアント並列数 | `CLIENT_CONCURRENCY` | `3` | フロントエンドの同時リクエスト数 |
+| ダウンロード有効期限 | `DOWNLOAD_EXPIRY_SECONDS` | `300` | ダウンロード URL の有効期限（秒） |
+
+### 設定例（docker-compose.yml）
+
+```yaml
+services:
+  excel-unlocker:
+    environment:
+      - PORT=3000
+      - MAX_FILE_SIZE_MB=100
+      - MAX_WORKERS=8
+```
+
+## API エンドポイント
+
+| エンドポイント | メソッド | 説明 |
+|---------------|----------|------|
+| `/` | GET | Web UI（Jinja2 テンプレート） |
+| `/unlock` | POST | Excel 解除 API |
+| `/download/{file_id}` | GET | 解除済みファイルダウンロード |
+| `/health` | GET | ヘルスチェック |
+
+### ヘルスチェック
+
+```bash
+curl http://localhost:3000/health
+# {"status": "ok"}
+```
 
 ## プロジェクト構成
 
-- `backend/`: AWS Lambda関数のソースコード
-- `frontend/`: Next.js Webアプリケーション
-- `docs/`: プロジェクトドキュメント
-- `scripts/`: ユーティリティスクリプト
-- `.kiro/specs/`: 要件定義・設計・実装計画
-
-## 認証・セキュリティ
-
-### Google OAuth認証
-- Google アカウントによるセキュアなログイン
-- 管理者による招待制アクセス制御
-- セッション管理とトークン更新
-
-### バックエンド認証
-- フロントエンドからのAPI呼び出し時に`Authorization: Bearer <ID Token>`ヘッダーでJWT認証
-- 環境変数による許可ユーザーリスト管理
-- メールアドレス正規化による柔軟な認証
-
-### ユーザー管理機能 🆕
-- **自動化スクリプト**: ユーザー追加・削除・一覧表示の自動化
-- **緊急時対応**: セキュリティインシデント時の即座対応機能
-- **アクセステスト**: ユーザー権限の動作確認機能
-- **監査レポート**: 定期的なユーザー監査とレポート生成
-- **包括的ログ**: 全操作の詳細ログ記録と履歴管理
-
-## 設定管理システム 🆕
-
-### 統合設定管理
-- **設定ファイル管理**: JSON形式での統一設定管理
-- **環境別設定**: development/staging/production環境の分離
-- **機密情報保護**: 暗号化機能と.gitignore除外設定
-- **設定検証**: JSON Schemaによる設定値の検証
-- **環境変数生成**: 各種フォーマットでの環境変数出力
-- **インポート・エクスポート**: 設定の移行と共有機能
-- **バックアップ**: 設定変更履歴の保持
-
-### クイックスタート
-```bash
-# 設定ファイルの初期化
-./scripts/setup-config-manager.sh init
-
-# 設定の検証
-./scripts/setup-config-manager.sh validate
-
-# 開発環境の環境変数生成
-./scripts/setup-config-manager.sh generate-env development
-
-# 統合セットアップの実行
-./scripts/setup-with-config-management.sh development
+```
+excel-unlocker/
+├── app/
+│   ├── main.py              # FastAPI エントリポイント
+│   ├── config.py            # 設定一元管理
+│   ├── routers/             # API ルーター
+│   ├── services/            # ビジネスロジック
+│   ├── models/              # Pydantic スキーマ
+│   └── templates/           # Jinja2 テンプレート
+├── static/                  # 静的ファイル（CSS/JS）
+├── tests/                   # テストコード
+├── scripts/                 # ユーティリティスクリプト
+├── Dockerfile
+├── docker-compose.yml
+└── requirements.txt
 ```
 
-詳細は [設定管理システムガイド](docs/config-management-guide.md) を参照してください。
+## 開発
 
-## 主要機能
+### ローカル開発環境
 
-### Excel解除機能
-- パスワード付きExcelファイル（.xlsx/.xls）の解除
-- 複数パスワード候補での自動試行
-- リアルタイム処理状況表示
-
-### Google Drive連携
-- 解除済みファイルの直接保存
-- **フォルダ選択機能**:
-  1. 処理完了後、「Google Drive保存先」バーが表示
-  2. 「保存先を選ぶ」ボタンをクリック
-  3. フォルダピッカーでGoogle Driveフォルダを選択
-  4. 「このフォルダを選ぶ」で決定
-- ブラウザに保存先を記憶（次回以降も使用可能）
-- フォルダ未選択時は「マイドライブ」ルートに保存
-
-### セキュリティ機能
-- S3署名付きURLによる安全なファイル転送
-- 処理完了後の自動ファイル削除
-- HTTPS通信の強制
-
-## 開発・デプロイ
-
-### 初回セットアップ
-
-#### 🚀 自動化セットアップ（推奨）
 ```bash
-# 手作業最小化の完全自動化（事前準備10分 + 自動処理5分）
-./scripts/setup-complete-automation.sh
+# 仮想環境を作成
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+
+# 依存関係をインストール
+pip install -r requirements.txt
+
+# 開発サーバーを起動
+uvicorn app.main:app --reload --host 0.0.0.0 --port 3000
 ```
 
-#### 📋 従来の手動セットアップ
+### テスト実行
+
 ```bash
-# 前提条件確認・環境変数設定・初回デプロイ
-./scripts/setup-deployment.sh
+# ユニットテスト
+pytest tests/ -v
+
+# プロパティベーステスト
+pytest tests/test_unlock_properties.py -v
+
+# カバレッジ付き
+pytest tests/ --cov=app --cov-report=html
 ```
 
-### ローカル開発
+### パフォーマンステスト
+
 ```bash
-# バックエンドAPI起動
-sam local start-api --port 3001
-
-# フロントエンド起動
-cd frontend
-npm run dev
-
-# 統合テスト実行
-./tests/run-integration-tests.sh all
+# スモークテスト（20MB × 4並列）
+./scripts/perf-smoke.sh
 ```
 
-### 段階的デプロイ
+## トラブルシューティング
 
-#### 環境別デプロイ
+### コンテナが起動しない
+
 ```bash
-# 開発環境
-./scripts/deploy.sh development all
+# ログを確認
+docker logs excel-unlocker
 
-# ステージング環境  
-./scripts/deploy.sh staging all
-
-# 本番環境（確認プロンプト付き）
-./scripts/deploy.sh production all
+# コンテナの状態を確認
+docker ps -a
 ```
 
-#### GitHub Actions（推奨）
-1. **自動デプロイ**:
-   - `develop`ブランチ → 開発環境
-   - `main`ブランチ → ステージング環境
+### ファイルが解除できない
 
-2. **手動デプロイ**:
-   - Actions タブ → "Deploy Full Stack" → 環境選択 → 実行
+- パスワードが正しいか確認してください
+- ファイル形式が `.xlsx` または `.xls` であることを確認してください
+- ファイルサイズが上限（デフォルト 50MB）以下であることを確認してください
 
-#### 環境構成
-| 環境 | 用途 | デプロイ方法 | 承認 |
-|------|------|-------------|------|
-| Development | 開発・テスト | 自動/手動 | 不要 |
-| Staging | 本番前検証 | 自動/手動 | 不要 |
-| Production | 本番運用 | 手動のみ | 必要 |
+### 429 Too Many Requests エラー
 
-## ドキュメント
+サーバーが混雑しています。しばらく待ってから再試行してください。クライアントは自動的にリトライします（最大3回）。
 
-### 開発・運用ガイド
-- [自動化セットアップガイド](docs/automation-setup-guide.md) 🆕 **推奨**
-- [段階的デプロイメントガイド](docs/deployment-guide.md)
-- [統合テスト実行ガイド](docs/integration-testing-guide.md) 🆕 **テスト環境**
-- [認証・API統合ガイド](docs/authentication-integration-guide.md)
-- [ローカル開発環境ガイド](docs/local-development-guide.md)
+## ライセンス
 
-### 設定ランブック
-- [手作業参照ガイド](docs/manual-setup-reference-guide.md) 🆕 **完全手順**
-- [GitHub Actions Secrets設定](docs/runbook/github-actions_secrets-and-iam-for-aws_and-vercel.md)
-- [Google OAuth設定](docs/runbook/google-oauth-setup.md)
-- [Vercel設定](docs/runbook/vercel-project-setup_and-detach-github.md)
+MIT License
 
-### 設計・仕様書
-- [要件定義書](.kiro/specs/secure-excel-unlock/requirements.md)
-- [設計書](.kiro/specs/secure-excel-unlock/design.md)
-- [実装計画](.kiro/specs/secure-excel-unlock/tasks.md)
+## 関連ドキュメント
 
-### ユーザー管理・運用
-- [ユーザー管理運用ガイド](docs/user-management-operations-guide.md) 🆕 **包括的運用手順**
-- [ユーザー管理クイックリファレンス](docs/user-management-quick-reference.md) 🆕 **よく使うコマンド**
-
-### 実装完了状況
-- [実装完了サマリー](docs/implementation-complete-summary.md) ✅ **統合テスト環境完了**
-- [セキュリティ強化](docs/security-enhancements.md)
+- [要件定義書](.kiro/specs/docker-excel-unlocker/requirements.md)
+- [設計書](.kiro/specs/docker-excel-unlocker/design.md)
+- [実装計画](.kiro/specs/docker-excel-unlocker/tasks.md)

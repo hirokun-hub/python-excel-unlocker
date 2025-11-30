@@ -213,13 +213,13 @@
     - **テストデータ使用**: `data/` 内の Excel ファイルで処理時間を計測
     - _Requirements: パフォーマンス計測、合否基準_
 
-- [ ] 20. README.md の更新
-  - [ ] 20.1 README.md の書き換え
+- [x] 20. README.md の更新
+  - [x] 20.1 README.md の書き換え
     - プロジェクト概要
     - 起動方法（docker-compose up -d）
     - 使用方法
     - 設定項目一覧
     - _Requirements: 運用要件_
 
-- [ ] 21. Final Checkpoint - 全テスト確認
+- [x] 21. Final Checkpoint - 全テスト確認
   - Ensure all tests pass, ask the user if questions arise.
