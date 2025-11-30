@@ -2,13 +2,13 @@
 
 ## 既存コードの削除と環境準備
 
-- [ ] 1. 既存コードの削除とプロジェクト初期化
-  - [ ] 1.1 既存ディレクトリの削除
+- [x] 1. 既存コードの削除とプロジェクト初期化
+  - [x] 1.1 既存ディレクトリの削除
     - `backend/`, `frontend/`, `.github/workflows/`, `docs/`, `scripts/`, `tests/` を削除
     - `template.yaml`, `samconfig.toml` を削除
     - `.kiro/`, `.gitignore`, `README.md` は保持
     - _Requirements: 既存コードの扱い_
-  - [ ] 1.2 新規ディレクトリ構成の作成
+  - [x] 1.2 新規ディレクトリ構成の作成
     - `app/`, `app/routers/`, `app/services/`, `app/models/`, `app/templates/`
     - `static/css/`, `static/js/`, `tests/`, `scripts/`
     - _Requirements: 設計書のディレクトリ構成_
