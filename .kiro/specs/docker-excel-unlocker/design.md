@@ -472,6 +472,32 @@ async def global_exception_handler(request, exc):
 - **プロパティベーステスト**: hypothesis
 - **E2Eテスト**: pytest + httpx（TestClient）
 
+### テストデータ
+
+`data/` ディレクトリに実際のパスワード保護された Excel ファイルを配置しています。
+
+| ファイル | パスワード | 用途 |
+|---------|-----------|------|
+| `data/確定【20251031】【SB】【NPS評価】＜運営店＞株式会社エヌ・エス・シー_CONFIDENTIAL.xlsx` | `DRY12121Cu` | 正常系テスト |
+| `data/確定【20251031】【SB】【クルー】＜運営店＞株式会社エヌ・エス・シー_CONFIDENTIAL.xlsx` | `DRY12121Cu` | 正常系テスト |
+| `data/確定【20251031】【YM】【クルー】＜運営店＞株式会社エヌ・エス・シー_CONFIDENTIAL.xlsx` | `DRY12121Cu` | 正常系テスト |
+
+**テストデータの使用方針:**
+- UnlockService の実装テストで実際のパスワード解除を検証
+- API 統合テストで E2E フローを検証
+- パフォーマンステストで処理時間を計測
+
+**テスト用定数（tests/conftest.py で定義）:**
+```python
+TEST_DATA_DIR = "data"
+TEST_PASSWORD = "DRY12121Cu"
+TEST_FILES = [
+    "確定【20251031】【SB】【NPS評価】＜運営店＞株式会社エヌ・エス・シー_CONFIDENTIAL.xlsx",
+    "確定【20251031】【SB】【クルー】＜運営店＞株式会社エヌ・エス・シー_CONFIDENTIAL.xlsx",
+    "確定【20251031】【YM】【クルー】＜運営店＞株式会社エヌ・エス・シー_CONFIDENTIAL.xlsx",
+]
+```
+
 ### ユニットテスト
 
 ```python

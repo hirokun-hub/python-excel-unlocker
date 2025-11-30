@@ -1,0 +1,21 @@
+# Excel Unlocker 依存関係
+# タスク17で完全版を作成予定、現時点では最低限の依存関係のみ
+
+# Web フレームワーク
+fastapi>=0.104.0
+uvicorn>=0.24.0
+python-multipart>=0.0.6
+
+# Excel パスワード解除
+msoffcrypto-tool>=5.0.0
+
+# 設定管理
+pydantic-settings>=2.0.0
+
+# テンプレートエンジン
+jinja2>=3.1.0
+
+# テスト（開発用）
+pytest>=7.4.0
+hypothesis>=6.92.0
+httpx>=0.25.0
