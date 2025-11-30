@@ -162,10 +162,11 @@ def create_too_many_requests_response() -> JSONResponse:
 
 
 # ルーターの登録
-from app.routers import unlock, download, health
+from app.routers import unlock, download, health, bulk_download
 app.include_router(unlock.router)
 app.include_router(download.router)
 app.include_router(health.router)
+app.include_router(bulk_download.router)
 
 
 # 一時的なルートエンドポイント（ルーター実装前の動作確認用）
@@ -183,7 +184,8 @@ async def root(request: Request):
             "client_concurrency": settings.CLIENT_CONCURRENCY,
             "max_file_size_mb": settings.MAX_FILE_SIZE_MB,
             "allowed_extensions": settings.ALLOWED_EXTENSIONS,
-            "max_retry_count": settings.MAX_RETRY_COUNT
+            "max_retry_count": settings.MAX_RETRY_COUNT,
+            "download_expiry_seconds": settings.DOWNLOAD_EXPIRY_SECONDS
         }
     )
 

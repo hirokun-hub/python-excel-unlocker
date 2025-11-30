@@ -130,6 +130,14 @@ class StorageService(ABC):
         """
         pass
 
+    def save_zip(self, zip_buffer: BinaryIO, filename: str) -> Tuple[str, str]:
+        """ZIPファイルを一時保存（デフォルト実装はsaveを使用）"""
+        return self.save(zip_buffer, filename)
+
+    def load_zip(self, zip_id: str) -> Optional[bytes]:
+        """ZIPファイルを取得（デフォルト実装はloadを使用）"""
+        return self.load(zip_id)
+
 
 class LocalStorageService(StorageService):
     """
