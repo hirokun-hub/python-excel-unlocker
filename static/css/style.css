@@ -1,0 +1,1082 @@
+/* ==========================================================================
+   Excel Unlocker スタイルシート
+   モバイルファースト・レスポンシブ対応
+   Requirements: 2.3, 2.4, 3.1, 3.3
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   CSS カスタムプロパティ（変数）
+   -------------------------------------------------------------------------- */
+:root {
+    /* カラーパレット */
+    --color-primary: #2563eb;
+    --color-primary-hover: #1d4ed8;
+    --color-primary-light: #dbeafe;
+    --color-success: #16a34a;
+    --color-success-light: #dcfce7;
+    --color-error: #dc2626;
+    --color-error-light: #fee2e2;
+    --color-warning: #f59e0b;
+    --color-warning-light: #fef3c7;
+    --color-text: #1f2937;
+    --color-text-muted: #6b7280;
+    --color-border: #e5e7eb;
+    --color-bg: #f9fafb;
+    --color-bg-white: #ffffff;
+    
+    /* スペーシング */
+    --spacing-xs: 0.25rem;
+    --spacing-sm: 0.5rem;
+    --spacing-md: 1rem;
+    --spacing-lg: 1.5rem;
+    --spacing-xl: 2rem;
+    --spacing-2xl: 3rem;
+    
+    /* ボーダー */
+    --radius-sm: 0.375rem;
+    --radius-md: 0.5rem;
+    --radius-lg: 0.75rem;
+    --radius-xl: 1rem;
+    
+    /* シャドウ */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    
+    /* トランジション */
+    --transition-fast: 150ms ease;
+    --transition-normal: 200ms ease;
+}
+
+/* --------------------------------------------------------------------------
+   リセットと基本スタイル
+   -------------------------------------------------------------------------- */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    font-size: 16px;
+    -webkit-text-size-adjust: 100%;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, 
+                 "Hiragino Sans", "Noto Sans JP", "Yu Gothic", sans-serif;
+    line-height: 1.6;
+    color: var(--color-text);
+    background-color: var(--color-bg);
+    min-height: 100vh;
+}
+
+
+/* --------------------------------------------------------------------------
+   コンテナとレイアウト
+   -------------------------------------------------------------------------- */
+.container {
+    width: 100%;
+    max-width: 640px;
+    margin: 0 auto;
+    padding: var(--spacing-md);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* タブレット以上 */
+@media (min-width: 768px) {
+    .container {
+        padding: var(--spacing-xl);
+    }
+}
+
+/* --------------------------------------------------------------------------
+   ヘッダー
+   -------------------------------------------------------------------------- */
+.header {
+    text-align: center;
+    margin-bottom: var(--spacing-xl);
+    padding-top: var(--spacing-lg);
+}
+
+.header h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--color-text);
+    margin-bottom: var(--spacing-xs);
+}
+
+.subtitle {
+    font-size: 0.875rem;
+    color: var(--color-text-muted);
+}
+
+@media (min-width: 768px) {
+    .header h1 {
+        font-size: 1.875rem;
+    }
+    
+    .subtitle {
+        font-size: 1rem;
+    }
+}
+
+/* --------------------------------------------------------------------------
+   メインコンテンツ
+   -------------------------------------------------------------------------- */
+.main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+}
+
+/* --------------------------------------------------------------------------
+   セクション共通
+   -------------------------------------------------------------------------- */
+.section-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-text);
+    margin-bottom: var(--spacing-md);
+}
+
+/* --------------------------------------------------------------------------
+   ドロップゾーン（ファイルアップロード）
+   -------------------------------------------------------------------------- */
+.upload-section {
+    width: 100%;
+}
+
+.drop-zone {
+    border: 2px dashed var(--color-border);
+    border-radius: var(--radius-lg);
+    background-color: var(--color-bg-white);
+    padding: var(--spacing-xl) var(--spacing-md);
+    text-align: center;
+    cursor: pointer;
+    transition: all var(--transition-normal);
+}
+
+.drop-zone:hover,
+.drop-zone:focus-within {
+    border-color: var(--color-primary);
+    background-color: var(--color-primary-light);
+}
+
+/* ドラッグ中のスタイル */
+.drop-zone.drag-over {
+    border-color: var(--color-primary);
+    background-color: var(--color-primary-light);
+    transform: scale(1.01);
+}
+
+.drop-zone-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.upload-icon {
+    width: 48px;
+    height: 48px;
+    color: var(--color-text-muted);
+    margin-bottom: var(--spacing-sm);
+}
+
+.drop-zone:hover .upload-icon,
+.drop-zone.drag-over .upload-icon {
+    color: var(--color-primary);
+}
+
+.drop-zone-text {
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--color-text);
+}
+
+.drop-zone-subtext {
+    font-size: 0.875rem;
+    color: var(--color-text-muted);
+}
+
+.file-select-btn {
+    display: inline-block;
+    padding: var(--spacing-sm) var(--spacing-lg);
+    background-color: var(--color-primary);
+    color: white;
+    font-size: 0.875rem;
+    font-weight: 500;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: background-color var(--transition-fast);
+}
+
+.file-select-btn:hover {
+    background-color: var(--color-primary-hover);
+}
+
+.file-hint {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    margin-top: var(--spacing-sm);
+}
+
+@media (min-width: 768px) {
+    .drop-zone {
+        padding: var(--spacing-2xl) var(--spacing-xl);
+    }
+    
+    .upload-icon {
+        width: 64px;
+        height: 64px;
+    }
+}
+
+
+/* --------------------------------------------------------------------------
+   ファイルリスト
+   -------------------------------------------------------------------------- */
+.file-list-section {
+    background-color: var(--color-bg-white);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-md);
+    box-shadow: var(--shadow-sm);
+}
+
+.file-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-md);
+}
+
+.file-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--spacing-sm) var(--spacing-md);
+    background-color: var(--color-bg);
+    border-radius: var(--radius-md);
+    font-size: 0.875rem;
+}
+
+.file-item-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-right: var(--spacing-sm);
+}
+
+.file-item-size {
+    color: var(--color-text-muted);
+    font-size: 0.75rem;
+    flex-shrink: 0;
+}
+
+.file-item-remove {
+    background: none;
+    border: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    padding: var(--spacing-xs);
+    margin-left: var(--spacing-sm);
+    border-radius: var(--radius-sm);
+    transition: color var(--transition-fast);
+}
+
+.file-item-remove:hover {
+    color: var(--color-error);
+}
+
+.clear-btn {
+    width: 100%;
+    padding: var(--spacing-sm);
+    background-color: transparent;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    color: var(--color-text-muted);
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.clear-btn:hover {
+    border-color: var(--color-error);
+    color: var(--color-error);
+}
+
+/* --------------------------------------------------------------------------
+   パスワードフォーム
+   -------------------------------------------------------------------------- */
+.password-section {
+    background-color: var(--color-bg-white);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-md);
+    box-shadow: var(--shadow-sm);
+}
+
+.password-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.form-group {
+    position: relative;
+}
+
+.form-label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--color-text);
+    margin-bottom: var(--spacing-xs);
+}
+
+.required {
+    color: var(--color-error);
+    font-size: 0.75rem;
+    font-weight: 400;
+}
+
+.optional {
+    color: var(--color-text-muted);
+    font-size: 0.75rem;
+    font-weight: 400;
+}
+
+.form-input {
+    width: 100%;
+    padding: var(--spacing-sm) var(--spacing-md);
+    padding-right: 2.5rem;
+    font-size: 1rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background-color: var(--color-bg-white);
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px var(--color-primary-light);
+}
+
+.form-input::placeholder {
+    color: var(--color-text-muted);
+}
+
+/* パスワード表示切替ボタン */
+.toggle-password {
+    position: absolute;
+    right: var(--spacing-sm);
+    bottom: var(--spacing-sm);
+    background: none;
+    border: none;
+    padding: var(--spacing-xs);
+    cursor: pointer;
+    color: var(--color-text-muted);
+    transition: color var(--transition-fast);
+}
+
+.toggle-password:hover {
+    color: var(--color-text);
+}
+
+.eye-icon {
+    width: 20px;
+    height: 20px;
+}
+
+.password-hint {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+}
+
+@media (min-width: 768px) {
+    .password-section {
+        padding: var(--spacing-lg);
+    }
+}
+
+
+/* --------------------------------------------------------------------------
+   解除ボタン
+   -------------------------------------------------------------------------- */
+.unlock-btn {
+    width: 100%;
+    padding: var(--spacing-md);
+    background-color: var(--color-primary);
+    color: white;
+    font-size: 1rem;
+    font-weight: 600;
+    border: none;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-sm);
+}
+
+.unlock-btn:hover:not(:disabled) {
+    background-color: var(--color-primary-hover);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+}
+
+.unlock-btn:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.unlock-btn:disabled {
+    background-color: var(--color-border);
+    cursor: not-allowed;
+}
+
+.btn-text,
+.btn-loading {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+/* スピナーアニメーション */
+.spinner {
+    width: 20px;
+    height: 20px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* --------------------------------------------------------------------------
+   処理結果セクション
+   -------------------------------------------------------------------------- */
+.results-section {
+    background-color: var(--color-bg-white);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-md);
+    box-shadow: var(--shadow-sm);
+}
+
+.results-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.result-item {
+    padding: var(--spacing-md);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border);
+}
+
+/* 処理状態別スタイル */
+.result-item.waiting {
+    background-color: var(--color-bg);
+    border-color: var(--color-border);
+}
+
+.result-item.processing {
+    background-color: var(--color-primary-light);
+    border-color: var(--color-primary);
+}
+
+.result-item.success {
+    background-color: var(--color-success-light);
+    border-color: var(--color-success);
+}
+
+.result-item.error {
+    background-color: var(--color-error-light);
+    border-color: var(--color-error);
+}
+
+.result-item.retrying {
+    background-color: var(--color-warning-light);
+    border-color: var(--color-warning);
+}
+
+.result-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-xs);
+}
+
+.result-filename {
+    font-weight: 500;
+    font-size: 0.875rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+}
+
+.result-status {
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--radius-sm);
+    flex-shrink: 0;
+}
+
+/* ステータスバッジ */
+.status-waiting {
+    background-color: var(--color-bg);
+    color: var(--color-text-muted);
+}
+
+.status-processing {
+    background-color: var(--color-primary);
+    color: white;
+}
+
+.status-success {
+    background-color: var(--color-success);
+    color: white;
+}
+
+.status-error {
+    background-color: var(--color-error);
+    color: white;
+}
+
+.status-retrying {
+    background-color: var(--color-warning);
+    color: white;
+}
+
+.result-message {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    margin-bottom: var(--spacing-sm);
+}
+
+.result-item.error .result-message {
+    color: var(--color-error);
+}
+
+/* ダウンロードボタン */
+.download-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm) var(--spacing-md);
+    background-color: var(--color-success);
+    color: white;
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-decoration: none;
+    border-radius: var(--radius-md);
+    transition: background-color var(--transition-fast);
+}
+
+.download-btn:hover {
+    background-color: #15803d;
+}
+
+.download-icon {
+    width: 16px;
+    height: 16px;
+}
+
+@media (min-width: 768px) {
+    .results-section {
+        padding: var(--spacing-lg);
+    }
+}
+
+
+/* --------------------------------------------------------------------------
+   プログレスバー（処理中の視覚的フィードバック）
+   -------------------------------------------------------------------------- */
+.progress-bar {
+    width: 100%;
+    height: 4px;
+    background-color: var(--color-border);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: var(--spacing-sm);
+}
+
+.progress-bar-fill {
+    height: 100%;
+    background-color: var(--color-primary);
+    border-radius: 2px;
+    transition: width var(--transition-normal);
+}
+
+.progress-bar-fill.indeterminate {
+    width: 30%;
+    animation: indeterminate 1.5s ease-in-out infinite;
+}
+
+@keyframes indeterminate {
+    0% {
+        transform: translateX(-100%);
+    }
+    100% {
+        transform: translateX(400%);
+    }
+}
+
+/* --------------------------------------------------------------------------
+   フッター
+   -------------------------------------------------------------------------- */
+.footer {
+    margin-top: auto;
+    padding: var(--spacing-lg) 0;
+    text-align: center;
+}
+
+.footer-text {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+}
+
+/* --------------------------------------------------------------------------
+   ユーティリティクラス
+   -------------------------------------------------------------------------- */
+.hidden {
+    display: none !important;
+}
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* --------------------------------------------------------------------------
+   アニメーション
+   -------------------------------------------------------------------------- */
+/* フェードイン */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.fade-in {
+    animation: fadeIn 0.3s ease-out;
+}
+
+/* パルス（処理中の強調） */
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.6;
+    }
+}
+
+.pulse {
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* シェイク（エラー時） */
+@keyframes shake {
+    0%, 100% {
+        transform: translateX(0);
+    }
+    10%, 30%, 50%, 70%, 90% {
+        transform: translateX(-4px);
+    }
+    20%, 40%, 60%, 80% {
+        transform: translateX(4px);
+    }
+}
+
+.shake {
+    animation: shake 0.5s ease-in-out;
+}
+
+/* --------------------------------------------------------------------------
+   レスポンシブ調整（デスクトップ）
+   -------------------------------------------------------------------------- */
+@media (min-width: 1024px) {
+    .container {
+        max-width: 720px;
+    }
+    
+    .header {
+        padding-top: var(--spacing-xl);
+    }
+    
+    .main-content {
+        gap: var(--spacing-xl);
+    }
+}
+
+/* --------------------------------------------------------------------------
+   ダークモード対応（将来拡張用）
+   -------------------------------------------------------------------------- */
+@media (prefers-color-scheme: dark) {
+    /* 
+     * 将来的にダークモード対応する場合はここに記述
+     * 現時点ではライトモードのみ
+     */
+}
+
+/* --------------------------------------------------------------------------
+   アクセシビリティ
+   -------------------------------------------------------------------------- */
+/* フォーカス表示の強化 */
+:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+/* 動きを減らす設定への対応 */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* --------------------------------------------------------------------------
+   印刷スタイル
+   -------------------------------------------------------------------------- */
+@media print {
+    .drop-zone,
+    .password-section,
+    .unlock-btn,
+    .clear-btn,
+    .download-btn {
+        display: none;
+    }
+    
+    .container {
+        max-width: 100%;
+        padding: 0;
+    }
+    
+    .results-section {
+        box-shadow: none;
+        border: 1px solid #000;
+    }
+}
+
+
+/* --------------------------------------------------------------------------
+   通知（トースト）
+   -------------------------------------------------------------------------- */
+.notification {
+    position: fixed;
+    bottom: var(--spacing-lg);
+    left: 50%;
+    transform: translateX(-50%);
+    padding: var(--spacing-sm) var(--spacing-lg);
+    border-radius: var(--radius-md);
+    font-size: 0.875rem;
+    font-weight: 500;
+    z-index: 1000;
+    animation: slideUp 0.3s ease-out;
+    box-shadow: var(--shadow-lg);
+}
+
+.notification-info {
+    background-color: var(--color-primary);
+    color: white;
+}
+
+.notification-success {
+    background-color: var(--color-success);
+    color: white;
+}
+
+.notification-error {
+    background-color: var(--color-error);
+    color: white;
+}
+
+.notification-warning {
+    background-color: var(--color-warning);
+    color: white;
+}
+
+.notification.fade-out {
+    animation: fadeOut 0.3s ease-out forwards;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+}
+
+@keyframes fadeOut {
+    from {
+        opacity: 1;
+    }
+    to {
+        opacity: 0;
+    }
+}
+
+/* --------------------------------------------------------------------------
+   結果アイテム（data-status属性ベース）
+   -------------------------------------------------------------------------- */
+.result-item[data-status="waiting"] {
+    background-color: var(--color-bg);
+    border-color: var(--color-border);
+}
+
+.result-item[data-status="processing"] {
+    background-color: var(--color-primary-light);
+    border-color: var(--color-primary);
+}
+
+.result-item[data-status="success"] {
+    background-color: var(--color-success-light);
+    border-color: var(--color-success);
+}
+
+.result-item[data-status="error"] {
+    background-color: var(--color-error-light);
+    border-color: var(--color-error);
+}
+
+.result-info {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin-bottom: var(--spacing-sm);
+}
+
+.result-filename {
+    font-weight: 500;
+    font-size: 0.875rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.result-status {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+}
+
+.result-item[data-status="processing"] .result-status {
+    color: var(--color-primary);
+}
+
+.result-item[data-status="success"] .result-status {
+    color: var(--color-success);
+}
+
+.result-item[data-status="error"] .result-status {
+    color: var(--color-error);
+}
+
+.result-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.processing-spinner {
+    display: flex;
+    align-items: center;
+}
+
+.processing-spinner .spinner {
+    width: 16px;
+    height: 16px;
+    color: var(--color-primary);
+}
+
+/* --------------------------------------------------------------------------
+   ファイルリストアイテム（app.jsで生成）
+   -------------------------------------------------------------------------- */
+.file-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-right: var(--spacing-sm);
+}
+
+.file-size {
+    color: var(--color-text-muted);
+    font-size: 0.75rem;
+    flex-shrink: 0;
+    margin-right: var(--spacing-sm);
+}
+
+.remove-file-btn {
+    background: none;
+    border: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    padding: var(--spacing-xs);
+    font-size: 1rem;
+    line-height: 1;
+    border-radius: var(--radius-sm);
+    transition: color var(--transition-fast);
+}
+
+.remove-file-btn:hover {
+    color: var(--color-error);
+}
+
+/* --------------------------------------------------------------------------
+   進捗バー（アップロード・処理状況表示）
+   -------------------------------------------------------------------------- */
+.result-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-xs);
+}
+
+.result-size {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    flex-shrink: 0;
+}
+
+.result-progress-container {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+}
+
+.result-progress-bar {
+    flex: 1;
+    height: 8px;
+    background-color: var(--color-border);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.result-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--color-primary), var(--color-primary-hover));
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+/* アップロードフェーズ */
+.result-progress-fill[data-phase="upload"] {
+    background: linear-gradient(90deg, #3b82f6, #60a5fa);
+}
+
+/* 処理中フェーズ（パルスアニメーション） */
+.result-progress-fill[data-phase="processing"] {
+    background: linear-gradient(90deg, #3b82f6, #60a5fa);
+}
+
+.result-progress-fill.pulse {
+    animation: progressPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes progressPulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.6;
+    }
+}
+
+/* 完了フェーズ */
+.result-progress-fill[data-phase="complete"] {
+    background: linear-gradient(90deg, var(--color-success), #34d399);
+}
+
+/* エラーフェーズ */
+.result-progress-fill[data-phase="error"] {
+    background: linear-gradient(90deg, var(--color-error), #f87171);
+}
+
+.result-progress-text {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    min-width: 100px;
+    text-align: right;
+}
+
+.result-status-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    margin-bottom: var(--spacing-sm);
+}
+
+.result-status-icon {
+    font-size: 1rem;
+    line-height: 1;
+}
+
+/* ステータス別の背景色（アップロード中追加） */
+.result-item[data-status="uploading"] {
+    background-color: var(--color-primary-light);
+    border-color: var(--color-primary);
+}
+
+.result-item[data-status="uploading"] .result-status {
+    color: var(--color-primary);
+}
+
+/* 進捗バーのスムーズなアニメーション */
+.result-progress-fill {
+    will-change: width;
+}
+
+/* モバイル対応 */
+@media (max-width: 480px) {
+    .result-progress-text {
+        min-width: 80px;
+        font-size: 0.7rem;
+    }
+    
+    .result-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--spacing-xs);
+    }
+}

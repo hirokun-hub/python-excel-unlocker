@@ -1,0 +1,50 @@
+# Docker Compose 設定ファイル
+# Excel Unlocker - パスワード付き Excel ファイル解除ツール
+# Requirements: 4.1, 4.2, Docker 構成の補足
+
+services:
+  excel-unlocker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: excel-unlocker:latest
+    container_name: excel-unlocker
+    
+    # ポート公開（0.0.0.0:3000:3000）
+    # Tailscale VPN 経由でアクセスするため全インターフェースで公開
+    ports:
+      - "0.0.0.0:3000:3000"
+    
+    # 環境変数の設定
+    # Windows ホストでは TMP_DIR を上書き可能
+    environment:
+      - TMP_DIR=/tmp/excel-unlocker
+      - PORT=3000
+      - HOST=0.0.0.0
+      - MAX_WORKERS=4
+    
+    # 再起動ポリシー（unless-stopped）
+    # 手動停止以外は自動再起動
+    restart: unless-stopped
+    
+    # ヘルスチェック
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:3000/health')"]
+      interval: 30s
+      timeout: 10s
+      start_period: 5s
+      retries: 3
+    
+    # デバッグ用ボリュームマウント（コメントアウト）
+    # 通常運用ではマウントなし（即削除を優先）
+    # デバッグ時のみ有効化して一時ファイルを確認可能
+    # volumes:
+    #   - ./data/tmp:/tmp/excel-unlocker
+    
+    # ログ設定
+    # 標準出力のみ（docker logs で確認可能）
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
