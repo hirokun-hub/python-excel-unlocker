@@ -278,10 +278,11 @@
     }
 
     /**
-     * 単一ファイルの解除処理（リトライ付き）
+     * 単一ファイルの解除処理（リトライ付き + アップロード進捗表示）
      */
     async function processFile(file, index, password1, password2, retryCount = 0) {
-        updateResultItem(index, 'processing', '処理中...');
+        updateResultItem(index, 'uploading', 'アップロード中...');
+        updateProgress(index, 0, 'upload');
 
         try {
             const formData = new FormData();
@@ -291,29 +292,28 @@
                 formData.append('password2', password2);
             }
 
-            const response = await fetch('/unlock', {
-                method: 'POST',
-                body: formData
-            });
+            // XMLHttpRequestでアップロード進捗を取得
+            const result = await uploadWithProgress(formData, index);
 
             // 429 Too Many Requests の処理
-            if (response.status === 429) {
-                const data = await response.json();
+            if (result.status === 429) {
+                const data = result.data;
                 const retryAfter = data.retryAfter || 5;
 
                 if (retryCount < CONFIG.maxRetryCount) {
-                    updateResultItem(index, 'waiting', `混雑中... ${retryAfter}秒後にリトライ (${retryCount + 1}/${CONFIG.maxRetryCount})`);
+                    updateResultItem(index, 'waiting', `混雑中... ${retryAfter}秒後にリトライ`);
+                    updateProgress(index, 0, 'upload');
                     await sleep(retryAfter * 1000);
                     return processFile(file, index, password1, password2, retryCount + 1);
                 } else {
-                    updateResultItem(index, 'error', 'サーバーが混雑しています。しばらく待ってから再試行してください。');
+                    updateResultItem(index, 'error', 'サーバーが混雑しています');
                     return;
                 }
             }
 
-            const data = await response.json();
+            const data = result.data;
 
-            if (response.ok && data.status === 'success') {
+            if (result.status >= 200 && result.status < 300 && data.status === 'success') {
                 updateResultItem(index, 'success', '解除成功', data.downloadUrl);
             } else {
                 updateResultItem(index, 'error', data.message || 'エラーが発生しました');
@@ -322,6 +322,55 @@
             console.error('処理エラー:', error);
             updateResultItem(index, 'error', 'ネットワークエラーが発生しました');
         }
+    }
+
+    /**
+     * XMLHttpRequestでアップロード（進捗表示付き）
+     * @param {FormData} formData - 送信データ
+     * @param {number} index - ファイルインデックス
+     * @returns {Promise<{status: number, data: object}>}
+     */
+    function uploadWithProgress(formData, index) {
+        return new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            
+            // アップロード進捗イベント
+            xhr.upload.addEventListener('progress', (e) => {
+                if (e.lengthComputable) {
+                    // アップロードは0-50%の範囲で表示
+                    const percent = (e.loaded / e.total) * 50;
+                    updateProgress(index, percent, 'upload');
+                }
+            });
+
+            // アップロード完了 → 処理中へ
+            xhr.upload.addEventListener('load', () => {
+                updateResultItem(index, 'processing', '解除処理中...');
+                updateProgress(index, 50, 'processing');
+            });
+
+            // レスポンス受信完了
+            xhr.addEventListener('load', () => {
+                try {
+                    const data = JSON.parse(xhr.responseText);
+                    resolve({ status: xhr.status, data });
+                } catch (e) {
+                    reject(new Error('レスポンスの解析に失敗しました'));
+                }
+            });
+
+            // エラー
+            xhr.addEventListener('error', () => {
+                reject(new Error('ネットワークエラー'));
+            });
+
+            xhr.addEventListener('abort', () => {
+                reject(new Error('リクエストが中断されました'));
+            });
+
+            xhr.open('POST', '/unlock');
+            xhr.send(formData);
+        });
     }
 
 
@@ -337,14 +386,24 @@
     }
 
     /**
-     * 結果リストを初期化（全ファイルを待機中で表示）
+     * 結果リストを初期化（全ファイルを待機中で表示 + 進捗バー付き）
      */
     function initResultsList(files) {
         elements.resultsList.innerHTML = files.map((file, index) => `
             <li class="result-item" data-index="${index}" data-status="waiting">
-                <div class="result-info">
+                <div class="result-header">
                     <span class="result-filename">${escapeHtml(file.name)}</span>
-                    <span class="result-status">待機中...</span>
+                    <span class="result-size">${formatFileSize(file.size)}</span>
+                </div>
+                <div class="result-progress-container">
+                    <div class="result-progress-bar">
+                        <div class="result-progress-fill" style="width: 0%"></div>
+                    </div>
+                    <span class="result-progress-text">0%</span>
+                </div>
+                <div class="result-status-row">
+                    <span class="result-status-icon"></span>
+                    <span class="result-status">待機中</span>
                 </div>
                 <div class="result-actions"></div>
             </li>
@@ -352,9 +411,39 @@
     }
 
     /**
+     * 進捗バーを更新
+     * @param {number} index - ファイルインデックス
+     * @param {number} percent - 進捗率（0-100）
+     * @param {string} phase - フェーズ（upload/processing/complete）
+     */
+    function updateProgress(index, percent, phase = 'upload') {
+        const item = elements.resultsList.querySelector(`[data-index="${index}"]`);
+        if (!item) return;
+
+        const progressFill = item.querySelector('.result-progress-fill');
+        const progressText = item.querySelector('.result-progress-text');
+        
+        progressFill.style.width = `${percent}%`;
+        progressFill.dataset.phase = phase;
+        
+        if (phase === 'upload') {
+            progressText.textContent = `アップロード ${Math.round(percent)}%`;
+        } else if (phase === 'processing') {
+            progressText.textContent = '解除処理中...';
+            progressFill.classList.add('pulse');
+        } else if (phase === 'complete') {
+            progressText.textContent = '完了';
+            progressFill.classList.remove('pulse');
+        } else if (phase === 'error') {
+            progressText.textContent = 'エラー';
+            progressFill.classList.remove('pulse');
+        }
+    }
+
+    /**
      * 結果アイテムを更新
      * @param {number} index - ファイルインデックス
-     * @param {string} status - 状態（waiting/processing/success/error）
+     * @param {string} status - 状態（waiting/uploading/processing/success/error）
      * @param {string} message - 表示メッセージ
      * @param {string} [downloadUrl] - ダウンロードURL（成功時のみ）
      */
@@ -365,11 +454,25 @@
         item.dataset.status = status;
         
         const statusEl = item.querySelector('.result-status');
+        const statusIconEl = item.querySelector('.result-status-icon');
         statusEl.textContent = message;
+
+        // ステータスアイコンを更新
+        const icons = {
+            waiting: '⏳',
+            uploading: '📤',
+            processing: '⚙️',
+            success: '✅',
+            error: '❌'
+        };
+        statusIconEl.textContent = icons[status] || '';
 
         const actionsEl = item.querySelector('.result-actions');
         
         if (status === 'success' && downloadUrl) {
+            // 進捗バーを完了状態に
+            updateProgress(index, 100, 'complete');
+            
             // ダウンロードボタンを表示
             actionsEl.innerHTML = `
                 <a href="${escapeHtml(downloadUrl)}" class="download-btn" download>
@@ -381,14 +484,10 @@
                     ダウンロード
                 </a>
             `;
-        } else if (status === 'processing') {
-            actionsEl.innerHTML = `
-                <span class="processing-spinner">
-                    <svg class="spinner" viewBox="0 0 24 24">
-                        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" stroke-dasharray="31.4 31.4"/>
-                    </svg>
-                </span>
-            `;
+        } else if (status === 'error') {
+            // 進捗バーをエラー状態に
+            updateProgress(index, 100, 'error');
+            actionsEl.innerHTML = '';
         } else {
             actionsEl.innerHTML = '';
         }

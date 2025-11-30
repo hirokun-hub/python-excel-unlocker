@@ -961,3 +961,122 @@ body {
 .remove-file-btn:hover {
     color: var(--color-error);
 }
+
+/* --------------------------------------------------------------------------
+   進捗バー（アップロード・処理状況表示）
+   -------------------------------------------------------------------------- */
+.result-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-xs);
+}
+
+.result-size {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    flex-shrink: 0;
+}
+
+.result-progress-container {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+}
+
+.result-progress-bar {
+    flex: 1;
+    height: 8px;
+    background-color: var(--color-border);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.result-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--color-primary), var(--color-primary-hover));
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+/* アップロードフェーズ */
+.result-progress-fill[data-phase="upload"] {
+    background: linear-gradient(90deg, #3b82f6, #60a5fa);
+}
+
+/* 処理中フェーズ（パルスアニメーション） */
+.result-progress-fill[data-phase="processing"] {
+    background: linear-gradient(90deg, #3b82f6, #60a5fa);
+}
+
+.result-progress-fill.pulse {
+    animation: progressPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes progressPulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.6;
+    }
+}
+
+/* 完了フェーズ */
+.result-progress-fill[data-phase="complete"] {
+    background: linear-gradient(90deg, var(--color-success), #34d399);
+}
+
+/* エラーフェーズ */
+.result-progress-fill[data-phase="error"] {
+    background: linear-gradient(90deg, var(--color-error), #f87171);
+}
+
+.result-progress-text {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    min-width: 100px;
+    text-align: right;
+}
+
+.result-status-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    margin-bottom: var(--spacing-sm);
+}
+
+.result-status-icon {
+    font-size: 1rem;
+    line-height: 1;
+}
+
+/* ステータス別の背景色（アップロード中追加） */
+.result-item[data-status="uploading"] {
+    background-color: var(--color-primary-light);
+    border-color: var(--color-primary);
+}
+
+.result-item[data-status="uploading"] .result-status {
+    color: var(--color-primary);
+}
+
+/* 進捗バーのスムーズなアニメーション */
+.result-progress-fill {
+    will-change: width;
+}
+
+/* モバイル対応 */
+@media (max-width: 480px) {
+    .result-progress-text {
+        min-width: 80px;
+        font-size: 0.7rem;
+    }
+    
+    .result-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--spacing-xs);
+    }
+}
