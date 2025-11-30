@@ -35,6 +35,7 @@
     - ファイルレジストリ（インメモリ）の管理
     - file_id の生成と有効期限管理（5分）
     - `get_path` で UnlockService にパスを提供
+    - `save` はチャンク書き込みでメモリを抑制（例: 1MB単位）
     - 期限切れファイルの自動削除
     - _Requirements: 1.4, 6.1, ダウンロードURLの有効期限_
   - [ ]* 3.3 一時ファイル削除のプロパティテスト作成
@@ -45,7 +46,7 @@
   - [ ] 4.1 Excel 解除ロジックの実装
     - `storage.get_path(file_id)` でローカルパスを取得
     - msoffcrypto-tool を使用したパスワード解除
-    - 複数パスワードの順次試行
+    - 第1パスワード → 第2パスワード（存在する場合）の順で試行
     - 暗号化状態のチェック
     - 解除成功時は `storage.save` で解除済みファイルを保存
     - _Requirements: 1.1, 1.2, 1.3, 1.6_
@@ -84,10 +85,10 @@
 
 - [ ] 7. /unlock エンドポイントの実装
   - [ ] 7.1 unlock.py ルーターの作成
-    - multipart/form-data の受け取り
+    - multipart/form-data の受け取り（file, password1, password2）
     - ファイルバリデーション（拡張子、サイズ）を **save 前に実施**、NG なら 400 で即返却
     - バリデーション通過後に `storage.save` でファイル保存
-    - `unlock_service.unlock(file_id, passwords)` で解除処理
+    - `unlock_service.unlock(file_id, password1, password2)` で解除処理
     - StorageService 経由のファイル操作
     - _Requirements: 1.1, 1.2, 1.3, 1.6, 6.2, 6.3_
   - [ ]* 7.2 バリデーションのプロパティテスト作成
@@ -98,7 +99,7 @@
 - [ ] 8. /download エンドポイントの実装
   - [ ] 8.1 download.py ルーターの作成
     - file_id からのファイル取得（`storage.load`）
-    - 存在しない/期限切れ file_id は HTTP 404 を返す
+    - 存在しない/期限切れ file_id は HTTP 404 で `{"error":"Not Found","message":"ファイルが見つかりません"}` を返却
     - ダウンロード成功時は必ず `storage.delete` を呼び出す
     - _Requirements: API仕様（/download/{file_id}）、ダウンロードURLの有効期限_
 
@@ -109,6 +110,7 @@
 
 - [ ] 10. Pydantic スキーマの定義
   - [ ] 10.1 schemas.py の作成
+    - UnlockRequest（password1: str, password2: Optional[str]）
     - UnlockResponse, TooManyRequestsResponse, HealthResponse
     - ErrorMessages 定数クラス
     - _Requirements: API仕様_
@@ -120,7 +122,10 @@
 
 - [ ] 12. Jinja2 テンプレートの作成
   - [ ] 12.1 index.html の作成
-    - ファイル選択（複数可）、パスワード入力、解除ボタン
+    - ファイル選択（複数可）
+    - 第1パスワード入力欄（必須）
+    - 第2パスワード入力欄（任意、空欄可）
+    - 解除ボタン
     - ドラッグ＆ドロップ対応
     - レスポンシブデザイン（モバイル対応）
     - _Requirements: 2.1, 2.2, 3.1, 3.3_

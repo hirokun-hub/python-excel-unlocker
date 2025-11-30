@@ -63,7 +63,7 @@ sequenceDiagram
     participant S as StorageService
     participant T as /tmp
 
-    C->>F: POST /unlock (file, passwords)
+    C->>F: POST /unlock (file, password1, password2)
     F->>F: バリデーション（拡張子、サイズ）
     alt バリデーション失敗
         F-->>C: 400 {error} ※StorageService.saveは呼ばない
@@ -71,7 +71,7 @@ sequenceDiagram
     F->>S: save(uploaded_file)
     S->>T: ファイル保存
     S-->>F: (file_id, file_path)
-    F->>U: unlock(file_path, passwords)
+    F->>U: unlock(file_id, password1, password2)
     U->>U: msoffcrypto で解除試行
     alt 解除成功
         U->>S: save(unlocked_file)
@@ -206,7 +206,12 @@ class StorageService(ABC):
     
     @abstractmethod
     def generate_download_url(self, file_id: str) -> str:
-        """ダウンロード URL を生成"""
+        """
+        ダウンロード URL を生成
+        
+        MVP: /download/{file_id} を返すだけ（署名処理なし）
+        将来 GCS: 署名付き URL を返す
+        """
         pass
     
     @abstractmethod
@@ -230,8 +235,11 @@ class LocalStorageService(StorageService):
     def save(self, file_like: BinaryIO, filename: str) -> Tuple[str, str]:
         file_id = str(uuid.uuid4())
         file_path = os.path.join(self.base_dir, f"{file_id}_{filename}")
+        # チャンク書き込みでメモリを抑制（50MB上限でも一括読み込みを避ける）
+        CHUNK_SIZE = 1024 * 1024  # 1MB
         with open(file_path, "wb") as f:
-            f.write(file_like.read())
+            while chunk := file_like.read(CHUNK_SIZE):
+                f.write(chunk)
         self._file_registry[file_id] = {
             "path": file_path,
             "filename": filename,
@@ -251,6 +259,7 @@ class LocalStorageService(StorageService):
 
 **設計ポイント:**
 - `save` は file-like オブジェクトを受け取り、大きなファイルでもメモリを圧迫しない
+- チャンクサイズは固定1MB（50MB上限で十分、設定値化は不要な複雑化を招くため固定）
 - `get_path` により UnlockService は msoffcrypto にローカルパスを渡せる
 - 将来 GCS 移行時は `get_path` を署名付き URL 経由のダウンロードに置き換え
 
@@ -265,13 +274,14 @@ class UnlockService:
     def __init__(self, storage: StorageService):
         self.storage = storage
     
-    def unlock(self, file_id: str, passwords: List[str]) -> Dict[str, Any]:
+    def unlock(self, file_id: str, password1: str, password2: Optional[str] = None) -> Dict[str, Any]:
         """
         Excel ファイルのパスワード解除を試行
         
         Args:
             file_id: StorageService.save で返された file_id
-            passwords: 試行するパスワードのリスト
+            password1: 第1パスワード（必須）
+            password2: 第2パスワード（任意、空欄可）
         
         Returns:
             {
@@ -287,8 +297,28 @@ class UnlockService:
         if not file_path:
             return {"success": False, "message": "ファイルが見つかりません"}
         
+        # パスワードリストを構築（第1 → 第2 の順で試行）
+        passwords_to_try = [password1]
+        if password2:  # 空欄でなければ追加
+            passwords_to_try.append(password2)
+        
         # msoffcrypto を使用した解除ロジック
-        # 解除成功時は storage.save で解除済みファイルを保存
+        # 1. OfficeFile(file_path) でファイルを開く
+        # 2. is_encrypted() で暗号化状態をチェック
+        #    - False なら「パスワードが設定されていません」エラー
+        # 3. passwords_to_try を順次試行:
+        #    - load_key(password=pw) でパスワード設定
+        #    - decrypt(open(unlocked_path, "wb")) で解除
+        #    - 成功したら storage.save で解除済みファイルを保存
+        # 4. 全パスワード失敗なら「パスワードが正しくありません」エラー
+        
+        # 戻り値の形式:
+        # 成功時: {"success": True, "unlocked_file_id": "<id>", "message": None,
+        #          "original_filename": "<str>", "unlocked_filename": "<str>_解除.<ext>"}
+        # パスワード不正: {"success": False, "unlocked_file_id": None,
+        #                  "message": "パスワードが正しくありません", ...}
+        # パスワード未設定: {"success": False, "unlocked_file_id": None,
+        #                    "message": "パスワードが設定されていません", ...}
         pass
     
     def _generate_unlocked_filename(self, original: str) -> str:
@@ -307,6 +337,10 @@ class UnlockService:
 ```python
 from pydantic import BaseModel
 from typing import Optional
+
+class UnlockRequest(BaseModel):
+    password1: str  # 第1パスワード（必須）
+    password2: Optional[str] = None  # 第2パスワード（任意、空欄可）
 
 class UnlockResponse(BaseModel):
     fileName: str
