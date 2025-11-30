@@ -79,7 +79,7 @@
     - **Property 6: ファイル名変更規則**
     - **Validates: Requirements 1.7**
 
-- [ ] 5. Checkpoint - コアサービスのテスト確認
+- [x] 5. Checkpoint - コアサービスのテスト確認
   - Ensure all tests pass, ask the user if questions arise.
   - **テストデータ使用**: `data/` 内の Excel ファイルで実際のパスワード解除を検証
 
