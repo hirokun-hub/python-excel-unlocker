@@ -182,7 +182,8 @@ async def root(request: Request):
         {
             "client_concurrency": settings.CLIENT_CONCURRENCY,
             "max_file_size_mb": settings.MAX_FILE_SIZE_MB,
-            "allowed_extensions": settings.ALLOWED_EXTENSIONS
+            "allowed_extensions": settings.ALLOWED_EXTENSIONS,
+            "max_retry_count": settings.MAX_RETRY_COUNT
         }
     )
 
