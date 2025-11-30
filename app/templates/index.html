@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel Unlocker</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Excel パスワード解除ツール</h1>
+        <p>パスワード保護された Excel ファイルを解除します。</p>
+        
+        <!-- フロントエンド実装はタスク12-14で行います -->
+        <div class="placeholder">
+            <p>フロントエンド実装準備中...</p>
+            <p>設定情報:</p>
+            <ul>
+                <li>クライアント並列数: {{ client_concurrency }}</li>
+                <li>最大ファイルサイズ: {{ max_file_size_mb }}MB</li>
+                <li>許可拡張子: {{ allowed_extensions }}</li>
+            </ul>
+        </div>
+    </div>
+    
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
