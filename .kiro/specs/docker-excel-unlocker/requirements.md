@@ -54,7 +54,7 @@
 #### 受入基準
 
 1. WHEN ユーザーが Excel ファイル（.xlsx または .xls）を1つアップロードし、パスワードを入力して解除ボタンを押す THEN Excel Unlocker はファイルを解除して `downloadUrl` を含むJSONレスポンスを返す
-2. WHEN ユーザーが複数のパスワード候補をカンマ区切りで入力する THEN Excel Unlocker は各パスワードを順番に試行し、最初に成功したパスワードで解除する
+2. WHEN ユーザーが第1パスワード（必須）と第2パスワード（任意）を入力する THEN Excel Unlocker は第1パスワード → 第2パスワードの順で試行し、最初に成功したパスワードで解除する
 3. WHEN 入力されたすべてのパスワードで解除に失敗する THEN Excel Unlocker は「パスワードが正しくありません」というエラーメッセージを**この文言で**返す
 4. WHEN 解除処理が完了する THEN Excel Unlocker は一時ファイルを即座に削除する
 5. WHEN 同時リクエスト数が `MAX_WORKERS` を超える THEN Excel Unlocker は HTTP 429（Too Many Requests）を返し、クライアントにリトライを促す
@@ -94,7 +94,10 @@
 
 **POST /unlock リクエスト:**
 - Content-Type: `multipart/form-data`
-- フィールド: `file`（単一ファイル）、`passwords`（カンマ区切り文字列）
+- フィールド:
+  - `file`（単一ファイル、必須）
+  - `password1`（第1パスワード、必須）
+  - `password2`（第2パスワード、任意、空欄可）
 
 **POST /unlock レスポンス（成功時）:**
 ```json
@@ -141,7 +144,7 @@
 
 #### 受入基準
 
-1. WHEN ユーザーがブラウザでアクセスする THEN Excel Unlocker はファイル選択（複数可）、パスワード入力、解除ボタンを含む単一ページのシンプルな画面を表示する
+1. WHEN ユーザーがブラウザでアクセスする THEN Excel Unlocker はファイル選択（複数可）、第1パスワード入力（必須）、第2パスワード入力（任意）、解除ボタンを含む単一ページのシンプルな画面を表示する
 2. WHEN ユーザーがファイルをドラッグ＆ドロップまたはタップして選択する THEN Excel Unlocker はファイルを受け付けてファイル名を表示する
 3. WHEN ユーザーが複数ファイルを選択して解除ボタンを押す THEN Excel Unlocker は JavaScript で並列リクエスト（最大3〜5並列）を送信し、各ファイルの進捗を個別に表示する
 4. WHEN 解除処理中である THEN Excel Unlocker は各ファイルの処理状態（待機中/処理中/完了/エラー）を表示する
