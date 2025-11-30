@@ -1091,3 +1091,72 @@ body {
         gap: var(--spacing-xs);
     }
 }
+
+/* --------------------------------------------------------------------------
+   追加機能スタイル (Bulk Download UX)
+   Requirements: 2.3, 4.1
+   -------------------------------------------------------------------------- */
+
+/* ダウンロード済みボタン */
+.download-btn.downloaded {
+    background-color: var(--color-text-muted);
+}
+
+.download-btn.downloaded:hover {
+    background-color: #4b5563;
+}
+
+/* 処理結果クリアボタン */
+#clear-results-btn {
+    margin-top: var(--spacing-md);
+}
+
+/* カウントダウン表示 */
+.countdown-timer {
+    font-size: 0.875rem;
+    color: var(--color-text-muted);
+    font-variant-numeric: tabular-nums;
+    margin-left: var(--spacing-sm);
+}
+
+.countdown-timer.warning {
+    color: var(--color-error);
+    font-weight: 500;
+}
+
+.countdown-timer.expired {
+    color: var(--color-text-muted);
+}
+
+/* 一括ダウンロードボタン */
+.results-header-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-md);
+}
+
+.results-header-container .section-title {
+    margin-bottom: 0;
+}
+
+.bulk-download-btn {
+    padding: var(--spacing-xs) var(--spacing-md);
+    background-color: var(--color-primary);
+    color: white;
+    font-size: 0.875rem;
+    font-weight: 500;
+    border: none;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: background-color var(--transition-fast);
+}
+
+.bulk-download-btn:hover:not(:disabled) {
+    background-color: var(--color-primary-hover);
+}
+
+.bulk-download-btn:disabled {
+    background-color: var(--color-border);
+    cursor: wait;
+}

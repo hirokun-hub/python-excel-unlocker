@@ -24,8 +24,213 @@
     // 状態管理
     const state = {
         selectedFiles: [],
-        isProcessing: false
+        isProcessing: false,
+        downloadedFiles: new Set(),
+        timers: new Map(),
+        successFileIds: new Set()
     };
+
+    /**
+     * URLからZIPをダウンロード
+     */
+    async function downloadZipFromUrl(url) {
+        try {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error('Download failed');
+
+            const blob = await response.blob();
+            const blobUrl = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = blobUrl;
+
+            let filename = 'bulk_download.zip';
+            const disposition = response.headers.get('Content-Disposition');
+            if (disposition && disposition.indexOf('filename=') !== -1) {
+                const matches = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(disposition);
+                if (matches != null && matches[1]) {
+                    filename = matches[1].replace(/['"]/g, '');
+                }
+            }
+
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(blobUrl);
+        } catch (e) {
+            console.error(e);
+            showNotification('ZIPファイルのダウンロードに失敗しました', 'error');
+        }
+    }
+
+    /**
+     * 一括ダウンロード処理
+     */
+    async function bulkDownload() {
+        const btn = document.getElementById('bulk-download-btn');
+        if (btn && btn.disabled) return;
+
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = '生成中...';
+        }
+
+        try {
+            const fileIds = Array.from(state.successFileIds);
+
+            const response = await fetch('/download/bulk', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ fileIds })
+            });
+
+            if (response.ok) {
+                if (response.status === 206) {
+                    // 部分成功
+                    const data = await response.json();
+                    showNotification(data.message, 'warning');
+
+                    if (data.downloadUrl) {
+                        await downloadZipFromUrl(data.downloadUrl);
+                    }
+
+                    if (data.successfulIds) {
+                        data.successfulIds.forEach(id => markAsDownloaded(id));
+                    }
+                } else {
+                    // 全件成功 (HTTP 200)
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+
+                    let filename = 'bulk_download.zip';
+                    const disposition = response.headers.get('Content-Disposition');
+                    if (disposition && disposition.indexOf('filename=') !== -1) {
+                        const matches = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(disposition);
+                        if (matches != null && matches[1]) {
+                            filename = matches[1].replace(/['"]/g, '');
+                        }
+                    }
+
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    window.URL.revokeObjectURL(url);
+
+                    // 全てダウンロード済みに
+                    fileIds.forEach(id => markAsDownloaded(id));
+                }
+            } else {
+                let message = '一括ダウンロードに失敗しました';
+                try {
+                    const error = await response.json();
+                    if (error.message) message = error.message;
+                } catch (e) {
+                    // JSONパースエラーは無視
+                }
+
+                if (response.status === 404) message = 'ファイルが見つかりません';
+                if (response.status === 400) message = 'リクエストが不正です';
+                if (response.status === 500) message = 'ZIP生成に失敗しました';
+
+                showNotification(message, 'error');
+            }
+
+        } catch (e) {
+            console.error(e);
+            showNotification('ネットワークエラーが発生しました', 'error');
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = '一括ダウンロード';
+            }
+        }
+    }
+
+    /**
+     * 一括ダウンロードボタンの更新
+     */
+    function updateBulkDownloadButton() {
+        const btnContainer = document.querySelector('.results-header-container');
+        if (!btnContainer) return;
+
+        let bulkBtn = document.getElementById('bulk-download-btn');
+
+        if (state.successFileIds.size >= 2) {
+            if (!bulkBtn) {
+                bulkBtn = document.createElement('button');
+                bulkBtn.id = 'bulk-download-btn';
+                bulkBtn.className = 'bulk-download-btn';
+                bulkBtn.textContent = '一括ダウンロード';
+                bulkBtn.addEventListener('click', bulkDownload);
+                btnContainer.appendChild(bulkBtn);
+            }
+            bulkBtn.classList.remove('hidden');
+        } else {
+            if (bulkBtn) {
+                bulkBtn.classList.add('hidden');
+            }
+        }
+    }
+
+    /**
+     * カウントダウンタイマークラス
+     */
+    class CountdownTimer {
+        constructor(fileId, expiresAt, element) {
+            this.fileId = fileId;
+            this.expiresAt = new Date(expiresAt);
+            this.element = element;
+            this.timerId = null;
+        }
+
+        start() {
+            this.update();
+            this.timerId = setInterval(() => this.update(), 1000);
+        }
+
+        stop() {
+            if (this.timerId) {
+                clearInterval(this.timerId);
+                this.timerId = null;
+            }
+        }
+
+        update() {
+            const now = new Date();
+            const diff = this.expiresAt - now;
+
+            if (diff <= 0) {
+                this.stop();
+                this.element.textContent = '期限切れ';
+                this.element.classList.add('expired');
+
+                const btn = document.querySelector(`.download-btn[data-file-id="${this.fileId}"]`);
+                if (btn) {
+                    btn.classList.add('disabled');
+                    btn.style.pointerEvents = 'none';
+                    btn.style.opacity = '0.5';
+                    btn.textContent = '期限切れ';
+                }
+                return;
+            }
+
+            const minutes = Math.floor(diff / 60000);
+            const seconds = Math.floor((diff % 60000) / 1000);
+
+            this.element.textContent = `残り ${minutes}分${seconds.toString().padStart(2, '0')}秒`;
+
+            if (diff < 60000) {
+                this.element.classList.add('warning');
+            } else {
+                this.element.classList.remove('warning');
+            }
+        }
+    }
 
     // DOM要素のキャッシュ
     const elements = {};
@@ -54,6 +259,7 @@
         elements.unlockBtn = document.getElementById('unlock-btn');
         elements.resultsSection = document.getElementById('results-section');
         elements.resultsList = document.getElementById('results-list');
+        elements.clearResultsBtn = document.getElementById('clear-results-btn');
     }
 
     /**
@@ -81,6 +287,16 @@
 
         // 入力変更時のボタン状態更新
         elements.password1.addEventListener('input', updateUnlockButtonState);
+
+        // 処理結果クリア
+        if (elements.clearResultsBtn) {
+            elements.clearResultsBtn.addEventListener('click', clearResults);
+        }
+
+        // ページ離脱時
+        window.addEventListener('beforeunload', () => {
+            state.timers.forEach(timer => timer.stop());
+        });
     }
 
 
@@ -314,7 +530,7 @@
             const data = result.data;
 
             if (result.status >= 200 && result.status < 300 && data.status === 'success') {
-                updateResultItem(index, 'success', '解除成功', data.downloadUrl);
+                updateResultItem(index, 'success', '解除成功', data);
             } else {
                 updateResultItem(index, 'error', data.message || 'エラーが発生しました');
             }
@@ -379,10 +595,48 @@
     // ========================================
 
     /**
+     * 結果セクションへスクロール
+     */
+    function scrollToResults() {
+        if (elements.resultsSection) {
+            elements.resultsSection.scrollIntoView({ behavior: 'smooth' });
+        }
+    }
+
+    /**
+     * ダウンロード済みとしてマーク
+     */
+    function markAsDownloaded(fileId) {
+        state.downloadedFiles.add(fileId);
+
+        // DOM更新
+        const btn = document.querySelector(`.download-btn[data-file-id="${fileId}"]`);
+        if (btn) {
+            btn.textContent = 'ダウンロード済み';
+            btn.classList.add('downloaded');
+        }
+    }
+
+    /**
+     * 結果をクリア
+     */
+    function clearResults() {
+        elements.resultsList.innerHTML = '';
+        elements.resultsSection.classList.add('hidden');
+        state.downloadedFiles.clear();
+        state.timers.forEach(timer => timer.stop());
+        state.timers.clear();
+        state.successFileIds.clear();
+        updateBulkDownloadButton();
+    }
+
+    /**
      * 結果セクションを表示
      */
     function showResultsSection() {
         elements.resultsSection.classList.remove('hidden');
+        // 自動スクロール
+        setTimeout(scrollToResults, 100);
     }
 
     /**
@@ -445,9 +699,9 @@
      * @param {number} index - ファイルインデックス
      * @param {string} status - 状態（waiting/uploading/processing/success/error）
      * @param {string} message - 表示メッセージ
-     * @param {string} [downloadUrl] - ダウンロードURL（成功時のみ）
+     * @param {object|string} [resultData] - 結果データ（成功時はオブジェクト、互換性のために文字列も許容）
      */
-    function updateResultItem(index, status, message, downloadUrl = null) {
+    function updateResultItem(index, status, message, resultData = null) {
         const item = elements.resultsList.querySelector(`[data-index="${index}"]`);
         if (!item) return;
 
@@ -469,21 +723,70 @@
 
         const actionsEl = item.querySelector('.result-actions');
         
+        let downloadUrl = null;
+        let expiresAt = null;
+        let fileId = null;
+
+        if (resultData && typeof resultData === 'object') {
+            downloadUrl = resultData.downloadUrl;
+            expiresAt = resultData.expiresAt;
+            fileId = resultData.fileId;
+        } else if (typeof resultData === 'string') {
+            downloadUrl = resultData;
+        }
+
+        if (!fileId && downloadUrl) {
+            const parts = downloadUrl.split('/');
+            fileId = parts[parts.length - 1];
+        }
+
         if (status === 'success' && downloadUrl) {
             // 進捗バーを完了状態に
             updateProgress(index, 100, 'complete');
+
+            if (fileId) {
+                state.successFileIds.add(fileId);
+                updateBulkDownloadButton();
+            }
+
+            const isDownloaded = state.downloadedFiles.has(fileId);
+            const btnText = isDownloaded ? 'ダウンロード済み' : 'ダウンロード';
+            const btnClass = isDownloaded ? 'download-btn downloaded' : 'download-btn';
             
             // ダウンロードボタンを表示
             actionsEl.innerHTML = `
-                <a href="${escapeHtml(downloadUrl)}" class="download-btn" download>
+                <a href="${escapeHtml(downloadUrl)}" class="${btnClass}" download data-file-id="${fileId}">
                     <svg class="download-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                         <polyline points="7 10 12 15 17 10"/>
                         <line x1="12" y1="15" x2="12" y2="3"/>
                     </svg>
-                    ダウンロード
+                    ${btnText}
                 </a>
             `;
+
+            // クリックイベントのバインド
+            const btn = actionsEl.querySelector('.download-btn');
+            if (btn) {
+                btn.addEventListener('click', () => markAsDownloaded(fileId));
+            }
+
+            // カウントダウンタイマー
+            if (fileId && expiresAt) {
+                const timerSpan = document.createElement('span');
+                timerSpan.className = 'countdown-timer';
+                actionsEl.appendChild(timerSpan);
+
+                // 既存のタイマーがあれば停止
+                if (state.timers.has(fileId)) {
+                    state.timers.get(fileId).stop();
+                }
+
+                const timer = new CountdownTimer(fileId, expiresAt, timerSpan);
+                timer.start();
+                state.timers.set(fileId, timer);
+            }
+
         } else if (status === 'error') {
             // 進捗バーをエラー状態に
             updateProgress(index, 100, 'error');
