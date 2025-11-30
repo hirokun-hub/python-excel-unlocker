@@ -56,8 +56,8 @@
     - **Property 3: 一時ファイルの削除**
     - **Validates: Requirements 1.4, 6.1**
 
-- [ ] 4. UnlockService の実装
-  - [ ] 4.1 Excel 解除ロジックの実装
+- [x] 4. UnlockService の実装
+  - [x] 4.1 Excel 解除ロジックの実装
     - `storage.get_path(file_id)` でローカルパスを取得
     - msoffcrypto-tool を使用したパスワード解除
     - 第1パスワード → 第2パスワード（存在する場合）の順で試行
@@ -65,7 +65,7 @@
     - 解除成功時は `storage.save` で解除済みファイルを保存
     - **テストデータ使用**: `data/` 内の Excel ファイル（パスワード: `DRY12121Cu`）で動作確認
     - _Requirements: 1.1, 1.2, 1.3, 1.6_
-  - [ ] 4.2 ファイル名変更ロジックの実装
+  - [x] 4.2 ファイル名変更ロジックの実装
     - `{元ファイル名}_解除.{拡張子}` 形式への変換
     - 拡張子なし、複数ドットのケース対応
     - _Requirements: 1.7_
