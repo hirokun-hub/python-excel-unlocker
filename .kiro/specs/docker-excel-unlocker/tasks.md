@@ -39,13 +39,13 @@
     - **Property 7: 設定の環境変数優先**
     - **Validates: Requirements 5.1, 5.2, 5.3, 5.4**
 
-- [ ] 3. StorageService の実装
-  - [ ] 3.1 StorageService 抽象クラスの定義
+- [x] 3. StorageService の実装
+  - [x] 3.1 StorageService 抽象クラスの定義
     - `save(file_like, filename) -> (file_id, file_path)`: file-like を保存し ID とパスを返す
     - `get_path(file_id) -> Optional[str]`: msoffcrypto 用にローカルパスを取得
     - `load`, `delete`, `generate_download_url`, `get_filename`, `is_expired` メソッド
     - _Requirements: 将来拡張性（Cloud Storage 連携）_
-  - [ ] 3.2 LocalStorageService の実装
+  - [x] 3.2 LocalStorageService の実装
     - ファイルレジストリ（インメモリ）の管理
     - file_id の生成と有効期限管理（5分）
     - `get_path` で UnlockService にパスを提供
