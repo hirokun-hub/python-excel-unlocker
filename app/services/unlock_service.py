@@ -13,17 +13,8 @@ from typing import Any, Dict, Optional
 
 import msoffcrypto
 
+from app.models.schemas import ErrorMessages
 from app.services.storage_service import StorageService
-
-
-class ErrorMessages:
-    """エラーメッセージ定数"""
-    PASSWORD_INCORRECT = "パスワードが正しくありません"
-    PASSWORD_NOT_SET = "パスワードが設定されていません"
-    FILE_NOT_FOUND = "ファイルが見つかりません"
-    UNSUPPORTED_FORMAT = "サポートされていないファイル形式です"
-    FILE_TOO_LARGE = "ファイルサイズが大きすぎます"
-    SERVER_BUSY = "サーバーが混雑しています。しばらく待ってから再試行してください。"
 
 
 class UnlockService:

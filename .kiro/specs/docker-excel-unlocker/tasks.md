@@ -125,14 +125,14 @@
     - {"status": "ok"} レスポンス
     - _Requirements: 4.4_
 
-- [ ] 10. Pydantic スキーマの定義
-  - [ ] 10.1 schemas.py の作成
+- [x] 10. Pydantic スキーマの定義
+  - [x] 10.1 schemas.py の作成
     - UnlockRequest（password1: str, password2: Optional[str]）
     - UnlockResponse, TooManyRequestsResponse, HealthResponse
     - ErrorMessages 定数クラス
     - _Requirements: API仕様_
 
-- [ ] 11. Checkpoint - API エンドポイントのテスト確認
+- [x] 11. Checkpoint - API エンドポイントのテスト確認
   - Ensure all tests pass, ask the user if questions arise.
 
 ## フロントエンドの実装
