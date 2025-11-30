@@ -173,22 +173,22 @@
 
 ## Docker 環境の構築
 
-- [ ] 15. Dockerfile の作成
-  - [ ] 15.1 Dockerfile の作成
+- [x] 15. Dockerfile の作成
+  - [x] 15.1 Dockerfile の作成
     - Python 3.11 ベースイメージ
     - 依存関係のインストール
     - 環境変数の設定（TMP_DIR, PORT, HOST, MAX_WORKERS）
     - _Requirements: 4.3, Dockerfile 環境変数_
 
-- [ ] 16. docker-compose.yml の作成
-  - [ ] 16.1 docker-compose.yml の作成
+- [x] 16. docker-compose.yml の作成
+  - [x] 16.1 docker-compose.yml の作成
     - ポート公開（0.0.0.0:3000:3000）
     - 再起動ポリシー（unless-stopped）
     - デバッグ用ボリュームマウント（コメントアウト）
     - _Requirements: 4.1, 4.2, Docker 構成の補足_
 
-- [ ] 17. requirements.txt の作成
-  - [ ] 17.1 requirements.txt の作成
+- [x] 17. requirements.txt の作成
+  - [x] 17.1 requirements.txt の作成
     - fastapi, uvicorn, python-multipart
     - msoffcrypto-tool
     - pydantic-settings
