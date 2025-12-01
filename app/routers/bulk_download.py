@@ -100,9 +100,6 @@ def download_bulk_zip(
     if content is None:
         return JSONResponse(status_code=404, content={"error": "Not Found"})
 
-    # ダウンロード後は削除 (一時ファイルなので)
-    storage_service.delete(zip_id)
-
     encoded_filename = quote(filename)
     content_disposition = f"attachment; filename*=UTF-8''{encoded_filename}"
 
