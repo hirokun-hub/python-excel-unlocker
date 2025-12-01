@@ -148,6 +148,26 @@ pytest tests/test_unlock_properties.py -v
 pytest tests/ --cov=app --cov-report=html
 ```
 
+### 配布パッケージの作成
+
+社内配布向けに Docker イメージと起動スクリプトを同梱した ZIP を生成できます。
+
+```bash
+# 配布パッケージを作成
+./scripts/create-distribution.sh
+
+# 出力: excel-unlocker.zip
+# 展開後の構成例:
+# distribution/
+#   excel-unlocker/
+#     images/app.tar        # docker save 出力
+#     docker-compose.yml    # 配布用 compose
+#     README.txt            # 利用手順
+#     setup.command/.bat    # イメージ読み込み
+#     start.command/.bat    # 起動
+#     server.env (任意)     # .env があれば同梱
+```
+
 ### パフォーマンステスト
 
 ```bash
