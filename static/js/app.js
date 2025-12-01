@@ -31,6 +31,24 @@
     };
 
     /**
+     * Content-Dispositionヘッダーからファイル名を取得
+     */
+    function getFilenameFromDisposition(disposition) {
+        if (!disposition) return null;
+
+        const filenameStarMatch = /filename\*=UTF-8''([^;\n]*)/.exec(disposition);
+        if (filenameStarMatch && filenameStarMatch[1]) {
+            return decodeURIComponent(filenameStarMatch[1]);
+        }
+
+        const matches = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(disposition);
+        if (matches != null && matches[1]) {
+            return matches[1].replace(/['"]/g, '');
+        }
+        return null;
+    }
+
+    /**
      * URLからZIPをダウンロード
      */
     async function downloadZipFromUrl(url) {
@@ -45,12 +63,8 @@
 
             let filename = 'bulk_download.zip';
             const disposition = response.headers.get('Content-Disposition');
-            if (disposition && disposition.indexOf('filename=') !== -1) {
-                const matches = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(disposition);
-                if (matches != null && matches[1]) {
-                    filename = matches[1].replace(/['"]/g, '');
-                }
-            }
+            const extractedName = getFilenameFromDisposition(disposition);
+            if (extractedName) filename = extractedName;
 
             a.download = filename;
             document.body.appendChild(a);
@@ -108,12 +122,8 @@
 
                     let filename = 'bulk_download.zip';
                     const disposition = response.headers.get('Content-Disposition');
-                    if (disposition && disposition.indexOf('filename=') !== -1) {
-                        const matches = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(disposition);
-                        if (matches != null && matches[1]) {
-                            filename = matches[1].replace(/['"]/g, '');
-                        }
-                    }
+                    const extractedName = getFilenameFromDisposition(disposition);
+                    if (extractedName) filename = extractedName;
 
                     a.download = filename;
                     document.body.appendChild(a);

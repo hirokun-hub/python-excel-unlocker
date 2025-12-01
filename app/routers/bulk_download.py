@@ -1,6 +1,7 @@
 from typing import List
 from datetime import datetime, timezone
 import logging
+from urllib.parse import quote
 
 from fastapi import APIRouter, Request, Response
 from fastapi.responses import JSONResponse
@@ -63,11 +64,14 @@ def bulk_download(
             )
 
         # 全件成功 (HTTP 200)
+        encoded_filename = quote(filename)
+        content_disposition = f"attachment; filename*=UTF-8''{encoded_filename}"
+
         return Response(
             content=zip_buffer.getvalue(),
             media_type="application/zip",
             headers={
-                "Content-Disposition": f'attachment; filename="{filename}"'
+                "Content-Disposition": content_disposition
             }
         )
 
@@ -99,10 +103,13 @@ def download_bulk_zip(
     # ダウンロード後は削除 (一時ファイルなので)
     storage_service.delete(zip_id)
 
+    encoded_filename = quote(filename)
+    content_disposition = f"attachment; filename*=UTF-8''{encoded_filename}"
+
     return Response(
         content=content,
         media_type="application/zip",
         headers={
-            "Content-Disposition": f'attachment; filename="{filename}"'
+            "Content-Disposition": content_disposition
         }
     )
