@@ -1,5 +1,5 @@
 # ルーターモジュール
 
-from app.routers import unlock, download, health
+from app.routers import unlock, download, health, bulk_download
 
-__all__ = ["unlock", "download", "health"]
+__all__ = ["unlock", "download", "health", "bulk_download"]

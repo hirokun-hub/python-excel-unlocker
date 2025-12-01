@@ -54,9 +54,8 @@ async def download_file(request: Request, file_id: str) -> Response:
     if filename is None:
         filename = "download.xlsx"
     
-    # ダウンロード成功時は必ず storage.delete を呼び出す
-    storage_service.delete(file_id)
-    logger.info(f"File downloaded and deleted: {file_id} ({filename})")
+    # 要件: 5分有効。ダウンロード後も期限切れまでは保持し、期限切れ時のみ404を返す。
+    logger.info(f"File downloaded: {file_id} ({filename})")
     
     # Content-Disposition ヘッダーを設定（日本語ファイル名対応）
     # RFC 5987 に準拠した UTF-8 エンコーディング
