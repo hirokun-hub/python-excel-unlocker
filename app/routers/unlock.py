@@ -7,6 +7,7 @@ Requirements: 1.1, 1.2, 1.3, 1.6, 6.2, 6.3
 """
 
 import logging
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, File, Form, Request, UploadFile
@@ -181,13 +182,22 @@ async def unlock_file(
                 # 元ファイルを削除（Requirements: 1.4）
                 storage_service.delete(file_id)
                 
+                # 有効期限（UTC）を計算
+                expires_at = datetime.now(timezone.utc) + timedelta(
+                    seconds=settings.DOWNLOAD_EXPIRY_SECONDS
+                )
+                # Z付きUTC文字列に統一（要件どおり）
+                expires_at_str = expires_at.strftime("%Y-%m-%dT%H:%M:%SZ")
+
                 return JSONResponse(
                     status_code=200,
                     content={
                         "fileName": result["unlocked_filename"],
                         "status": "success",
                         "message": None,
-                        "downloadUrl": download_url
+                        "downloadUrl": download_url,
+                        "fileId": result["unlocked_file_id"],
+                        "expiresAt": expires_at_str
                     }
                 )
             else:

@@ -127,6 +127,11 @@ MANIFEST
 /celerybeat-schedule
 /celerybeat.pid
 
+# 配布生成物（配布パッケージとイメージ）
+/distribution/
+/*.zip
+/*.tar
+
 
 # =========================
 # 仮想環境（どこにあっても無視）

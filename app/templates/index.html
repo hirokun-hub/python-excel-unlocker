@@ -25,8 +25,8 @@
                         </svg>
                         <p class="drop-zone-text">ファイルをドラッグ＆ドロップ</p>
                         <p class="drop-zone-subtext">または</p>
+                        <input type="file" id="file-input" accept=".xlsx,.xls" multiple class="file-input-hidden">
                         <label for="file-input" class="file-select-btn">ファイルを選択</label>
-                        <input type="file" id="file-input" accept=".xlsx,.xls" multiple hidden>
                         <p class="file-hint">対応形式: {{ allowed_extensions }} / 最大サイズ: {{ max_file_size_mb }}MB</p>
                     </div>
                 </div>
@@ -34,8 +34,12 @@
 
             <!-- 処理結果エリア（ドロップゾーンの直下に配置してUX向上） -->
             <section id="results-section" class="results-section hidden">
-                <h2 class="section-title">処理結果</h2>
+                <div class="results-header-container">
+                    <h2 class="section-title">処理結果</h2>
+                    <!-- 一括ダウンロードボタン配置予定地 -->
+                </div>
                 <ul id="results-list" class="results-list"></ul>
+                <button type="button" id="clear-results-btn" class="clear-btn">処理結果をクリア</button>
             </section>
 
             <!-- 解除対象ファイル一覧 -->
@@ -118,7 +122,8 @@
         "clientConcurrency": {{ client_concurrency }},
         "maxFileSizeMB": {{ max_file_size_mb }},
         "allowedExtensions": "{{ allowed_extensions }}",
-        "maxRetryCount": {{ max_retry_count }}
+        "maxRetryCount": {{ max_retry_count }},
+        "downloadExpirySeconds": {{ download_expiry_seconds }}
     }
     </script>
     <script>
@@ -128,7 +133,8 @@
                 clientConcurrency: configData.clientConcurrency,
                 maxFileSizeMB: configData.maxFileSizeMB,
                 allowedExtensions: configData.allowedExtensions.split(",").map(function(ext) { return ext.trim().toLowerCase(); }),
-                maxRetryCount: configData.maxRetryCount
+                maxRetryCount: configData.maxRetryCount,
+                downloadExpirySeconds: configData.downloadExpirySeconds
             };
         })();
     </script>

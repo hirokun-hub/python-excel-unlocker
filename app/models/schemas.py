@@ -6,7 +6,7 @@ API リクエスト/レスポンスの型定義を提供します。
 Requirements: API仕様
 """
 
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -42,6 +42,20 @@ class UnlockResponse(BaseModel):
     status: str = Field(..., description="処理結果（'success' または 'error'）")
     message: Optional[str] = Field(None, description="エラーメッセージ（成功時は None）")
     downloadUrl: Optional[str] = Field(None, description="ダウンロード URL（エラー時は None）")
+    fileId: Optional[str] = Field(None, description="ファイルID（成功時のみ）")
+    expiresAt: Optional[str] = Field(None, description="有効期限（ISO8601 UTC、成功時のみ）")
+
+
+class BulkDownloadPartialResponse(BaseModel):
+    """
+    一括ダウンロードの部分成功レスポンス (HTTP 206)
+    """
+    status: str = "partial"
+    downloadUrl: str
+    downloadedCount: int
+    missingCount: int
+    message: str
+    successfulIds: Optional[List[str]] = None
 
 
 class TooManyRequestsResponse(BaseModel):
