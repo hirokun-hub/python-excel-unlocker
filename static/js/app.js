@@ -619,10 +619,19 @@
     function markAsDownloaded(fileId) {
         state.downloadedFiles.add(fileId);
 
-        // DOM更新
-        const btn = document.querySelector(`.download-btn[data-file-id="${fileId}"]`);
+        // DOM更新 (検索範囲を結果リストに限定)
+        const btn = elements.resultsList.querySelector(`.download-btn[data-file-id="${fileId}"]`);
         if (btn) {
-            btn.textContent = 'ダウンロード済み';
+            // アイコン要素がある場合は保持してテキストのみ更新
+            // SVGアイコンのHTML構造を維持するためinnerHTMLで再構築
+            btn.innerHTML = `
+                <svg class="download-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                ダウンロード済み
+            `;
             btn.classList.add('downloaded');
         }
     }
