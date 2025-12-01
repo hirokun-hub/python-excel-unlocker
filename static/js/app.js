@@ -267,6 +267,7 @@
     function cacheElements() {
         elements.dropZone = document.getElementById('drop-zone');
         elements.fileInput = document.getElementById('file-input');
+        elements.fileInputLabel = document.querySelector('.file-select-btn');
         elements.fileListSection = document.getElementById('file-list-section');
         elements.fileList = document.getElementById('file-list');
         elements.clearFilesBtn = document.getElementById('clear-files-btn');

@@ -186,6 +186,8 @@ async def unlock_file(
                 expires_at = datetime.now(timezone.utc) + timedelta(
                     seconds=settings.DOWNLOAD_EXPIRY_SECONDS
                 )
+                # Z付きUTC文字列に統一（要件どおり）
+                expires_at_str = expires_at.strftime("%Y-%m-%dT%H:%M:%SZ")
 
                 return JSONResponse(
                     status_code=200,
@@ -195,7 +197,7 @@ async def unlock_file(
                         "message": None,
                         "downloadUrl": download_url,
                         "fileId": result["unlocked_file_id"],
-                        "expiresAt": expires_at.isoformat()
+                        "expiresAt": expires_at_str
                     }
                 )
             else:
