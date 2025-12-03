@@ -3,57 +3,57 @@ chcp 932 >nul
 cd /d "%~dp0"
 
 echo ==========================================
-echo   Excel Unlocker åˆå›žã‚»ãƒƒãƒˆã‚¢ãƒƒãƒ—
+echo   Excel Unlocker ‰‰ñƒZƒbƒgƒAƒbƒv
 echo ==========================================
 echo.
 
-echo [INFO] Docker Desktop ã®èµ·å‹•ã‚’ç¢ºèªä¸­...
+echo [INFO] Docker Desktop ‚Ì‹N“®‚ðŠm”F’†...
 docker info >nul 2>&1
 if %ERRORLEVEL% neq 0 (
-    echo [ERROR] Docker Desktop ãŒèµ·å‹•ã—ã¦ã„ã¾ã›ã‚“
+    echo [ERROR] Docker Desktop ‚ª‹N“®‚µ‚Ä‚¢‚Ü‚¹‚ñ
     echo.
-    echo ä»¥ä¸‹ã®æ‰‹é †ã‚’å®Ÿè¡Œã—ã¦ãã ã•ã„:
-    echo 1. Docker Desktop ã‚’èµ·å‹•
-    echo 2. ã‚¯ã‚¸ãƒ©ã®ã‚¢ã‚¤ã‚³ãƒ³ãŒè¡¨ç¤ºã•ã‚Œã‚‹ã¾ã§å¾…ã¤
-    echo 3. ã“ã®ã‚¹ã‚¯ãƒªãƒ—ãƒˆã‚’å†å®Ÿè¡Œ
+    echo ˆÈ‰º‚ÌŽè‡‚ðŽÀs‚µ‚Ä‚­‚¾‚³‚¢:
+    echo 1. Docker Desktop ‚ð‹N“®
+    echo 2. ƒNƒWƒ‰‚ÌƒAƒCƒRƒ“‚ª•\Ž¦‚³‚ê‚é‚Ü‚Å‘Ò‚Â
+    echo 3. ‚±‚ÌƒXƒNƒŠƒvƒg‚ðÄŽÀs
     echo.
     pause
     exit /b 1
 )
 
-echo [OK] Docker Desktop ãŒèµ·å‹•ã—ã¦ã„ã¾ã™
+echo [OK] Docker Desktop ‚ª‹N“®‚µ‚Ä‚¢‚Ü‚·
 echo.
 
-echo [INFO] ã‚¤ãƒ¡ãƒ¼ã‚¸ãƒ•ã‚¡ã‚¤ãƒ«ã‚’ç¢ºèªä¸­...
+echo [INFO] ƒCƒ[ƒWƒtƒ@ƒCƒ‹‚ðŠm”F’†...
 if not exist "images\app.tar" (
-    echo [ERROR] images\app.tar ãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“
-    echo ZIP ã‚’æ­£ã—ãè§£å‡ã—ãŸã‹ç¢ºèªã—ã¦ãã ã•ã„
+    echo [ERROR] images\app.tar ‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñ
+    echo ZIP ‚ð³‚µ‚­‰ð“€‚µ‚½‚©Šm”F‚µ‚Ä‚­‚¾‚³‚¢
     echo.
     pause
     exit /b 1
 )
 
-echo Docker ã‚¤ãƒ¡ãƒ¼ã‚¸ã‚’èª­ã¿è¾¼ã‚“ã§ã„ã¾ã™...
-echo (ã“ã®å‡¦ç†ã¯æ•°åˆ†ã‹ã‹ã‚Šã¾ã™)
+echo Docker ƒCƒ[ƒW‚ð“Ç‚Ýž‚ñ‚Å‚¢‚Ü‚·...
+echo (‚±‚Ìˆ—‚Í”•ª‚©‚©‚è‚Ü‚·)
 echo.
 
-echo [LOAD] app.tar ã‚’èª­ã¿è¾¼ã¿ä¸­...
+echo [LOAD] app.tar ‚ð“Ç‚Ýž‚Ý’†...
 docker load -i images\app.tar
 if %ERRORLEVEL% neq 0 (
-    echo [ERROR] ã‚¤ãƒ¡ãƒ¼ã‚¸ã®èª­ã¿è¾¼ã¿ã«å¤±æ•—ã—ã¾ã—ãŸ
-    echo Docker Desktop ãŒèµ·å‹•ã—ã¦ã„ã‚‹ã‹ç¢ºèªã—ã¦ãã ã•ã„
+    echo [ERROR] ƒCƒ[ƒW‚Ì“Ç‚Ýž‚Ý‚ÉŽ¸”s‚µ‚Ü‚µ‚½
+    echo Docker Desktop ‚ª‹N“®‚µ‚Ä‚¢‚é‚©Šm”F‚µ‚Ä‚­‚¾‚³‚¢
     echo.
     pause
     exit /b 1
 )
 
-echo [OK] ã‚¤ãƒ¡ãƒ¼ã‚¸ã®èª­ã¿è¾¼ã¿å®Œäº†
+echo [OK] ƒCƒ[ƒW‚Ì“Ç‚Ýž‚ÝŠ®—¹
 echo.
 
 echo ==========================================
-echo   [COMPLETE] ã‚»ãƒƒãƒˆã‚¢ãƒƒãƒ—å®Œäº†
+echo   [COMPLETE] ƒZƒbƒgƒAƒbƒvŠ®—¹
 echo ==========================================
 echo.
-echo æ¬¡ã« start.bat ã‚’ãƒ€ãƒ–ãƒ«ã‚¯ãƒªãƒƒã‚¯ã—ã¦èµ·å‹•ã—ã¦ãã ã•ã„
+echo ŽŸ‚É start.bat ‚ðƒ_ƒuƒ‹ƒNƒŠƒbƒN‚µ‚Ä‹N“®‚µ‚Ä‚­‚¾‚³‚¢
 echo.
 pause
