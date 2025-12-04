@@ -4,7 +4,8 @@ set -e
 PACKAGE_NAME="excel-unlocker"
 DIST_DIR="distribution/${PACKAGE_NAME}"
 ZIP_FILE="${PACKAGE_NAME}.zip"
-IMAGE_TAR="${DIST_DIR}/images/app.tar"
+IMAGE_TAR_AMD64="${DIST_DIR}/images/app_linux-amd64.tar"
+IMAGE_TAR_ARM64="${DIST_DIR}/images/app_linux-arm64.tar"
 
 echo "🚀 ${PACKAGE_NAME} 配布パッケージ作成開始"
 
@@ -22,11 +23,19 @@ echo "🧹 クリーンアップ中..."
 rm -rf "${DIST_DIR}" "${ZIP_FILE}"
 mkdir -p "${DIST_DIR}/images"
 
-echo "🔨 Docker イメージをビルド中..."
-docker compose build
+echo "🔨 Docker イメージをビルド中 (amd64)..."
+docker buildx build \
+  --platform linux/amd64 \
+  -t excel-unlocker:latest \
+  --output type=docker,dest="${IMAGE_TAR_AMD64}" \
+  .
 
-echo "💾 Docker イメージを書き出し中..."
-docker save -o "${IMAGE_TAR}" excel-unlocker:latest
+echo "🔨 Docker イメージをビルド中 (arm64)..."
+docker buildx build \
+  --platform linux/arm64 \
+  -t excel-unlocker:latest \
+  --output type=docker,dest="${IMAGE_TAR_ARM64}" \
+  .
 
 echo "📋 配布テンプレートをコピー中..."
 cp distribution-templates/docker-compose.yml "${DIST_DIR}/"

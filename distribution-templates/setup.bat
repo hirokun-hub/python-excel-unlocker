@@ -24,9 +24,23 @@ if %ERRORLEVEL% neq 0 (
 echo [OK] Docker Desktop が起動しています
 echo.
 
-echo [INFO] イメージファイルを確認中...
-if not exist "images\app.tar" (
-    echo [ERROR] images\app.tar が見つかりません
+echo [INFO] アーキテクチャを判定中...
+for /f %%i in ('docker info --format "{{.Architecture}}"') do set ARCH=%%i
+if "%ARCH%"=="" (
+    echo [ERROR] アーキテクチャを取得できませんでした
+    echo.
+    pause
+    exit /b 1
+)
+if /I "%ARCH%"=="x86_64" set ARCH=amd64
+if /I "%ARCH%"=="amd64" set ARCH=amd64
+if /I "%ARCH%"=="aarch64" set ARCH=arm64
+if /I "%ARCH%"=="arm64" set ARCH=arm64
+set IMAGE_TAR=imagespp_linux-%ARCH%.tar
+
+echo [INFO] イメージファイルを確認中 (%IMAGE_TAR%)...
+if not exist "%IMAGE_TAR%" (
+    echo [ERROR] %IMAGE_TAR% が見つかりません
     echo ZIP を正しく解凍したか確認してください
     echo.
     pause
@@ -37,8 +51,8 @@ echo Docker イメージを読み込んでいます...
 echo (この処理は数分かかります)
 echo.
 
-echo [LOAD] app.tar を読み込み中...
-docker load -i images\app.tar
+echo [LOAD] %IMAGE_TAR% を読み込み中...
+docker load -i "%IMAGE_TAR%"
 if %ERRORLEVEL% neq 0 (
     echo [ERROR] イメージの読み込みに失敗しました
     echo Docker Desktop が起動しているか確認してください
