@@ -24,9 +24,18 @@ fi
 echo "✅ Docker Desktop が起動しています"
 echo ""
 
-echo "🔍 イメージファイルを確認中..."
-if [ ! -f "images/app.tar" ]; then
-    echo "❌ エラー: images/app.tar が見つかりません"
+echo "🔍 アーキテクチャを判定中..."
+ARCH=$(docker info --format '{{.Architecture}}' 2>/dev/null || true)
+case "$ARCH" in
+  x86_64|amd64) ARCH=amd64 ;;
+  aarch64|arm64) ARCH=arm64 ;;
+  *) echo "❌ エラー: アーキテクチャを取得できませんでした ($ARCH)"; read -p "Enterキーを押して終了..."; exit 1 ;;
+esac
+IMAGE_TAR="images/app_linux-${ARCH}.tar"
+
+echo "🔍 イメージファイルを確認中 (${IMAGE_TAR})..."
+if [ ! -f "$IMAGE_TAR" ]; then
+    echo "❌ エラー: ${IMAGE_TAR} が見つかりません"
     echo "ZIP を正しく解凍したか確認してください"
     echo ""
     read -p "Enterキーを押して終了..."
@@ -37,8 +46,8 @@ echo "Docker イメージを読み込んでいます..."
 echo "（この処理は数分かかります）"
 echo ""
 
-echo "📦 app.tar を読み込み中..."
-if docker load -i images/app.tar; then
+echo "📦 ${IMAGE_TAR} を読み込み中..."
+if docker load -i "$IMAGE_TAR"; then
     echo "✅ イメージの読み込み完了"
 else
     echo "❌ エラー: イメージの読み込みに失敗しました"
