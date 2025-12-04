@@ -36,7 +36,7 @@ if /I "%ARCH%"=="x86_64" set ARCH=amd64
 if /I "%ARCH%"=="amd64" set ARCH=amd64
 if /I "%ARCH%"=="aarch64" set ARCH=arm64
 if /I "%ARCH%"=="arm64" set ARCH=arm64
-set IMAGE_TAR=imagespp_linux-%ARCH%.tar
+set IMAGE_TAR=images\app_linux-%ARCH%.tar
 
 echo [INFO] イメージファイルを確認中 (%IMAGE_TAR%)...
 if not exist "%IMAGE_TAR%" (
