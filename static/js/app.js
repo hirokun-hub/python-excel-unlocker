@@ -216,7 +216,7 @@
 
             if (diff <= 0) {
                 this.stop();
-                this.element.textContent = '期限切れ';
+                this.element.textContent = 'DLリンク期限: 期限切れ';
                 this.element.classList.add('expired');
 
                 const btn = elements.resultsList.querySelector(`.download-btn[data-file-id="${this.fileId}"]`);
@@ -239,7 +239,7 @@
             const minutes = Math.floor(diff / 60000);
             const seconds = Math.floor((diff % 60000) / 1000);
 
-            this.element.textContent = `残り ${minutes}分${seconds.toString().padStart(2, '0')}秒`;
+            this.element.textContent = `DLリンク期限: 残り ${minutes}分${seconds.toString().padStart(2, '0')}秒`;
 
             if (diff < 60000) {
                 this.element.classList.add('warning');
