@@ -3,33 +3,33 @@ chcp 932 >nul
 cd /d "%~dp0"
 
 echo ==========================================
-echo   Excel Unlocker èµ·å‹•ä¸­
+echo   Excel Unlocker ‹N“®’†
 echo ==========================================
 echo.
 
-echo [INFO] Docker Desktop ã®èµ·å‹•ã‚’ç¢ºèªä¸­...
+echo [INFO] Docker Desktop ‚Ì‹N“®‚ðŠm”F’†...
 docker info >nul 2>&1
 if %ERRORLEVEL% neq 0 (
-    echo [ERROR] Docker Desktop ãŒèµ·å‹•ã—ã¦ã„ã¾ã›ã‚“
+    echo [ERROR] Docker Desktop ‚ª‹N“®‚µ‚Ä‚¢‚Ü‚¹‚ñ
     echo.
-    echo ä»¥ä¸‹ã®æ‰‹é †ã‚’å®Ÿè¡Œã—ã¦ãã ã•ã„:
-    echo 1. Docker Desktop ã‚’èµ·å‹•
-    echo 2. ã‚¯ã‚¸ãƒ©ã®ã‚¢ã‚¤ã‚³ãƒ³ãŒè¡¨ç¤ºã•ã‚Œã‚‹ã¾ã§å¾…ã¤
-    echo 3. ã“ã®ã‚¹ã‚¯ãƒªãƒ—ãƒˆã‚’å†å®Ÿè¡Œ
+    echo ˆÈ‰º‚ÌŽè‡‚ðŽÀs‚µ‚Ä‚­‚¾‚³‚¢:
+    echo 1. Docker Desktop ‚ð‹N“®
+    echo 2. ƒNƒWƒ‰‚ÌƒAƒCƒRƒ“‚ª•\Ž¦‚³‚ê‚é‚Ü‚Å‘Ò‚Â
+    echo 3. ‚±‚ÌƒXƒNƒŠƒvƒg‚ðÄŽÀs
     echo.
     pause
     exit /b 1
 )
 
-echo [OK] Docker Desktop ãŒèµ·å‹•ã—ã¦ã„ã¾ã™
+echo [OK] Docker Desktop ‚ª‹N“®‚µ‚Ä‚¢‚Ü‚·
 echo.
-echo èµ·å‹•ä¸­ã§ã™...
-echo (åˆå›žã¯å°‘ã—æ™‚é–“ãŒã‹ã‹ã‚Šã¾ã™)
+echo ‹N“®’†‚Å‚·...
+echo (‰‰ñ‚Í­‚µŽžŠÔ‚ª‚©‚©‚è‚Ü‚·)
 echo.
-echo èµ·å‹•ã—ãŸã‚‰ãƒ–ãƒ©ã‚¦ã‚¶ã§æ¬¡ã‚’é–‹ã„ã¦ãã ã•ã„:
+echo ‹N“®‚µ‚½‚çƒuƒ‰ƒEƒU‚ÅŽŸ‚ðŠJ‚¢‚Ä‚­‚¾‚³‚¢:
 echo   http://localhost:3000
 echo.
-echo åœæ­¢ã™ã‚‹ã«ã¯ Ctrl+C ã‚’æŠ¼ã—ã¦ãã ã•ã„
+echo ’âŽ~‚·‚é‚É‚Í Ctrl+C ‚ð‰Ÿ‚µ‚Ä‚­‚¾‚³‚¢
 echo.
 echo ==========================================
 echo.
@@ -37,5 +37,5 @@ echo.
 docker compose up
 
 echo.
-echo ã‚¢ãƒ—ãƒªã‚±ãƒ¼ã‚·ãƒ§ãƒ³ã‚’åœæ­¢ã—ã¾ã—ãŸ
+echo ƒAƒvƒŠƒP[ƒVƒ‡ƒ“‚ð’âŽ~‚µ‚Ü‚µ‚½
 pause
