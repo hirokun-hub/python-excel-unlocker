@@ -12,7 +12,7 @@ set -uo pipefail
 BASE_URL="${BASE_URL:-http://localhost:3000}"
 PARALLEL_COUNT="${PARALLEL_COUNT:-4}"
 TIMEOUT_SECONDS="${TIMEOUT_SECONDS:-10}"
-PASSWORD="test1234"
+PASSWORD="${PASSWORD:-test1234}"
 DATA_DIR="data"
 TMP_DIR="/tmp/perf_smoke_$$"
 

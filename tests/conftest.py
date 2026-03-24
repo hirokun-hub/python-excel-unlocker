@@ -17,8 +17,6 @@ TEST_PASSWORD = "test1234"
 # テスト用 Excel ファイル（パスワード保護済み）
 TEST_FILES = [
     "sample_protected.xlsx",
-    "sample_protected.xlsx",
-    "sample_protected.xlsx",
 ]
 
 

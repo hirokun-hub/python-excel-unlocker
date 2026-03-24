@@ -479,8 +479,6 @@ async def global_exception_handler(request, exc):
 | ファイル | パスワード | 用途 |
 |---------|-----------|------|
 | `data/sample_protected.xlsx` | `test1234` | 正常系テスト |
-| `data/sample_protected.xlsx` | `test1234` | 正常系テスト |
-| `data/sample_protected.xlsx` | `test1234` | 正常系テスト |
 
 **テストデータの使用方針:**
 - UnlockService の実装テストで実際のパスワード解除を検証
@@ -492,8 +490,6 @@ async def global_exception_handler(request, exc):
 TEST_DATA_DIR = "data"
 TEST_PASSWORD = "test1234"
 TEST_FILES = [
-    "sample_protected.xlsx",
-    "sample_protected.xlsx",
     "sample_protected.xlsx",
 ]
 ```
